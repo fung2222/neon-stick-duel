@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 // Stage = WebGL renderer + scene + camera + post chain (RenderPass -> UnrealBloom -> CyberShader -> Output)
 // + resize handling + frame loop with dt cap + FPS meter + automatic pixel-ratio downgrade.
 import * as THREE from 'three';
@@ -30,7 +31,7 @@ export function createStage(o = {}) {
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', alpha: false });
   } catch (err) {
-    (o.onFatal || defaultFatal)('你的瀏覽器唔支援 WebGL，無法運行遊戲。 (WebGL not available)');
+    (o.onFatal || defaultFatal)(t('kit.webgl'));
     throw err;
   }
   const maxPR = Math.min(o.maxPixelRatio ?? 2, QUALITY_PR[flags.quality] ?? 2);

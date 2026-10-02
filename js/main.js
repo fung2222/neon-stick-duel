@@ -1,7 +1,8 @@
 // NEON STICK DUEL — one-thumb 3D stick-figure duel, 8-floor rooftop tower.
 import * as THREE from 'three';
-import { flags, createStore, createStage, ThemeController, U, Particles, Shockwaves, FxState, NeonCity, createInput, CyberUI, Platform, createAds } from 'cyber-kit';
-import { GAME_ID, makeDuel, act, step, aiThink, TOWER, TUNE, floorScore, guardBreak } from './duel.js';
+import { i18n, t, flags, createStore, createStage, ThemeController, U, Particles, Shockwaves, FxState, NeonCity, createInput, CyberUI, Platform, createAds } from 'cyber-kit';
+import { GAME_ID, makeDuel, act, step, aiThink, TOWER, TUNE, floorScore, guardBreak, opponentFor, isMilestone } from './duel.js';
+import './strings.js';
 import { StickFighter } from './stickman.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
@@ -24,18 +25,20 @@ const ads = createAds({ gameId: GAME_ID, interstitialCooldownSec: 180, breaksBet
 const ME_COLOR = 0x00e5ff;
 const DEMO_PROFILE = { ...TOWER[5], id: 'demo', mirror: false, think: 0.28, combo: 0.75, heavy: 0.3 };
 
-const S = { state: 'menu', demo: !!flags.demo, floor: store.getNum('floor', 0), lap: store.getNum('lap', 0), score: store.getNum('runScore', 0),
+const S = { state: 'menu', demo: !!flags.demo, floor: store.getNum('floor', 0) + store.getNum('lap', 0) * 8, score: store.getNum('runScore', 0),
   duel: null, memA: {}, memB: {}, hitstop: 0, introT: 0, combo: 0, comboT: 0, revived: false, holding: false, holdPos: null, result: null, lastCmdT: 0, gestureT: 0, cmdLog: [] };
 window.__duel = S;  // test hook
 const fa = new StickFighter(scene, ME_COLOR), fb = new StickFighter(scene, TOWER[0].color);
 
-const prof = () => TOWER[S.floor];
+const prof = () => opponentFor(S.floor);
+const pName = (p) => i18n.lang === 'en' ? p.en : p.zh, pDesc = (p) => i18n.lang === 'en' ? p.descEn : p.desc;
+const syncGlitch = () => document.querySelectorAll('.glitch').forEach((e) => { e.dataset.text = e.textContent; });
 function newDuel(attract = false) {
   const p = attract ? TOWER[[1, 2, 3, 4, 6, 7][Math.floor(Math.random() * 6)]] : prof();
-  const hp = Math.round(p.hp * (1 + 0.25 * S.lap));
+  const hp = p.hp;
   S.duel = makeDuel(hp); S.duel.b.walkMul = p.walk; S.memA = {}; S.memB = {}; S.combo = 0; S.hitstop = 0; S.attractProf = p;
   fb.setColor(p.color); document.documentElement.style.setProperty('--foe', '#' + new THREE.Color(p.color).getHexString());
-  roof.setAccent(ME_COLOR, p.color); theme.set(attract ? 0 : S.floor, false);
+  roof.setAccent(ME_COLOR, p.color); theme.set(attract ? 0 : (S.floor < 8 ? S.floor : Math.floor(S.floor / 10) + 2), false);
 }
 
 function setState(s) {
@@ -44,9 +47,9 @@ function setState(s) {
 }
 function refreshMenu() {
   const bf = store.getNum('bestFloor', 0);
-  ui.setText('start-floor', bf ? (bf >= 8 ? '塔頂 TOP' : bf + 'F') : '—'); ui.setText('start-best', store.best);
-  const cont = S.floor > 0 || S.lap > 0;
-  ui.setText('start-label', cont ? `繼續 ${S.floor + 1}F` : '登塔'); ui.setText('start-sub', cont ? `CONTINUE · ${TOWER[S.floor].en} · ENTER` : 'CLIMB THE TOWER · ENTER');
+  ui.setText('start-floor', bf ? bf + 'F' : '—'); ui.setText('start-best', store.best);
+  const cont = S.floor > 0;
+  ui.setText('start-label', cont ? t('cont', { f: S.floor + 1 }) : t('climb')); ui.setText('start-sub', cont ? t('contS', { name: pName(prof()) }) : t('climbS'));
   $('btn-restart-tower').classList.toggle('hidden', !cont);
 }
 function showMenu() { newDuel(true); refreshMenu(); setState('menu'); }
@@ -54,15 +57,17 @@ function showMenu() { newDuel(true); refreshMenu(); setState('menu'); }
 function startFloor() {
   audio.init(); audio.startMusic(); newDuel(false); S.revived = false;
   const p = prof();
-  ui.setText('hp-name-b', p.zh); ui.setText('hp-en-b', p.en); ui.setText('hud-floor', `${S.floor + 1}F${S.lap ? ' · L' + (S.lap + 1) : ''}`);
+  hudNames();
   ui.setText('hud-score', S.score); updateHp(true);
-  ui.banner(`${S.floor + 1} 樓 · ${p.zh}`, p.en, p.desc);
+  ui.banner(t('floorBanner', { f: S.floor + 1, name: pName(p) }), i18n.lang === 'en' ? p.zh : p.en, pDesc(p));
+  if (S.floor > 0 && S.floor % 10 === 0) later(0.9, () => ui.toast(t('milestone', { f: S.floor }) + ' · ' + t('milestoneS')));
   S.introT = 1.6; setState('intro'); audio.bell(1);
   $('gesture-bar').classList.remove('fade'); S.gestureT = 0;
 }
 function begin() { if (S.state !== 'menu') return; audio.click(); startFloor(); }
-function restartTower() { S.floor = 0; S.lap = 0; S.score = 0; saveRun(); audio.click(); startFloor(); }
-function saveRun() { store.setNum('floor', S.floor); store.setNum('lap', S.lap); store.setNum('runScore', S.score); }
+function restartTower() { S.floor = 0; S.score = 0; saveRun(); audio.click(); startFloor(); }
+function saveRun() { store.setNum('floor', S.floor); store.setNum('lap', 0); store.setNum('runScore', S.score); }
+function hudNames() { const p = prof(); ui.setText('hp-name-b', pName(p)); ui.setText('hp-en-b', i18n.lang === 'en' ? p.zh : p.en); ui.setText('hud-floor', t('floorTag', { f: S.floor + 1 }) + (p.endless ? ' · ' + t('endlessTag') : '')); }
 
 // ------------------------------------------------------------------ HUD
 let lastHpA = -1, lastHpB = -1;
@@ -73,7 +78,7 @@ function updateHp(force = false) {
   if (force || pb !== lastHpB) { $('hp-fill-b').style.width = pb + '%'; $('hp-lag-b').style.width = pb + '%'; $('hp-fill-b').classList.toggle('low', pb < 30); lastHpB = pb; }
   const tm = Math.ceil(d.time); const te = $('hud-time'); if (te.textContent !== String(tm)) { te.textContent = tm; te.classList.toggle('low', tm <= 10); }
 }
-function showCombo() { const c = $('combo'); if (S.combo >= 2) { c.textContent = `${S.combo} HITS`; c.classList.remove('hidden', 'pop'); void c.offsetWidth; c.classList.add('pop'); } }
+function showCombo() { const c = $('combo'); if (S.combo >= 2) { c.textContent = t('hits', { n: S.combo }); c.classList.remove('hidden', 'pop'); void c.offsetWidth; c.classList.add('pop'); } }
 
 // ------------------------------------------------------------------ commands
 function playerCmd(cmd) {
@@ -98,7 +103,7 @@ function handleEvents() {
       (isMe ? fa : fb).flash(); audio.hit(e.heavy);
       particles.burst(pos, col, e.heavy ? 70 : 28, { speed: e.heavy ? 8 : 5, up: 2, life: 0.55, size: e.heavy ? 1.2 : 0.8, color2: new THREE.Color(1, 1, 1) });
       if (e.heavy) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: 3.5, h: 0.6, dur: 0.5 });
-      if (e.breakGuard) { audio.breakGuard(); ui.popup(...xy(pos, 0.4), '破防！', 'GUARD BREAK', 'big'); }
+      if (e.breakGuard) { audio.breakGuard(); ui.popup(...xy(pos, 0.4), t('guardBreak'), '', 'big'); }
       fx.kick({ trauma: e.heavy ? 0.35 : 0.12, aberr: e.heavy ? 0.7 : 0.25, fovKick: e.heavy ? 0.5 : 0 }); S.hitstop = e.heavy ? 0.12 : 0.05;
       const sp = xy(pos, 0); ui.popup(sp[0], sp[1], '-' + e.dmg, '', e.heavy ? 'big' : '');
       if (!isMe) { S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = 1.2; showCombo(); Platform.haptic(e.heavy ? 'medium' : 'light'); if (!S.demo) S.score += e.dmg * 5; }
@@ -106,15 +111,15 @@ function handleEvents() {
     } else if (e.type === 'parry') {
       (e.who === d.a ? fa : fb).parryFlash(); audio.parry(); fx.kick({ aberr: 0.5, slowmo: 0.5 }); S.hitstop = 0.1;
       particles.burst(pos, new THREE.Color(0x9ffcff), 40, { speed: 6, up: 2, life: 0.5, size: 0.9 });
-      const sp = xy(pos, 0.3); ui.popup(sp[0], sp[1], '格擋！', 'PARRY', 'big');
+      const sp = xy(pos, 0.3); ui.popup(sp[0], sp[1], t('parry'), '', 'big');
       if (e.who === d.a) { Platform.haptic('success'); if (!S.demo) S.score += 150; }
     } else if (e.type === 'evade') {
-      const sp = xy(pos, 0.2); ui.popup(sp[0], sp[1], '閃避', 'EVADE', ''); if (e.who === d.a && !S.demo) S.score += 50;
+      const sp = xy(pos, 0.2); ui.popup(sp[0], sp[1], t('evade'), '', ''); if (e.who === d.a && !S.demo) S.score += 50;
     } else if (e.type === 'ko') {
       audio.ko(); fx.kick({ trauma: 0.6, aberr: 1.2, glitch: 0.6, slowmo: 1 }); S.hitstop = 0.25; ui.flash('rgba(255,255,255,0.4)', 260);
       particles.burst(pos, col, 140, { speed: 10, up: 4, life: 1, size: 1.3, color2: new THREE.Color(1, 1, 1) });
       waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.3, r1: 7, h: 1.2, dur: 0.8 });
-      if (S.state === 'play') ui.banner('K.O.', e.who === d.a ? 'DOWN' : 'KNOCK OUT', '');
+      if (S.state === 'play') ui.banner(t('ko'), e.who === d.a ? t('down') : t('knockout'), '');
     }
   }
   d.events.length = 0;
@@ -130,26 +135,26 @@ function finishDuel() {
     let record = false, kick, title, en, stats, main;
     if (S.result.won) {
       const sc = floorScore(S.floor + 1, d); S.score += sc.total; audio.victory();
-      const cleared = S.floor + 1 + S.lap * 8; if (cleared > store.getNum('bestFloor', 0)) { store.setNum('bestFloor', cleared); record = true; }
+      const cleared = S.floor + 1; if (cleared > store.getNum('bestFloor', 0)) { store.setNum('bestFloor', cleared); record = true; }
       if (store.submitBest(S.score)) record = true;
-      const top = S.floor === TOWER.length - 1;
-      kick = `${S.floor + 1}F · ${p.en} · ${d.over.by === 'ko' ? 'K.O.' : 'TIME'}`; title = top ? '攻頂成功！' : '勝利！'; en = top ? 'TOWER CONQUERED' : d.over.by === 'ko' ? 'K.O. VICTORY' : 'DECISION WIN';
-      stats = [['樓層獎勵', sc.base], ['剩餘血量', sc.hp], ['時間獎勵', sc.time], [sc.perfect ? '完美 PERFECT' : '總分', sc.perfect ? '+' + sc.perfect : S.score]];
-      main = top ? ['再上一圈', 'NEXT LAP · ENTER'] : ['上一層', 'NEXT FLOOR · ENTER'];
-      if (top) { S.floor = 0; S.lap++; } else S.floor++;
+      const top = S.floor === TOWER.length - 1, ms = isMilestone(S.floor);
+      kick = `${t('floorTag', { f: S.floor + 1 })} · ${pName(p)} · ${d.over.by === 'ko' ? 'K.O.' : t('timeOver')}`; title = t('victory'); en = top ? t('endlessUnlocked') : ms ? t('milestone', { f: S.floor + 1 }) : d.over.by === 'ko' ? t('koWin') : t('decWin');
+      stats = [[t('sFloor'), sc.base], [t('sHp'), sc.hp], ms ? [t('sMilestone'), '+' + sc.milestone] : [t('sTime'), sc.time], [sc.perfect ? t('sPerfect') : t('sTotal'), sc.perfect ? '+' + sc.perfect : S.score]];
+      main = [t('next'), t('nextS')];
+      S.floor++;
       saveRun();
     } else {
       audio.defeat();
-      kick = `${S.floor + 1}F · ${p.en}`; title = d.over.winner === 'draw' ? '打和' : '戰敗…'; en = d.over.winner === 'draw' ? 'DRAW' : d.over.by === 'ko' ? 'YOU GOT K.O.' : 'TIME OVER';
-      stats = [['命中', d.a.stats.hits], ['格擋', d.a.stats.parries], ['對手剩血', Math.round(d.b.hp / d.b.maxHp * 100) + '%'], ['總分', S.score]];
-      main = ['再挑戰', 'RETRY FLOOR · ENTER'];
+      kick = `${t('floorTag', { f: S.floor + 1 })} · ${pName(p)}`; title = d.over.winner === 'draw' ? t('draw') : t('defeat'); en = d.over.winner === 'draw' ? '' : d.over.by === 'ko' ? t('gotKo') : t('timeOver');
+      stats = [[t('sHits'), d.a.stats.hits], [t('sParries'), d.a.stats.parries], [t('sFoeHp'), Math.round(d.b.hp / d.b.maxHp * 100) + '%'], [t('sTotal'), S.score]];
+      main = [t('retry'), t('retryS')];
     }
-    ui.setText('res-kicker', kick); const t = $('res-title'); t.textContent = title; t.dataset.text = title; t.classList.toggle('danger', !S.result.won);
+    ui.setText('res-kicker', kick); const te = $('res-title'); te.textContent = title; te.dataset.text = title; te.classList.toggle('danger', !S.result.won);
     ui.setText('res-en', en); $('res-record').classList.toggle('hidden', !record);
     $('res-stats').innerHTML = stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
     ui.setText('res-main-zh', main[0]); ui.setText('res-main-en', main[1]);
     const canRevive = !S.result.won && d.over.by === 'ko' && !S.revived && ads.rewardedAvailable();
-    $('btn-revive').classList.toggle('hidden', !canRevive); ui.setText('revive-sub', ads.isNative ? 'REVIVE 50% HP · WATCH AD' : 'REVIVE 50% HP · 免費 FREE');
+    $('btn-revive').classList.toggle('hidden', !canRevive); ui.setText('revive-sub', ads.isNative ? t('reviveAd') : t('reviveFree'));
     ui.setText('hud-score', S.score); setState('result');
     if (S.demo) later(2.2, () => { if (S.state === 'result') nextFromResult(); });
   });
@@ -161,7 +166,7 @@ async function revive() {
   const r = await ads.rewarded('revive'); if (!r.rewarded) return;
   S.revived = true; const d = S.duel; d.over = null; d.a.hp = Math.round(d.a.maxHp * 0.5); d.a.st = 'idle'; d.a.y = 0; d.a.vx = 0; d.a.invuln = 1.2;
   d.b.st = 'idle'; d.b.x = d.a.x + d.a.facing * 3; d.time = Math.max(d.time, 20); updateHp(true);
-  ui.banner('復活！', 'REVIVED', '50% HP'); S.introT = 1.0; setState('intro');
+  ui.banner(t('revived'), '50% HP', ''); S.introT = 1.0; setState('intro');
 }
 function pause() { if (S.state !== 'play' && S.state !== 'intro') return; S.pausedFrom = S.state; setState('paused'); audio.duckMusic(); endHold(); }
 function resume() { if (S.state !== 'paused') return; setState(S.pausedFrom || 'play'); audio.unduckMusic(); }
@@ -210,7 +215,7 @@ S.api = {
 
 // ------------------------------------------------------------------ camera + loop
 const camPos = new THREE.Vector3(0, ROOF_Y + 3, 14), camLook = new THREE.Vector3(0, ROOF_Y + 1.2, 0), tP = new THREE.Vector3(), tL = new THREE.Vector3();
-function frameCamera(dt, t, instant = false) {
+function frameCamera(dt, now, instant = false) {
   const d = S.duel, aspect = stage.width / stage.height, portrait = aspect < 0.9, menu = S.state === 'menu';
   const vfov = portrait ? 50 : 38; camera.fov = vfov - fx.fovKick * 4; camera.updateProjectionMatrix();
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov / 2)), tanH = tanV * aspect;
@@ -219,21 +224,21 @@ function frameCamera(dt, t, instant = false) {
   let dist = Math.max(span / 2 / tanH, (portrait ? 3.2 : 2.9) / tanV);
   const ko = d && d.over && d.over.by === 'ko' && S.state === 'play';
   if (ko) dist *= 0.8;
-  let lx = THREE.MathUtils.clamp(mid, -4, 4), ly = ROOF_Y + (portrait ? 1.05 : 1.45), yaw = Math.sin(t * 0.2) * 0.04, pitch = 0.1;
-  if (menu) { yaw = 0.22 + Math.sin(t * 0.15) * 0.08; pitch = 0.14; if (!portrait) { dist *= 1.25; } else { ly = ROOF_Y + 0.2; dist *= 1.1; } }
+  let lx = THREE.MathUtils.clamp(mid, -4, 4), ly = ROOF_Y + (portrait ? 1.05 : 1.45), yaw = Math.sin(now * 0.2) * 0.04, pitch = 0.1;
+  if (menu) { yaw = 0.22 + Math.sin(now * 0.15) * 0.08; pitch = 0.14; if (!portrait) { dist *= 1.25; } else { ly = ROOF_Y + 0.2; dist *= 1.1; } }
   tL.set(lx, ly, 0); tP.set(lx + Math.sin(yaw) * dist, ly + Math.sin(pitch) * dist, Math.cos(yaw) * dist);
   if (menu && !portrait) { const sh = dist * tanH * 0.42; tL.x -= sh * Math.cos(yaw); tP.x -= sh * Math.cos(yaw); tL.z += sh * Math.sin(yaw); tP.z += sh * Math.sin(yaw); }
-  const k = instant ? 1 : 1 - Math.exp(-dt * 4); camPos.lerp(tP, k); camLook.lerp(tL, k); camera.position.copy(camPos); camera.lookAt(camLook); fx.shake(camera, t, 0.5);
+  const k = instant ? 1 : 1 - Math.exp(-dt * 4); camPos.lerp(tP, k); camLook.lerp(tL, k); camera.position.copy(camPos); camera.lookAt(camLook); fx.shake(camera, now, 0.5);
 }
 
 let chargeTick = 0;
-function tick(dt, t) {
-  U.uTime.value = t; theme.update(dt); fx.update(dt);
+function tick(dt, now) {
+  U.uTime.value = now; theme.update(dt); fx.update(dt);
   const d = S.duel;
   if (S.state !== 'paused') {
     for (const tm of timers.slice()) { tm.t -= dt; if (tm.t <= 0) { timers.splice(timers.indexOf(tm), 1); tm.fn(); } }
     const sdt = dt * (fx.timeScale ?? 1);
-    if (S.state === 'intro') { S.introT -= dt; if (S.introT <= 0) { setState('play'); ui.banner('開打！', 'FIGHT!', ''); audio.bell(2); } }
+    if (S.state === 'intro') { S.introT -= dt; if (S.introT <= 0) { setState('play'); ui.banner(t('fight'), t('fightS'), ''); audio.bell(2); } }
     if (S.hitstop > 0) S.hitstop -= dt;
     else if (d && (S.state === 'play' || S.state === 'menu' || S.state === 'result')) {
       // AI
@@ -254,14 +259,17 @@ function tick(dt, t) {
       ui.setText('hud-score', S.score);
     }
   }
-  if (d) { fa.update(d.a, dt, t, ROOF_Y); fb.update(d.b, dt, t, ROOF_Y);
+  if (d) { fa.update(d.a, dt, now, ROOF_Y); fb.update(d.b, dt, now, ROOF_Y);
     for (const [f, sf, c] of [[d.a, fa, ME_COLOR], [d.b, fb, null]]) if ((f.st === 'attack' && f.phase === 'active') || f.st === 'dash' || f.st === 'dive') {
       const p = f.move === 'kick' || f.st === 'dive' ? sf.joints.footF : f.st === 'dash' ? sf.joints.hip : sf.joints.handF;
       particles.emit(p, new THREE.Vector3(-f.facing * 0.5, 0.2, 0), new THREE.Color(c ?? (S.state === 'menu' ? S.attractProf.color : prof().color)), { life: 0.3, size: 0.8 });
     } }
-  roof.update(t); particles.update(dt); waves.update(dt);
-  city.update(t, dt, camera); frameCamera(dt, t); fx.applyPost(stage, t); ui.tick(dt); stage.render(dt);
+  roof.update(now); particles.update(dt); waves.update(dt);
+  city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); stage.render(dt);
 }
+i18n.bindToggle($('btn-lang')); i18n.bindToggle($('btn-lang2'));
+i18n.onChange(() => { syncGlitch(); refreshMenu(); if (S.duel && S.state !== 'menu') hudNames(); });
+syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
   showMenu(); frameCamera(0, 0, true); ui.loaded();

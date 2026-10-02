@@ -16,7 +16,13 @@
 | **橫掃** SWIPE SIDE | 衝刺（向前／向後），開頭有短暫無敵 |
 | **下掃** SWIPE DOWN | 格擋：時機啱就彈開對手，佢會暈一陣 |
 
-八層天台，每層一個原創對手：練習木人 → 後巷打仔 → 霓虹刺客 → 重錘工人 → 雷光拳 → 鏡像分身 → 鐵壁守衛 → 塔主・零。打贏塔主會再上一圈（對手更硬）。進度自動儲存，可以喺主畫面「繼續」。被 K.O. 可以睇廣告**原地復活**一次（網頁版免費）。
+頭八層每層一個原創對手：練習木人 → 後巷打仔 → 霓虹刺客 → 重錘工人 → 雷光拳 → 鏡像分身 → 鐵壁守衛 → 塔主・零。之後係**無盡模式**：程式生成嘅變種對手（暗影／超載／鉻鋼…），難度慢慢上升但有上限，每 10 層一個里程碑（+5000 分、換區域顏色），記錄最高樓層。進度自動儲存，可以喺主畫面「繼續」。被 K.O. 可以睇廣告**原地復活**一次（網頁版免費）。
+
+## 語言 Language
+遊戲支援**繁體中文（香港）**同 **English**，喺主畫面或暫停畫面撳「EN／中」切換，會記住你嘅選擇（`localStorage cyber.lang`，所有 CYBER 遊戲共用）。網址加 `?lang=en` / `?lang=zh` 亦可。
+
+## English
+**NEON STICK DUEL** is a one-thumb 3D cyberpunk stick-figure fighter. Fighters close the distance automatically — you only pick the timing: **tap** to punch (×3 = combo), **hold** to charge a heavy (full charge breaks guards), **swipe up** to jump (tap in the air = dive kick), **swipe sideways** to dash (brief invulnerability), **swipe down** to parry. Climb an **endless rooftop tower**: 8 hand-made opponents, then procedurally remixed rivals with a capped difficulty curve, milestone bonuses every 10 floors and a saved best floor. Bilingual (Traditional Chinese / English) with an in-game toggle.
 
 ## 鍵盤 Keyboard
 `J` / `Space` 出拳 · 按住 `K` 蓄力 · `↑` 跳 · `←` `→` 衝刺 · `↓` 格擋 · `P` / `Esc` 暫停 · `M` 靜音

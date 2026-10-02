@@ -150,20 +150,21 @@ export function step(d, dt) {
 
 /** score for a cleared floor */
 export function floorScore(floor, d) {
+  const ms = isMilestone(floor - 1) ? 5000 : 0;
   const hpLeft = Math.round(d.a.hp / d.a.maxHp * 100), perfect = d.a.hp === d.a.maxHp;
-  return { base: 1000 * floor, hp: hpLeft * 10, time: Math.round(d.time) * 15, perfect: perfect ? 2000 : 0, get total() { return this.base + this.hp + this.time + this.perfect; } };
+  return { base: 1000 * floor, hp: hpLeft * 10, time: Math.round(d.time) * 15, perfect: perfect ? 2000 : 0, milestone: ms, get total() { return this.base + this.hp + this.time + this.perfect + this.milestone; } };
 }
 
 // ---------------------------------------------------------------- tower opponents (original characters)
 export const TOWER = [
-  { id: 'dummy',   zh: '練習木人',   en: 'TRAINING DUMMY', color: 0xff6b9a, hp: 60,  walk: 0.6, think: 0.9,  parry: 0.0,  evade: 0.0,  heavy: 0.0,  combo: 0.2, dash: 0.0, jump: 0.0,  punish: 0.1, desc: '慢吞吞 · 學下基本功' },
-  { id: 'brawler', zh: '後巷打仔',   en: 'ALLEY BRAWLER',  color: 0xffc22b, hp: 90,  walk: 1.0, think: 0.55, parry: 0.08, evade: 0.05, heavy: 0.25, combo: 0.6, dash: 0.2, jump: 0.05, punish: 0.3, desc: '亂咁揮拳 · 鍾意連打' },
-  { id: 'stalker', zh: '霓虹刺客',   en: 'NEON STALKER',   color: 0xa66bff, hp: 90,  walk: 1.2, think: 0.4,  parry: 0.12, evade: 0.35, heavy: 0.1,  combo: 0.5, dash: 0.6, jump: 0.2,  punish: 0.45, desc: '衝刺閃避 · 神出鬼沒' },
-  { id: 'hammer',  zh: '重錘工人',   en: 'HAMMER HAND',    color: 0xff5a2b, hp: 130, walk: 0.8, think: 0.5,  parry: 0.1,  evade: 0.05, heavy: 0.7,  combo: 0.2, dash: 0.1, jump: 0.0,  punish: 0.3, desc: '慢但痛 · 留意佢儲力' },
-  { id: 'volt',    zh: '雷光拳',     en: 'VOLT FIST',      color: 0xf4ff3b, hp: 110, walk: 1.3, think: 0.3,  parry: 0.2,  evade: 0.2,  heavy: 0.2,  combo: 0.85, dash: 0.4, jump: 0.15, punish: 0.6, desc: '快拳三連 · 唔好硬食' },
-  { id: 'mirror',  zh: '鏡像分身',   en: 'MIRROR SHADE',   color: 0xe8e8ff, hp: 110, walk: 1.1, think: 0.3,  parry: 0.3,  evade: 0.25, heavy: 0.35, combo: 0.6, dash: 0.35, jump: 0.25, punish: 0.6, mirror: true, desc: '模仿你嘅招式' },
-  { id: 'ironwall',zh: '鐵壁守衛',   en: 'IRONWALL',       color: 0x3bff8a, hp: 140, walk: 0.9, think: 0.35, parry: 0.5,  evade: 0.1,  heavy: 0.3,  combo: 0.5, dash: 0.2, jump: 0.05, punish: 0.7, desc: '擅長格擋 · 用滿蓄力破防' },
-  { id: 'lord',    zh: '塔主・零',   en: 'TOWER LORD ZERO', color: 0xff2bd6, hp: 170, walk: 1.3, think: 0.22, parry: 0.38, evade: 0.3,  heavy: 0.4,  combo: 0.8, dash: 0.5, jump: 0.25, punish: 0.85, desc: '集大成 · 最後一戰' },
+  { id: 'dummy',   zh: '練習木人',   en: 'TRAINING DUMMY', color: 0xff6b9a, hp: 60,  walk: 0.6, think: 0.9,  parry: 0.0,  evade: 0.0,  heavy: 0.0,  combo: 0.2, dash: 0.0, jump: 0.0,  punish: 0.1, desc: '慢吞吞 · 學下基本功', descEn: 'Slow and steady · learn the basics' },
+  { id: 'brawler', zh: '後巷打仔',   en: 'ALLEY BRAWLER',  color: 0xffc22b, hp: 90,  walk: 1.0, think: 0.55, parry: 0.08, evade: 0.05, heavy: 0.25, combo: 0.6, dash: 0.2, jump: 0.05, punish: 0.3, desc: '亂咁揮拳 · 鍾意連打', descEn: 'Wild swings · loves combos' },
+  { id: 'stalker', zh: '霓虹刺客',   en: 'NEON STALKER',   color: 0xa66bff, hp: 90,  walk: 1.2, think: 0.4,  parry: 0.12, evade: 0.35, heavy: 0.1,  combo: 0.5, dash: 0.6, jump: 0.2,  punish: 0.45, desc: '衝刺閃避 · 神出鬼沒', descEn: 'Dashes and dodges · hard to pin down' },
+  { id: 'hammer',  zh: '重錘工人',   en: 'HAMMER HAND',    color: 0xff5a2b, hp: 130, walk: 0.8, think: 0.5,  parry: 0.1,  evade: 0.05, heavy: 0.7,  combo: 0.2, dash: 0.1, jump: 0.0,  punish: 0.3, desc: '慢但痛 · 留意佢儲力', descEn: 'Slow but painful · watch the charge' },
+  { id: 'volt',    zh: '雷光拳',     en: 'VOLT FIST',      color: 0xf4ff3b, hp: 110, walk: 1.3, think: 0.3,  parry: 0.2,  evade: 0.2,  heavy: 0.2,  combo: 0.85, dash: 0.4, jump: 0.15, punish: 0.6, desc: '快拳三連 · 唔好硬食', descEn: 'Lightning triple jabs · never trade blows' },
+  { id: 'mirror',  zh: '鏡像分身',   en: 'MIRROR SHADE',   color: 0xe8e8ff, hp: 110, walk: 1.1, think: 0.3,  parry: 0.3,  evade: 0.25, heavy: 0.35, combo: 0.6, dash: 0.35, jump: 0.25, punish: 0.6, mirror: true, desc: '模仿你嘅招式', descEn: 'Copies your moves' },
+  { id: 'ironwall',zh: '鐵壁守衛',   en: 'IRONWALL',       color: 0x3bff8a, hp: 140, walk: 0.9, think: 0.35, parry: 0.5,  evade: 0.1,  heavy: 0.3,  combo: 0.5, dash: 0.2, jump: 0.05, punish: 0.7, desc: '擅長格擋 · 用滿蓄力破防', descEn: 'Parry expert · break it with a full charge' },
+  { id: 'lord',    zh: '塔主・零',   en: 'TOWER LORD ZERO', color: 0xff2bd6, hp: 170, walk: 1.3, think: 0.22, parry: 0.38, evade: 0.3,  heavy: 0.4,  combo: 0.8, dash: 0.5, jump: 0.25, punish: 0.85, desc: '集大成 · 最後一戰', descEn: 'Master of all styles' },
 ];
 
 /**
@@ -198,3 +199,33 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   if (gap < 4.5) { const r = rng(); if (r < prof.dash * 0.5) return 'dashF'; if (r < prof.dash * 0.5 + prof.jump) return 'jump'; }
   return null;
 }
+
+// ---------------------------------------------------------------- endless floors (beyond the 8 authored opponents)
+const PREFIX = [['暗影', 'SHADOW'], ['超載', 'OVERDRIVE'], ['鉻鋼', 'CHROME'], ['幻象', 'PHANTOM'], ['等離子', 'PLASMA'], ['虛空', 'VOID'], ['極光', 'AURORA'], ['零式', 'ZERO-TYPE']];
+const HUES = [0.95, 0.12, 0.75, 0.05, 0.16, 0.55, 0.33, 0.88];
+const lerpCap = (n, start, cap, tau = 14) => start + (cap - start) * (1 - Math.exp(-Math.max(0, n) / tau));
+/** opponent profile for any floor index (0-based). 0..7 = authored tower, 8+ = procedural remix with a capped difficulty curve. */
+export function opponentFor(floor) {
+  if (floor < TOWER.length) return { ...TOWER[floor], floor };
+  const e = floor - TOWER.length;                     // 0,1,2… endless step
+  const base = TOWER[1 + (e % (TOWER.length - 1))];   // cycle archetypes 2F..8F
+  const pre = PREFIX[Math.floor(e / (TOWER.length - 1)) % PREFIX.length];
+  const k = (cap, tau) => lerpCap(e, 0, cap, tau);
+  const clamp01 = (v) => Math.max(0, Math.min(0.92, v));
+  const hue = (HUES[e % HUES.length] + e * 0.037) % 1;
+  return {
+    ...base, floor, id: base.id, endless: true, mirror: base.mirror,
+    zh: `${pre[0]}${base.zh}`, en: `${pre[1]} ${base.en}`,
+    desc: `無盡第 ${e + 1} 戰 · ${base.desc}`, descEn: `Endless bout ${e + 1} · ${base.descEn}`,
+    color: hslHex(hue, 1, 0.6),
+    hp: Math.round(Math.min(330, 150 + e * 6)),                      // capped HP
+    walk: Math.min(1.5, base.walk + k(0.4, 10)),
+    think: Math.max(0.17, base.think - k(0.18, 12)),                  // faster decisions, floor 0.17 s
+    parry: clamp01(Math.max(base.parry, 0.15) + k(0.3, 16)), evade: clamp01(base.evade + k(0.2, 16)),
+    heavy: clamp01(base.heavy + k(0.15, 20)), combo: clamp01(base.combo + k(0.2, 12)),
+    dash: clamp01(base.dash + k(0.2, 16)), jump: clamp01(base.jump + k(0.1, 16)), punish: clamp01(base.punish + k(0.3, 12)),
+  };
+}
+function hslHex(h, s, l) { const a = s * Math.min(l, 1 - l); const f = (n) => { const k = (n + h * 12) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return (f(0) << 16) | (f(8) << 8) | f(4); }
+/** every 10 floors = milestone (theme shift + bonus) */
+export const isMilestone = (floor) => (floor + 1) % 10 === 0;

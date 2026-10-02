@@ -1,3 +1,4 @@
+import { t } from '../core/i18n.js';
 // Ads wrapper. Web build = no ads at all (no-op). Native Capacitor build = Google AdMob through
 // @capacitor-community/admob (v8, Capacitor 8). NEVER AdSense inside the app.
 //
@@ -65,7 +66,7 @@ export function createAds(o = {}) {
     return new Promise((resolve) => {
       notify(true);
       const d = document.createElement('div'); d.className = 'ck-adsim';
-      d.innerHTML = `<div>${kind === 'rewarded' ? '獎勵廣告示範 REWARDED AD (SIM)' : '插頁廣告示範 INTERSTITIAL (SIM)'}</div><b>${seconds}</b><small>?adsim=1 · 只係測試，唔係真廣告</small>`;
+      d.innerHTML = `<div>${kind === 'rewarded' ? t('kit.adsimRewarded') : t('kit.adsimInter')}</div><b>${seconds}</b><small>${t('kit.adsimNote')}</small>`;
       document.body.appendChild(d);
       let n = seconds; const b = d.querySelector('b');
       const iv = setInterval(() => { n--; b.textContent = String(Math.max(n, 0)); if (n <= 0) { clearInterval(iv); d.remove(); notify(false); resolve(true); } }, 1000);

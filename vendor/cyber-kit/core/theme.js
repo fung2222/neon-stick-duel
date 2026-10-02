@@ -1,3 +1,4 @@
+import { getLang } from './i18n.js';
 // Shared neon colour uniforms + Hong Kong district themes + smooth theme transitions.
 // Every kit shader references the SAME uniform objects in U, so changing a theme recolours the whole scene.
 import * as THREE from 'three';
@@ -57,3 +58,6 @@ export class ThemeController {
     this.accent.lerp(this.accentTarget, k);
   }
 }
+
+/** district name in the current language (theme objects carry name = zh-HK, en = English) */
+export function themeLabel(th) { return getLang() === 'en' ? th.en : th.name; }

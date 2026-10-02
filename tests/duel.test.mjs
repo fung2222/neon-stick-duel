@@ -1,6 +1,6 @@
 // node tests/duel.test.mjs — pure duel logic tests
 import assert from 'node:assert/strict';
-import { makeDuel, act, step, MOVES, TUNE, TOWER, aiThink, floorScore, guardBreak } from '../js/duel.js';
+import { makeDuel, act, step, MOVES, TUNE, TOWER, aiThink, floorScore, guardBreak, opponentFor, isMilestone } from '../js/duel.js';
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok - ' + name); };
 const run = (d, sec, each) => { const dt = 1 / 60; for (let i = 0; i < sec * 60; i++) { each && each(i); step(d, dt); } };
 const close = (d, gap = 1.0) => { d.a.x = -gap / 2; d.b.x = gap / 2; };
@@ -34,4 +34,17 @@ t('higher tower AIs beat the dummy-level AI more often', () => {
   assert.ok(wins >= 15, 'lord wins ' + wins + '/20');
 });
 t('floor score adds perfect bonus', () => { const d = makeDuel(); d.time = 30; const s = floorScore(3, d); assert.equal(s.total, 3000 + 1000 + 450 + 2000); });
+t('endless: floors beyond 8 are procedural, named in both languages, capped', () => {
+  assert.equal(opponentFor(3).id, TOWER[3].id); let prevHp = 0;
+  for (const f of [8, 9, 20, 57, 200, 5000]) { const o = opponentFor(f); assert.ok(o.endless && o.zh && o.en && o.descEn); assert.ok(o.hp >= prevHp && o.hp <= 330); prevHp = o.hp;
+    for (const k of ['parry', 'evade', 'heavy', 'combo', 'dash', 'jump', 'punish']) assert.ok(o[k] >= 0 && o[k] <= 0.92, k + ' ' + o[k]); assert.ok(o.think >= 0.17); }
+  assert.notEqual(opponentFor(8).en, opponentFor(15).en);
+});
+t('endless: floor 60 is still winnable for a strong AI player', () => {
+  let wins = 0; const P = { ...TOWER[7], think: 0.2, parry: 0.5, punish: 0.9 }; for (let g = 0; g < 12; g++) { const o = opponentFor(59); const d = makeDuel(o.hp); const ma = {}, mb = {};
+    for (let i = 0; i < 60 * 70 && !d.over; i++) { const ca = aiThink(d, d.a, d.b, P, ma, 1 / 60, rng), cb = aiThink(d, d.b, d.a, o, mb, 1 / 60, rng); if (ca) act(d.a, ca); if (cb) act(d.b, cb); step(d, 1 / 60); }
+    if (d.over && d.over.winner === 'a') wins++; }
+  assert.ok(wins >= 1, 'wins ' + wins + '/12');
+});
+t('milestones every 10 floors add a bonus', () => { assert.ok(isMilestone(9) && isMilestone(19) && !isMilestone(10)); const d = makeDuel(); d.a.hp = 50; d.time = 0; assert.equal(floorScore(10, d).milestone, 5000); assert.equal(floorScore(11, d).milestone, 0); });
 console.log(`ALL PASSED (${n})`);

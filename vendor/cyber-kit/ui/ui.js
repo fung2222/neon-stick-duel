@@ -1,6 +1,6 @@
 // DOM HUD helper: screens, level banner, score popups, colour flash, toasts, confirm modal (used for rewarded-ad
 // offers), loading / fatal error. Works with ui/hud.css. Missing containers are created automatically.
-import { STR } from './strings.js';
+import { t } from '../core/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 function ensure(id, cls, html = '') {
@@ -103,8 +103,8 @@ export class CyberUI {
       m.querySelector('.ck-modal-title').textContent = o.title;
       if (o.text) m.querySelector('.ck-modal-text').textContent = o.text;
       const ok = m.querySelector('[data-ok]'), cancel = m.querySelector('[data-cancel]');
-      ok.querySelector('span').textContent = o.ok || STR.watchAd[0]; ok.querySelector('small').textContent = o.okSmall ?? STR.watchAd[1];
-      cancel.querySelector('span').textContent = o.cancel || STR.noThanks[0]; cancel.querySelector('small').textContent = o.cancelSmall ?? STR.noThanks[1];
+      ok.querySelector('span').textContent = o.ok || t('kit.watchAd'); ok.querySelector('small').textContent = o.okSmall ?? '';
+      cancel.querySelector('span').textContent = o.cancel || t('kit.noThanks'); cancel.querySelector('small').textContent = o.cancelSmall ?? '';
       const done = (v) => { m.remove(); this._modal = null; resolve(v); };
       ok.addEventListener('click', (e) => { e.stopPropagation(); done(true); });
       cancel.addEventListener('click', (e) => { e.stopPropagation(); done(false); });

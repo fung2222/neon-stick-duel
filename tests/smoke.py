@@ -48,7 +48,7 @@ def shot(pg, name):
     pg.screenshot(path=os.path.join(OUT, name + '.png'))
 
 def mid_combo(pg, cls, name):
-    pg.wait_for_timeout(1300)   # let the FIGHT! banner clear
+    pg.wait_for_timeout(2600)   # let the FIGHT! banner clear
     pg.evaluate("()=>{const a=window.__duel.api;a.freezeFoe(true);a.tank();a.close(%s)}" % ('3.2' if cls == 'mage' else '1.3'))
     target = 'a3'
     got = False
@@ -60,6 +60,15 @@ def mid_combo(pg, cls, name):
     shot(pg, name)
     f = pg.evaluate("window.__duel.api.fighter('a')")
     return got, f
+
+def force_win(pg):
+    """KO the (frozen, 1 HP) foe with attack presses; robust to very low headless FPS."""
+    pg.evaluate("window.__duel.api.setHp('b', 1); window.__duel.api.freezeFoe(true); window.__duel.api.close(1.2)")
+    for i in range(60):
+        if pg.evaluate("!!window.__duel.duel.over"): break
+        if i % 6 == 5: pg.evaluate("window.__duel.api.close(1.2)")
+        pg.keyboard.press('KeyJ'); pg.wait_for_timeout(200)
+    return wait_for(pg, "window.__duel.state==='result'", 60)
 
 def run_view(p, w, h, lang, classes):
     tag = f"{w}x{h}-{lang}"
@@ -127,12 +136,8 @@ def run_view(p, w, h, lang, classes):
     shot(pg, f'ult-{classes[-1]}-{tag}')
     check(wait_for(pg, "window.__duel.duel.a.stats.ults>=1", 5), f'{tag}: ultimate used')
     # KO win -> result -> next (saved)
-    pg.evaluate("window.__duel.api.setHp('b', 1); window.__duel.api.freezeFoe(true); window.__duel.api.close(1.3)")
     wait_for(pg, "['idle','walk'].includes(window.__duel.duel.a.st)", 15)
-    for _ in range(12):
-        if pg.evaluate("!!window.__duel.duel.over"): break
-        pg.keyboard.press('KeyJ'); pg.wait_for_timeout(200)
-    check(wait_for(pg, "window.__duel.state==='result'", 30), f'{tag}: KO -> result screen')
+    check(force_win(pg), f'{tag}: KO -> result screen')
     lvl = pg.evaluate("window.__duel.stage")
     check(pg.evaluate("window.__duel.api.store().ladder") == lvl, f'{tag}: ladder progress saved ({lvl})')
     pg.click('#btn-res-main'); check(wait_for(pg, "window.__duel.state==='play' || window.__duel.state==='intro'", 20), f'{tag}: next fight starts')
@@ -160,12 +165,8 @@ def run_hub(p):
     pg.evaluate("window.__duel.api.startMode('ladder', {cls:'brawler'})"); wait_for(pg, "window.__duel.state==='play'")
     check(pg.evaluate("window.__duel.stage") == 0, 'trial: ladder starts at fight 1')
     for n in range(3):
-        wait_for(pg, "window.__duel.state==='play'", 30)
-        pg.evaluate("window.__duel.api.setHp('b', 1); window.__duel.api.freezeFoe(true); window.__duel.api.close(1.2)")
-        for _ in range(15):
-            if pg.evaluate("!!window.__duel.duel.over"): break
-            pg.keyboard.press('KeyJ'); pg.wait_for_timeout(200)
-        wait_for(pg, "window.__duel.state==='result'", 30)
+        wait_for(pg, "window.__duel.state==='play'", 60)
+        check(force_win(pg), f'trial: ladder fight {n + 1} won')
         pg.click('#btn-res-main')
     check(wait_for(pg, "window.__duel.state==='trial'", 20), 'trial: after ladder fight 3 -> trial screen')
     check(pg.evaluate("window.__duel.api.store().ladder") == 0, 'trial: does not write ladder save')
@@ -174,11 +175,8 @@ def run_hub(p):
     pg.click('#btn-trial-menu'); wait_for(pg, "window.__duel.state==='menu'")
     pg.evaluate("window.__duel.api.startMode('endless', {cls:'sword', floor: 7})"); wait_for(pg, "window.__duel.state==='play'")
     check(pg.evaluate("window.__duel.floor") == 0, 'trial: endless starts at floor 1')
-    pg.evaluate("window.__duel.floor = 2"); pg.evaluate("window.__duel.api.setHp('b', 1); window.__duel.api.freezeFoe(true); window.__duel.api.close(1.2)")
-    for _ in range(15):
-        if pg.evaluate("!!window.__duel.duel.over"): break
-        pg.keyboard.press('KeyJ'); pg.wait_for_timeout(200)
-    wait_for(pg, "window.__duel.state==='result'", 30); pg.click('#btn-res-main')
+    pg.evaluate("window.__duel.floor = 2")
+    check(force_win(pg), 'trial: endless floor 3 won'); pg.click('#btn-res-main')
     check(wait_for(pg, "window.__duel.state==='trial'", 20), 'trial: after endless floor 3 -> trial screen')
     # loss -> interstitial break only then
     pg.click('#btn-trial-menu'); wait_for(pg, "window.__duel.state==='menu'")

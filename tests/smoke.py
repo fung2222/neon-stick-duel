@@ -52,7 +52,7 @@ def mid_combo(pg, cls, name):
     pg.evaluate("()=>{const a=window.__duel.api;a.freezeFoe(true);a.tank();a.close(%s)}" % ('3.2' if cls == 'mage' else '1.3'))
     target = 'a3'
     got = False
-    for i in range(18):
+    for i in range(30):
         pg.keyboard.press('KeyJ'); pg.wait_for_timeout(140)
         f = pg.evaluate("window.__duel.api.fighter('a')")
         if f['mk'] in ('a3', 'a4') and f['st'] == 'atk':

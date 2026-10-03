@@ -122,7 +122,7 @@ function setState(s) {
   S.state = s;
   ui.show({ menu: 'start', select: 'select', paused: 'pause', result: 'result', trial: 'trial' }[s] || null);
   ui.hud(s === 'play' || s === 'intro' || s === 'paused' || s === 'result');
-  $('demo-tag').classList.toggle('hidden', !S.demo);
+  $('demo-tag').classList.toggle('hidden', !S.demo); $('controls').classList.toggle('hidden', S.demo);   // demo = AI autoplay: no touch controls
   if (s !== 'play') ctl.reset();
   document.body.dataset.state = s;
 }

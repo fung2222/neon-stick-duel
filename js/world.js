@@ -6,7 +6,7 @@ export class Rooftop {
   constructor(scene) {
     this.group = new THREE.Group(); scene.add(this.group);
     const W = 16.4, D = 4.2;
-    const slabMat = new THREE.MeshStandardMaterial({ color: 0x0b0820, roughness: 0.35, metalness: 0.6 });
+    const slabMat = new THREE.MeshStandardMaterial({ color: 0x0b0820, roughness: 0.78, metalness: 0.25 });   // rough: no specular glare blob under bloom
     const slab = new THREE.Mesh(new THREE.BoxGeometry(W, 0.5, D), slabMat); slab.position.y = ROOF_Y - 0.25; this.group.add(slab);
     const body = new THREE.Mesh(new THREE.BoxGeometry(W - 1, ROOF_Y - 0.5, D - 0.6), new THREE.MeshStandardMaterial({ color: 0x07051a, roughness: 0.8, metalness: 0.2 })); body.position.y = (ROOF_Y - 0.5) / 2; this.group.add(body);
     // windows on the building face
@@ -46,7 +46,7 @@ export class Rooftop {
     const key = new THREE.PointLight(0xff2bd6, 22, 16); key.position.set(0, ROOF_Y + 5, 3); scene.add(key);
     // directional key + cool rim so the lit fighters read as solid 3D shapes (not glow blobs)
     const sun = new THREE.DirectionalLight(0xfff0f6, 1.6); sun.position.set(3, ROOF_Y + 8, 9); sun.target.position.set(0, ROOF_Y + 1, 0); scene.add(sun, sun.target);
-    const rim = new THREE.DirectionalLight(0x40e8ff, 1.3); rim.position.set(-4, ROOF_Y + 4, -8); rim.target.position.set(0, ROOF_Y + 1, 0); scene.add(rim, rim.target);
+    const rim = new THREE.DirectionalLight(0x40e8ff, 1.0); rim.position.set(-4, ROOF_Y + 4, -8); rim.target.position.set(0, ROOF_Y + 1, 0); scene.add(rim, rim.target);
   }
   setAccent(c1, c2) { this.edgeMat.color.set(c1).multiplyScalar(1.3); this.pylonMat.color.set(c2).multiplyScalar(1.3); }
   update(t) { this.beacon.visible = Math.sin(t * 4) > 0; this.sign.material.opacity = 0.85 + Math.sin(t * 13) * Math.sin(t * 3.1) * 0.15; }

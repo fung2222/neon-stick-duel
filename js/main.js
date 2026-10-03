@@ -427,7 +427,7 @@ S.api = {
   cmd: (c) => act(S.duel.a, c), setHp: (who, hp) => { S.duel[who].hp = hp; }, close: (gap = 1.2) => { S.duel.a.x = -gap / 2; S.duel.b.x = gap / 2; S.duel.a.facing = 1; S.duel.b.facing = -1; },
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
-  pickClass: (id) => pickClass(id), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
+  pickClass: (id) => pickClass(id), dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
   hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },
 };

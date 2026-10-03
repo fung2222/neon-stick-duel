@@ -84,7 +84,7 @@ Commands are buffered 0.2 s (`TUNE.bufferT`) so slightly early presses still cha
 | `revive` | rewarded | `revive()` | opt-in, once per fight, K.O. loss only |
 
 ## 6. Look / audio settings (keep tidy for the series-wide pass)
-- **Bloom / exposure in one place**: `js/config.js` `POST = { bloom 0.5, bloomRadius 0.32, bloomThreshold 0.86, exposure 1.0 }` → `createStage({...POST})`. `?bloom=` still overrides (kit). `FxState.applyPost` adds a small aberration-driven bloom kick only. Roy wants crisp fighters: keep bloom moderate; fighters use lit materials with emissive ≤ 0.6 and the rooftop neon is ×1.3 (was ×2 in v1). Fog/haze comes from the kit theme unchanged.
+- **Bloom / exposure in one place**: `js/config.js` `POST = { bloom 0.45, bloomRadius 0.3, bloomThreshold 0.88, exposure 1.0 }` → `createStage({...POST})`. `?bloom=` still overrides (kit). `FxState.applyPost` adds a small aberration-driven bloom kick only. Roy wants crisp fighters: keep bloom moderate; fighters use lit materials with emissive ≤ 0.6 and the rooftop neon is ×1.3 (was ×2 in v1). Fog/haze comes from the kit theme unchanged.
 - Particles use `SPARK_BRIGHT = 1.7` (kit default 3) and shockwaves `a: 1.4`.
 - **Audio**: `js/audio.js` `DuelAudio extends SynthAudio` ('drive' music). Per-class swing/cast sounds, hit (metal tick for blades), block, guard break, dodge, blink, jump/land, thunder (pillar), boom (meteor), ult riser, KO, bells, victory, defeat. No master-volume code here — loudness belongs to cyber-kit. Attract/preview fights are silent.
 

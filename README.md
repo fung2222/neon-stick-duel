@@ -1,42 +1,50 @@
-# 霓虹火柴人對決 NEON STICK DUEL
+# 霓虹火柴人對打 NEON STICK DUEL
 
-> 單指 3D 火柴人格鬥 · one-thumb 3D stick-figure duel · 八層天台塔 8-floor rooftop tower · Three.js · 手機優先
+> 3D 賽博朋克職業格鬥 · 3D cyberpunk class fighter · 劍士／魔法師／拳師／刺客 · 階梯十連戰 + 無盡天台塔 · Three.js · 手機優先
 
 **試玩 Play:** https://fung2222.github.io/neon-stick-duel/ · **自動示範 Demo:** https://fung2222.github.io/neon-stick-duel/?demo=1
 
-![NEON STICK DUEL](docs/shots/desktop-play.png)
+![NEON STICK DUEL](docs/shots/v2-desktop-ult.png)
 
 ## 玩法 How to play
-一隻手指就打得：角色會自動走位埋身，你只需要揀時機。
-| 手勢 | 動作 |
+揀職業，用左邊**虛擬搖桿**自由走位（可以後退拉開距離），右邊掣出招：
+| 掣 | 動作 |
 |---|---|
-| **撳** TAP | 出拳；連撳三下 = 拳、拳、飛腳三連擊 |
-| **長按** HOLD | 蓄力，放手打出重擊；**儲滿**（光圈變白）= 破防，格擋都擋唔住 |
-| **上掃** SWIPE UP | 跳躍（避開地面攻擊）；半空再撳 = 飛踢 |
-| **橫掃** SWIPE SIDE | 衝刺（向前／向後），開頭有短暫無敵 |
-| **下掃** SWIPE DOWN | 格擋：時機啱就彈開對手，佢會暈一陣 |
+| **攻擊** ATTACK | 連撳出 3–4 下連段；挑空之後跳起可以接空中連段 |
+| **技能 1／2** | 每個職業兩招技能，有冷卻光圈 |
+| **必殺** ULT | 打中或者被打都會儲能量，儲滿放必殺技（有特寫） |
+| **跳** JUMP · **防禦** GUARD | 按住防禦；防禦＋方向＝閃避（短暫無敵） |
 
-頭八層每層一個原創對手：練習木人 → 後巷打仔 → 霓虹刺客 → 重錘工人 → 雷光拳 → 鏡像分身 → 鐵壁守衛 → 塔主・零。之後係**無盡模式**：程式生成嘅變種對手（暗影／超載／鉻鋼…），難度慢慢上升但有上限，每 10 層一個里程碑（+5000 分、換區域顏色），記錄最高樓層。進度自動儲存，可以喺主畫面「繼續」。被 K.O. 可以睇廣告**原地復活**一次（網頁版免費）。
+| 職業 | 武器／造型 | 技能 1 | 技能 2 | 必殺 |
+|---|---|---|---|---|
+| 劍士 Swordsman | 劍、長褸 | 疾風突刺（突進） | 昇龍斬（對空挑空） | 千刃斬 |
+| 魔法師 Mage | 法杖、長袍、兜帽 | 閃現（脫離） | 雷柱 | 星隕天降 |
+| 拳師 Brawler | 拳套、頭帶 | 火箭衝拳（霸體突進） | 震地拳 | 百裂拳 |
+| 刺客 Assassin | 雙匕首、面罩、頸巾 | 影步飛刀（後撤＋飛刀） | 瞬殺（繞背突進） | 死蓮 |
+
+**階梯模式**：十場（第 5 場同第 10 場係頭目，第 9 場係鏡像分身）。**無盡天台塔**：無限層數，難度慢慢上升但有上限，每 10 層一個頭目。進度自動儲存。被 K.O. 可以**原地復活**一次（網頁版免費）。
 
 ## 語言 Language
-遊戲支援**繁體中文（香港）**同 **English**，喺主畫面或暫停畫面撳「EN／中」切換，會記住你嘅選擇（`localStorage cyber.lang`，所有 CYBER 遊戲共用）。網址加 `?lang=en` / `?lang=zh` 亦可。
+支援**繁體中文（香港）**同 **English**，主畫面或暫停畫面撳「EN／中」切換（`localStorage cyber.lang`，所有 CYBER 遊戲共用）。網址加 `?lang=en` / `?lang=zh` 亦可。
 
 ## English
-**NEON STICK DUEL** is a one-thumb 3D cyberpunk stick-figure fighter. Fighters close the distance automatically — you only pick the timing: **tap** to punch (×3 = combo), **hold** to charge a heavy (full charge breaks guards), **swipe up** to jump (tap in the air = dive kick), **swipe sideways** to dash (brief invulnerability), **swipe down** to parry. Climb an **endless rooftop tower**: 8 hand-made opponents, then procedurally remixed rivals with a capped difficulty curve, milestone bonuses every 10 floors and a saved best floor. Bilingual (Traditional Chinese / English) with an in-game toggle.
+**NEON STICK DUEL** is a 3D cyberpunk stick-figure fighter with four classes — **Swordsman** (blade, coat), **Mage** (staff, robe, hood), **Brawler** (gauntlets, headband) and **Assassin** (twin daggers, mask, scarf). Move freely with the on-screen joystick, tap ATTACK to chain 3–4 hit combos, launch into air combos, use two cooldown skills (melee classes get a gap-closer, ranged classes an escape) and unleash an ultimate charged by dealing and taking damage. Fight through a 10-fight **stage ladder** with two bosses, then climb the **endless tower**.
 
 ## 鍵盤 Keyboard
-`J` / `Space` 出拳 · 按住 `K` 蓄力 · `↑` 跳 · `←` `→` 衝刺 · `↓` 格擋 · `P` / `Esc` 暫停 · `M` 靜音
+`A` `D` / `←` `→` 走位 · `W` / `↑` / `Space` 跳 · `S` / `↓` 防禦 · `Shift` 閃避 · `J` 攻擊 · `K` `L` 技能 · `U` 必殺 · `P` / `Esc` 暫停 · `M` 靜音
 
 ## 網址參數 URL flags
-`?demo=1` AI 對打示範 · `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1`
+`?demo=1` AI 對打示範（`&cls=mage&floor=12`）· `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4`
 
 ## 技術 Tech
-Three.js r169 + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.1.0（`vendor/cyber-kit/`），冇 build step。火柴人用 2D 正向運動學 + 姿勢混合即時生成；所有角色、圖示、音效都係原創／程式生成，冇使用任何商標名稱或遊戲機按鍵符號。
+Three.js + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.2.1（`vendor/cyber-kit/`），冇 build step。純模擬（`js/duel.js`，固定 1/60 s）有單元測試同 AI 對 AI 平衡模擬；火柴人用正向運動學 + 彈簧姿勢混合即時生成。所有角色、圖示、音效都係原創／程式生成。
 
 ## 開發 Development
 ```bash
-cd .. && python3 -m http.server 18940     # http://127.0.0.1:18940/neon-stick-duel/
-node neon-stick-duel/tests/duel.test.mjs
-python neon-stick-duel/tests/smoke.py
+python3 -m http.server 8811            # http://127.0.0.1:8811/
+node tests/duel.test.mjs                # 26 unit tests
+node tests/balance.mjs 200 0.7          # AI vs AI matchup matrix
+node tests/dps.mjs                      # DPS / TTK table
+python tests/smoke.py http://127.0.0.1:8811/ docs/shots
 ```
 文件：[docs/HANDOFF.md](docs/HANDOFF.md) · [privacy.html](privacy.html) · 屬於 [CYBER ARCADE](https://github.com/fung2222/cyber-arcade) 系列。

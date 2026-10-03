@@ -81,7 +81,7 @@
 @keyframes ucIn { 0% { transform: scaleY(0) skewX(-12deg); opacity: 0; } 18% { transform: scaleY(1) skewX(-12deg); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: scaleY(1) translateX(30px) skewX(-12deg); } }
 .uc-cls { font-family: 'Orbitron', var(--font-zh), sans-serif; font-size: 12px; letter-spacing: 6px; color: var(--uc, #ffd84a); }
 .uc-name { font-family: var(--font-zh); font-weight: 900; font-size: clamp(40px, 8vw, 78px); letter-spacing: 10px; color: #fff; text-shadow: 0 0 10px var(--uc, #ffd84a); animation: ucName .8s ease-out both; }
-@keyframes ucName { from { letter-spacing: 40px; opacity: 0; } 30% { letter-spacing: 10px; opacity: 1; } }
+@keyframes ucName { from { letter-spacing: 34px; } 30% { letter-spacing: 10px; } }
 .uc-en { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 8px; color: #fff; opacity: .8; }
 /* ---------------- start */
 .title { font-size: clamp(48px, 8vw, 104px); white-space: nowrap; }

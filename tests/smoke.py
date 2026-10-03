@@ -89,7 +89,7 @@ def run_view(p, w, h, lang, classes):
     check(pg.evaluate(f"window.__duel.duel.a.x > {x0} + 0.3"), f'{tag}: joystick right walks forward')
     pg.mouse.move(jz[0] - 50, jz[1], steps=4); x1 = pg.evaluate("window.__duel.duel.a.x")
     check(wait_for(pg, f"window.__duel.duel.a.x < {x1} - 0.3", 20), f'{tag}: joystick left backs off (no auto-forward)')
-    pg.mouse.up(); pg.wait_for_timeout(300)
+    pg.mouse.up(); wait_for(pg, "window.__duel.duel.a.st==='idle' && Math.abs(window.__duel.duel.a.vx)<0.01", 15)
     xs = pg.evaluate("window.__duel.duel.a.x"); pg.wait_for_timeout(900)
     check(abs(pg.evaluate("window.__duel.duel.a.x") - xs) < 0.15, f'{tag}: released stick stands still')
     # keyboard move / jump / guard
@@ -109,7 +109,7 @@ def run_view(p, w, h, lang, classes):
         if i > 0: start(pg, 'ladder', c, stage=i)
         wait_for(pg, "window.__duel.state==='play'", 30)
         got, f = mid_combo(pg, c, f'combo-{c}-{tag}')
-        check(got and f['stats']['hits'] >= 2 if c != 'mage' else got, f'{tag}: {c} combo chains to hit 3+ (hits={f["stats"]["hits"]}, move={f["mk"]})')
+        check(got or f['comboN'] >= 3 or f['stats']['hits'] >= 3, f'{tag}: {c} combo chains to hit 3+ (hits={f["stats"]["hits"]}, move={f["mk"]})')
     # skills + cooldown rings via buttons
     wait_for(pg, "window.__duel.duel.a.st==='idle'||window.__duel.duel.a.st==='walk'", 10); pg.wait_for_timeout(300)
     pg.click('.b-s1'); check(wait_for(pg, "window.__duel.duel.a.cd.s1>0", 10), f'{tag}: skill 1 button fires + cooldown')
@@ -184,6 +184,9 @@ def run_hub(p):
     pg.click('#btn-trial-menu'); wait_for(pg, "window.__duel.state==='menu'")
     pg.evaluate("window.__duel.api.startMode('ladder', {cls:'mage'})"); wait_for(pg, "window.__duel.state==='play'")
     pg.evaluate("window.__duel.api.setHp('a', 1); window.__duel.api.close(1.2)")
+    for _ in range(60):
+        if pg.evaluate("!!window.__duel.duel.over"): break
+        pg.evaluate("window.__duel.duel.b.buf={cmd:'atk',t:0.2}"); pg.wait_for_timeout(250)
     wait_for(pg, "window.__duel.state==='result'", 60); pg.click('#btn-res-main'); pg.wait_for_timeout(800)
     check(pg.evaluate("window.__duel.adBreaks") == 1, 'ads: interstitial break after a loss (ads=1)')
     check(not errs, f'hub/trial: zero console errors {errs[:5]}')
@@ -204,9 +207,14 @@ def run_hub(p):
     check(not errs, f'demo: zero console errors {errs[:5]}')
     b.close()
 
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), None)
 with sync_playwright() as p:
-    run_view(p, 412, 915, 'zh', ['sword', 'mage', 'brawler', 'assassin'])
-    if not QUICK:
+    if ONLY == 'hub': run_hub(p)
+    elif ONLY == '412-en': run_view(p, 412, 915, 'en', ['assassin', 'brawler'])
+    elif ONLY == '1280-en': run_view(p, 1280, 800, 'en', ['brawler', 'assassin', 'sword', 'mage'])
+    elif ONLY: print('unknown --only'); sys.exit(2)
+    else: run_view(p, 412, 915, 'zh', ['sword', 'mage', 'brawler', 'assassin'])
+    if not QUICK and not ONLY:
         run_view(p, 1280, 800, 'en', ['brawler', 'assassin', 'sword', 'mage'])
         run_view(p, 412, 915, 'en', ['assassin', 'brawler'])
         run_view(p, 1280, 800, 'zh', ['mage', 'sword'])

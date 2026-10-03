@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#05010f">
-<meta name="description" content="霓虹火柴人對決 NEON STICK DUEL — 單指 3D 賽博朋克火柴人格鬥，無盡天台塔。One-thumb 3D cyberpunk stick-figure duel with an endless rooftop tower.">
+<meta name="description" content="霓虹火柴人對打 NEON STICK DUEL — 3D 賽博朋克職業格鬥：劍士、魔法師、拳師、刺客，階梯十連戰同無盡天台塔。3D cyberpunk class fighter: Swordsman, Mage, Brawler, Assassin — a 10-fight ladder and an endless rooftop tower.">
 <title data-i18n="doc.title">NEON STICK DUEL</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%2305010f%22/%3E%3Ccircle cx=%2212%22 cy=%227%22 r=%223%22 fill=%22none%22 stroke=%22%2300e5ff%22 stroke-width=%222%22/%3E%3Cpath d=%22M12 10v9l-4 8M12 19l4 8M12 13l8-2%22 fill=%22none%22 stroke=%22%2300e5ff%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Ccircle cx=%2223%22 cy=%2211%22 r=%222.5%22 fill=%22%23ff2bd6%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%2305010f%22/%3E%3Ccircle cx=%2212%22 cy=%227%22 r=%223%22 fill=%22none%22 stroke=%22%2300e5ff%22 stroke-width=%222%22/%3E%3Cpath d=%22M12 10v9l-4 8M12 19l4 8M12 13l8-2%22 fill=%22none%22 stroke=%22%2300e5ff%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M20 11l9-8%22 stroke=%22%23ff2bd6%22 stroke-width=%222.4%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="./vendor/cyber-kit/ui/hud.css">
 <link rel="stylesheet" href="./css/game.css">
 <script type="importmap">
@@ -25,29 +25,37 @@
 <canvas id="scene"></canvas>
 <div id="fx-flash"></div>
 <div id="scanlines"></div>
+<div id="ult-dim" class="hidden"></div>
+<div id="ult-cut" class="hidden"><div class="uc-band"><div class="uc-cls" id="uc-cls"></div><div class="uc-name" id="uc-name"></div><div class="uc-en" id="uc-en"></div></div></div>
 
 <div id="hud" class="hidden">
   <div class="vs-bar">
     <div class="fighter-hp me">
-      <div class="fh-name"><b id="hp-name-a" data-i18n="you">你</b></div>
+      <div class="fh-name"><b id="hp-name-a" data-i18n="you">你</b><em id="hp-cls-a"></em></div>
       <div class="fh-track"><div class="fh-lag" id="hp-lag-a"></div><div class="fh-fill" id="hp-fill-a"></div></div>
+      <div class="ult-track"><div class="ult-fill" id="ult-fill-a"></div></div>
     </div>
     <div class="vs-mid"><div class="vs-floor" id="hud-floor">1F</div><div class="vs-time" id="hud-time">60</div></div>
     <div class="fighter-hp foe">
-      <div class="fh-name"><b id="hp-name-b">練習木人</b><em id="hp-en-b">TRAINING DUMMY</em></div>
+      <div class="fh-name"><b id="hp-name-b">—</b><em id="hp-cls-b"></em></div>
       <div class="fh-track"><div class="fh-lag" id="hp-lag-b"></div><div class="fh-fill" id="hp-fill-b"></div></div>
+      <div class="ult-track"><div class="ult-fill" id="ult-fill-b"></div></div>
     </div>
   </div>
   <div class="score-line"><span id="hud-score">0</span> <small data-i18n="score">SCORE</small></div>
   <div id="combo" class="combo hidden"></div>
-  <div id="gesture-bar" class="gesture-bar">
-    <div class="g"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="5"/><circle cx="20" cy="20" r="12" class="thin"/></svg><b data-i18n="g.tap"></b><small data-i18n="g.tapS"></small></div>
-    <div class="g"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" class="thin"/><path d="M20 7a13 13 0 0 1 13 13" class="arc"/><circle cx="20" cy="20" r="4"/></svg><b data-i18n="g.hold"></b><small data-i18n="g.holdS"></small></div>
-    <div class="g"><svg viewBox="0 0 40 40"><path d="M12 22l8-9 8 9M12 31l8-9 8 9" class="line"/></svg><b data-i18n="g.up"></b><small data-i18n="g.upS"></small></div>
-    <div class="g"><svg viewBox="0 0 40 40"><path d="M14 12l-8 8 8 8M26 12l8 8-8 8" class="line"/><path d="M11 20h18" class="line thin"/></svg><b data-i18n="g.side"></b><small data-i18n="g.sideS"></small></div>
-    <div class="g"><svg viewBox="0 0 40 40"><path d="M20 6l11 5v8c0 7-5 12-11 15-6-3-11-8-11-15v-8z" class="line"/><path d="M15 19l4 4 7-8" class="line"/></svg><b data-i18n="g.down"></b><small data-i18n="g.downS"></small></div>
+  <div id="trial-tag" class="trial-tag hidden"></div>
+  <div id="controls">
+    <div id="joy-zone"><div id="joy"><div class="joy-ring"></div><div id="joy-knob"></div></div></div>
+    <div id="btns">
+      <button class="cbtn b-atk" data-cmd="atk" aria-label="attack"><svg viewBox="0 0 40 40"><path d="M8 32L26 14M24 8l8 8M20 12l8 8" class="ln"/><path d="M6 34l4-1-3-3z" class="fl"/></svg><b data-i18n="b.atk"></b></button>
+      <button class="cbtn b-s1" data-cmd="s1" aria-label="skill 1"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" class="rbg"/><circle cx="32" cy="32" r="29" class="rfg" id="cd-s1"/></svg><svg class="ico" viewBox="0 0 40 40"><path d="M6 20h22M20 10l10 10-10 10" class="ln"/></svg><b id="lbl-s1"></b><i class="cdn" id="cdn-s1"></i></button>
+      <button class="cbtn b-s2" data-cmd="s2" aria-label="skill 2"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" class="rbg"/><circle cx="32" cy="32" r="29" class="rfg" id="cd-s2"/></svg><svg class="ico" viewBox="0 0 40 40"><path d="M20 5l4 11h11l-9 7 3 11-9-7-9 7 3-11-9-7h11z" class="ln"/></svg><b id="lbl-s2"></b><i class="cdn" id="cdn-s2"></i></button>
+      <button class="cbtn b-ult" data-cmd="ult" aria-label="ultimate"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" class="rbg"/><circle cx="32" cy="32" r="29" class="rfg" id="cd-ult"/></svg><svg class="ico" viewBox="0 0 40 40"><path d="M22 4L10 22h9l-3 14 14-20h-9z" class="ln"/></svg><b data-i18n="b.ult"></b></button>
+      <button class="cbtn b-jump" data-cmd="jump" aria-label="jump"><svg viewBox="0 0 40 40"><path d="M10 22l10-10 10 10M10 32l10-10 10 10" class="ln"/></svg><b data-i18n="b.jump"></b></button>
+      <button class="cbtn b-guard" data-cmd="guard" aria-label="guard"><svg viewBox="0 0 40 40"><path d="M20 5l12 5v8c0 8-5 13-12 17-7-4-12-9-12-17v-8z" class="ln"/></svg><b data-i18n="b.guard"></b><small data-i18n="b.guardS"></small></button>
+    </div>
   </div>
-  <div id="charge-ring" class="charge-ring hidden"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="bg"/><circle cx="50" cy="50" r="42" class="fg" id="charge-arc"/></svg></div>
   <div class="hud-buttons">
     <button id="btn-pause" class="icon-btn" data-i18n-attr="title:pauseTip,aria-label:pauseTip"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
     <button id="btn-mute" class="icon-btn" data-i18n-attr="title:muteTip,aria-label:muteTip">
@@ -65,14 +73,37 @@
     <h1 class="title glitch" id="title" data-i18n="title">霓虹火柴人</h1>
     <div class="title-en" data-i18n="titleEn"></div>
     <p class="tagline" data-i18n-html="tagline"></p>
-    <button class="neon-btn" id="btn-start"><span id="start-label">登塔</span><small id="start-sub">CLIMB THE TOWER · ENTER</small></button>
-    <button class="neon-btn ghost hidden" id="btn-restart-tower"><span data-i18n="newRun"></span><small data-i18n="newRunS"></small></button>
-    <div class="controls">
-      <div class="touch-hint" data-i18n="touchHint"></div>
-      <div data-i18n-html="keysHint"></div>
+    <div class="mode-row">
+      <button class="neon-btn" id="btn-ladder"><span data-i18n="ladder"></span><small id="ladder-sub"></small></button>
+      <button class="neon-btn" id="btn-endless"><span data-i18n="endless"></span><small id="endless-sub"></small></button>
     </div>
-    <div class="hi-line"><span data-i18n="bestFloor"></span> <b id="start-floor">—</b>　<span data-i18n="bestScore"></span> <b id="start-best">0</b></div>
+    <button class="neon-btn ghost" id="btn-class"><span id="class-label"></span><small data-i18n="changeClsS"></small></button>
+    <button class="neon-btn ghost small hidden" id="btn-restart-tower"><span data-i18n="newRun"></span><small data-i18n="newRunS"></small></button>
+    <div class="controls-hint">
+      <div class="touch-hint" data-i18n="touchHint"></div>
+      <div class="keys-hint" data-i18n-html="keysHint"></div>
+    </div>
+    <div class="hi-line"><span data-i18n="bestLadder"></span> <b id="start-ladder">0/10</b>　<span data-i18n="bestFloor"></span> <b id="start-floor">—</b>　<span data-i18n="bestScore"></span> <b id="start-best">0</b></div>
+    <div id="start-trial" class="trial-note hidden"></div>
     <div class="link-row"><a href="./privacy.html" data-i18n="privacy"></a> · <button class="lang-btn" id="btn-lang"></button></div>
+  </div>
+</div>
+
+<div id="screen-select" class="screen hidden">
+  <div class="sel-panel">
+    <div class="kicker" id="sel-mode"></div>
+    <h2 class="title2" data-i18n="selTitle">揀職業</h2>
+    <div class="sel-tabs" id="sel-tabs"></div>
+    <div class="sel-info">
+      <div class="sel-name"><b id="sel-zh"></b><em id="sel-en"></em><span id="sel-role" class="role-tag"></span></div>
+      <p class="sel-desc" id="sel-desc"></p>
+      <div class="stats" id="sel-stats"></div>
+      <ul class="kit-list" id="sel-kit"></ul>
+    </div>
+    <div class="sel-actions">
+      <button class="neon-btn" id="btn-fight"><span data-i18n="selFight"></span><small data-i18n="selFightS"></small></button>
+      <button class="neon-btn ghost" id="btn-sel-back"><span data-i18n="back"></span><small data-i18n="backS"></small></button>
+    </div>
   </div>
 </div>
 
@@ -88,14 +119,25 @@
 
 <div id="screen-result" class="screen hidden">
   <div class="panel">
-    <div class="kicker" id="res-kicker">FLOOR 1</div>
+    <div class="kicker" id="res-kicker">FIGHT 1</div>
     <h2 class="title2 glitch" id="res-title" data-text="勝利！">勝利！</h2>
     <div class="title-en" id="res-en">K.O. VICTORY</div>
     <div id="res-record" class="newrecord hidden" data-i18n="kit.newRecord"></div>
     <div class="results" id="res-stats"></div>
-    <button class="neon-btn" id="btn-res-main"><span id="res-main-zh">上一層</span><small id="res-main-en">NEXT FLOOR · ENTER</small></button>
+    <button class="neon-btn" id="btn-res-main"><span id="res-main-zh">下一戰</span><small id="res-main-en">NEXT · ENTER</small></button>
     <button class="neon-btn hidden" id="btn-revive"><span data-i18n="revive"></span><small id="revive-sub"></small></button>
     <button class="neon-btn ghost" id="btn-res-menu"><span data-i18n="menu"></span><small data-i18n="menuS"></small></button>
+  </div>
+</div>
+
+<div id="screen-trial" class="screen hidden">
+  <div class="panel">
+    <div class="kicker" data-i18n="silver"></div>
+    <h2 class="title2 glitch" data-i18n="trialTitle">試玩完結</h2>
+    <div class="title-en" id="trial-from"></div>
+    <p class="tagline center" data-i18n="trialBody"></p>
+    <button class="neon-btn" id="btn-hub"><span data-i18n="toHub"></span><small data-i18n="toHubS"></small></button>
+    <button class="neon-btn ghost" id="btn-trial-menu"><span data-i18n="menu"></span><small data-i18n="menuS"></small></button>
   </div>
 </div>
 

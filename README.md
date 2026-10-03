@@ -43,7 +43,7 @@ Three.js + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.2.1（`vendor/c
 ```bash
 python3 -m http.server 8811            # http://127.0.0.1:8811/
 node tests/duel.test.mjs                # 26 unit tests
-node tests/balance.mjs 200 0.7          # AI vs AI matchup matrix
+node tests/balance.mjs 1000 0.7         # AI vs AI matchup matrix (all within 42–58 %)
 node tests/dps.mjs                      # DPS / TTK table
 python tests/smoke.py http://127.0.0.1:8811/ docs/shots
 ```

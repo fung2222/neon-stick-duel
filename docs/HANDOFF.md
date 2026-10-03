@@ -17,9 +17,9 @@ v2 (2026-10) replaced the v1 one-thumb gesture duel (auto-approach, tap/hold/swi
 | Class | Look (outfit + weapon) | HP / walk | Basic chain (tap) | Air | Skill 1 | Skill 2 | Ultimate |
 |---|---|---|---|---|---|---|---|
 | **劍士 Swordsman** (melee) | long coat (shell + collar + belt + 2 tails), visor · **blade** | 980 / 3.0 | Slash 44 → Back-slash 48 → Thrust 58 → Rising cut 72 (launcher) | Air slash 40 → Falling cleave 54 (spike) | **疾風突刺 Gale Lunge** 118 · *gap-closer* (23 m/s dash, i-frames 0.12–0.30 s) · cd 5.5 s | **昇龍斬 Rising Dragon** 108 · anti-air launcher, invulnerable start · cd 7 s | **千刃斬 Thousand Edges** 7×40 + 150 |
-| **魔法師 Mage** (ranged) | robe cone + hem, hood with tip · **staff** with orb | 920 / 2.7 | Arcane bolt 35 → Twin bolt 37 → Star orb 52 (launch) — projectiles | Dive bolt 32 ×2 | **閃現 Blink** · *escape*: −4.2 m teleport + 40 blast where you stood, i-frames, usable in air; cornered → blinks past the foe · cd 4.5 s | **雷柱 Thunder Pillar** 118 · delayed (0.38 s) pillar under the foe, leads moving targets · cd 6.5 s | **星隕天降 Starfall** 5×66 + 100 meteors |
-| **拳師 Brawler** (melee) | headband (torus + 2 ribbon tails), sash, visor · **gauntlets** ×2 | 1100 / 2.85 | Jab 42 → Cross 48 → Hook 60 → Uppercut 84 (launcher) | Air punch 44 → Hammer fist 64 (spike) | **火箭衝拳 Rocket Rush** 118 · *gap-closer* with super armour 0.10–0.33 s · cd 6.5 s | **震地拳 Quake Slam** 112 · ground AoE ±2.3 m launcher · cd 7 s | **百裂拳 Hundred Fists** 9×34 + 170 |
-| **刺客 Assassin** (hybrid) | mask + glowing eye slit, scarf (ring + long ribbon) · **twin daggers** | 960 / 3.45 | Reverse stab 34 → Cross cut 36 → Knee 40 → Blade spin 30+34 (launcher) | Air cut 33 → Drop blade 44 (spike) | **影步飛刀 Shadow Step** · *escape*: backstep (−15 m/s, i-frames) + 3 thrown daggers ×32, usable in air · cd 5 s | **瞬殺 Phantom Strike** 104 · *gap-closer*: teleport behind (≤ 7 m) and stab · cd 7 s | **死蓮 Death Lotus** 8×36 + 160 (teleports in) |
+| **魔法師 Mage** (ranged) | robe cone + hem, hood with tip · **staff** with orb | 920 / 2.7 | Arcane bolt 33 → Twin bolt 35 → Star orb 52 (launch) — projectiles | Dive bolt 32 ×2 | **閃現 Blink** · *escape*: −4.2 m teleport + 40 blast where you stood, i-frames, usable in air; cornered → blinks past the foe · cd 4.5 s | **雷柱 Thunder Pillar** 118 · delayed (0.38 s) pillar under the foe, leads moving targets · cd 6.5 s | **星隕天降 Starfall** 5×66 + 100 meteors |
+| **拳師 Brawler** (melee) | headband (torus + 2 ribbon tails), sash, visor · **gauntlets** ×2 | 1080 / 2.85 | Jab 42 → Cross 48 → Hook 60 → Uppercut 84 (launcher) | Air punch 44 → Hammer fist 64 (spike) | **火箭衝拳 Rocket Rush** 118 · *gap-closer* with super armour 0.10–0.33 s · cd 6.5 s | **震地拳 Quake Slam** 112 · ground AoE ±2.3 m launcher · cd 7 s | **百裂拳 Hundred Fists** 9×34 + 170 |
+| **刺客 Assassin** (hybrid) | mask + glowing eye slit, scarf (ring + long ribbon) · **twin daggers** | 980 / 3.45 | Reverse stab 34 → Cross cut 36 → Knee 40 → Blade spin 30+34 (launcher) | Air cut 33 → Drop blade 44 (spike) | **影步飛刀 Shadow Step** · *escape*: backstep (−15 m/s, i-frames) + 3 thrown daggers ×32, usable in air · cd 5 s | **瞬殺 Phantom Strike** 104 · *gap-closer*: teleport behind (≤ 7 m, startup 0.17 s — reactable only by top-skill AI/humans) and stab · cd 7 s | **死蓮 Death Lotus** 8×36 + 160 (teleports in) |
 
 Stats shown on the select screen (1–5): Sword ATK4 DEF3 SPD3 RNG2 · Mage 2/2/3/5 · Brawler 5/5/2/1 · Assassin 3/2/5/3.
 
@@ -29,28 +29,38 @@ Ranged does less per hit and needs space; melee takes the risk of walking in and
 | Class | HP | Basic chain (per hit) | Chain dmg | Chain time | Chain DPS | Skill 1 | Skill 2 | Ult | TTK vs 990 HP (chain loop) |
 |---|---|---|---|---|---|---|---|---|---|
 | Swordsman | 980 | 44 / 48 / 58 / 72 | 222 | 1.08 s | 206 | 118 (cd 5.5 s) | 108 (cd 7 s) | 390 | 4.8 s |
-| Mage | 920 | 35 / 37 / 52 | 124 | 1.09 s | 113 | 40 (cd 4.5 s) | 118 (cd 6.5 s) | 430 | 8.7 s |
-| Brawler | 1100 | 42 / 48 / 60 / 84 | 234 | 0.97 s | 242 | 118 (cd 6.5 s) | 112 (cd 7 s) | 442 | 4.1 s |
-| Assassin | 960 | 34 / 36 / 40 / 64 | 174 | 0.84 s | 208 | 96 (cd 5 s) | 104 (cd 7 s) | 412 | 4.8 s |
+| Mage | 920 | 33 / 35 / 52 | 120 | 1.09 s | 110 | 40 (cd 4.5 s) | 118 (cd 6.5 s) | 430 | 9.0 s |
+| Brawler | 1080 | 42 / 48 / 60 / 84 | 234 | 0.97 s | 242 | 118 (cd 6.5 s) | 112 (cd 7 s) | 442 | 4.1 s |
+| Assassin | 980 | 34 / 36 / 40 / 64 | 174 | 0.84 s | 208 | 96 (cd 5 s) | 104 (cd 7 s) | 412 | 4.8 s |
 
 Real fights last 15–26 s (AI vs AI) because of spacing, guarding, proration and knockdowns.
 
-### AI-vs-AI balance sim (`node tests/balance.mjs 200 <diff>`, sides alternate, 200 fights per matchup)
-Row = class, value = row win %. Last run 2026-10-03.
+### AI-vs-AI balance sim (`node tests/balance.mjs 1000 <diff>`, sides alternate, 1000 fights per matchup, deterministic seeds)
+Row = class, value = row win %. Last run 2026-10-03 (after the v2.0.1 balance pass). Target: every matchup 40–60 % at every difficulty.
 
 | diff 0.70 (ladder mid) | vs Sword | vs Mage | vs Brawler | vs Assassin | overall |
 |---|---|---|---|---|---|
-| Swordsman | 50 | 45 | 48 | 57 | 49.8 % |
-| Mage | 56 | 53 | 52 | 53 | 53.3 % |
-| Brawler | 52 | 48 | 57 | 49 | 49.5 % |
-| Assassin | 43 | 48 | 51 | 49 | 47.0 % |
+| Swordsman | — | 43 | 48 | 55 | 48.7 % |
+| Mage | 57 | — | 58 | 50 | 54.9 % |
+| Brawler | 52 | 42 | — | 49 | 47.5 % |
+| Assassin | 45 | 50 | 51 | — | 48.8 % |
 
-| diff 0.35 / 0.95 overall | Sword | Mage | Brawler | Assassin |
-|---|---|---|---|---|
-| diff 0.35 (easy) | 49.8 % | 43.7 % | 56.7 % | 49.8 % |
-| diff 0.95 (hard) | 52.5 % | 42.8 % | 51.7 % | 53.0 % |
+| diff 0.35 (easy) | vs Sword | vs Mage | vs Brawler | vs Assassin | overall |
+|---|---|---|---|---|---|
+| Swordsman | — | 52 | 42 | 51 | 48.2 % |
+| Mage | 48 | — | 44 | 44 | 45.4 % |
+| Brawler | 58 | 56 | — | 54 | 55.9 % |
+| Assassin | 49 | 56 | 46 | — | 50.4 % |
 
-Worst single matchups: diff 0.35 Brawler–Sword 61 %, diff 0.95 Assassin–Mage 63 % (teleport strikes beat kiting at top AI skill). Everything at diff 0.7 is inside 43–57 %. `tests/duel.test.mjs` asserts every diff-0.7 matchup stays within 35–65 % (60 fights).
+| diff 0.95 (hard) | vs Sword | vs Mage | vs Brawler | vs Assassin | overall |
+|---|---|---|---|---|---|
+| Swordsman | — | 46 | 51 | 58 | 51.5 % |
+| Mage | 54 | — | 47 | 48 | 49.6 % |
+| Brawler | 49 | 53 | — | 51 | 50.9 % |
+| Assassin | 42 | 53 | 50 | — | 48.0 % |
+
+All 18 matchup cells are inside **42–58 %** (mirror matches 48–53 %, i.e. seed noise; ±1.6 pts at n = 1000). Average fight 15–26 s, no time-outs.
+Balance pass v2.0.1 (before → after, worst cells): diff 0.95 Assassin–Mage 63 → 52 %, Brawler–Mage 60 → 47 %; diff 0.35 Brawler–Sword 60 → 58 %. Changes: Mage AI can **escape-cancel** a basic volley into Blink when a melee/teleport threat starts (rate `escP` = 1.6 × (diff − 0.5), so only skilled AI does it — a human can always do it); AI reacts to teleport strikes by blinking / dodging / hopping instead of guarding the wrong side; Phantom Strike startup 0.12 → 0.17 s (teleport at 0.15 s); Mage bolts 35/37 → 33/35; Brawler HP 1100 → 1080; Assassin HP 960 → 980. `tests/duel.test.mjs` asserts every diff-0.7 matchup is within 40–60 % over 400 deterministic fights.
 
 ## 3. Controls
 | Input | Touch | Keyboard |
@@ -69,7 +79,7 @@ Commands are buffered 0.2 s (`TUNE.bufferT`) so slightly early presses still cha
 ## 4. Modes (js/modes.js)
 - **Stage ladder (階梯模式)**: 10 fights — 夜鴉 NIGHT CROW (assassin) · 後巷鐵拳 ALLEY IRONFIST (brawler) · 霓虹術士 NEON ADEPT (mage) · 浪人七號 RONIN-07 (sword) · **BOSS 重錘霸王 HAMMER KING** (brawler, HP ×1.55, size ×1.28) · 風暴巫女 STORM WITCH · 幻刃 PHANTOM EDGE · 劍聖 BLADE SAINT · 鏡像分身 MIRROR SHADE (your class) · **FINAL BOSS 塔主・零 TOWER LORD ZERO** (sword, HP ×1.85, ult gain ×1.35). AI difficulty 0.12 → 0.86. Progress saved per fight; clearing all 10 counts a ladder clear and restarts at fight 1. A loss retries the same fight.
 - **Endless tower (無盡天台塔)**: unbounded floors (`endlessFoe(floor)`): class rotates (never the same class twice in a row), procedural names (暗影 / 超載 / 鉻鋼 … prefixes), capped curves — AI diff 0.18 → 0.95 (`capCurve`, τ = 16 floors), HP ×(1 + 0.015/floor, max +0.5), damage ×(1 + 0.007/floor, max +0.22); **boss every 10th floor** (+0.55 HP, +0.06 dmg, bigger, faster ult). It never ends; a loss retries the floor (score kept).
-- AI (js/ai.js) uses each class's whole kit: spacing (mage keeps ~5 m, blinks when pressured, leads pillars; melee rolls/jumps through projectiles and uses closers vs ranged), reactive guard / dodge / anti-air with a reaction delay, combo continuation, jump-cancel air combos (diff > 0.45), skill enders, ult on hit-confirm, corner escape. Every rate scales with `diff`.
+- AI (js/ai.js) uses each class's whole kit: spacing (mage keeps ~5 m, blinks when pressured — skilled mages escape-cancel a bolt volley into Blink —, leads pillars; melee rolls/jumps through projectiles and uses closers vs ranged), reactive guard / dodge / anti-air with a reaction delay, combo continuation, jump-cancel air combos (diff > 0.45), skill enders, ult on hit-confirm, corner escape. Every rate scales with `diff`.
 - Scoring: damage dealt ×0.5 live + evade +30; a win adds `fightScore` = 1000 × level + HP % × 10 + seconds left × 15 + best combo × 60 + perfect 2000 + boss 3000.
 - Menu attract: two random classes spar behind the start screen. `?demo=1`: player side AI (diff 0.7), endless floors auto-advance, no saves (`&cls=mage&floor=12` optional).
 
@@ -116,13 +126,13 @@ Test hook `window.__duel`: state, mode, cls, stage, floor, score, duel, foe, cmd
 **Migration** (`migrateSave`, runs at boot): v1 `lap` → `floor += lap × 8`, `lap` removed, `cls` = sword, `ver` = 2. `floor`, `runScore`, `bestFloor`, `best`, `muted` keep their meaning, so a v1 tower run continues as the endless tower. Tested in duel.test.mjs and smoke.py.
 
 ## 9. Tests
-- `node tests/duel.test.mjs` — 26 tests: class kits (3–4 hit chains, 2 skills with cooldowns, ult), ranged per-hit < melee per-hit, free movement (no auto-forward, slower back-walk), every class chains its full combo, launcher → juggle, launcher → jump-cancel → air combo, basic → skill cancel, cooldowns, gap-closers close / escapes open distance, mage corner blink crosses over, projectiles / pillar / meteors, ult (meter, freeze, invulnerable, damage), ult meter from dealing + taking damage, guard chip + guard break, dodge i-frames, jump over a bolt + wake-up invulnerability, juggle cap, KO / time-out, arena bounds, ladder data (bosses at 5 and 10, mirror, rising difficulty), endless never ends + capped + boss every 10, floor 60 winnable, harder AI beats easier AI, trial caps + scoring, v1 migration, balance band 35–65 % at diff 0.7.
+- `node tests/duel.test.mjs` — 26 tests: class kits (3–4 hit chains, 2 skills with cooldowns, ult), ranged per-hit < melee per-hit, free movement (no auto-forward, slower back-walk), every class chains its full combo, launcher → juggle, launcher → jump-cancel → air combo, basic → skill cancel, cooldowns, gap-closers close / escapes open distance, mage corner blink crosses over, projectiles / pillar / meteors, ult (meter, freeze, invulnerable, damage), ult meter from dealing + taking damage, guard chip + guard break, dodge i-frames, jump over a bolt + wake-up invulnerability, juggle cap, KO / time-out, arena bounds, ladder data (bosses at 5 and 10, mirror, rising difficulty), endless never ends + capped + boss every 10, floor 60 winnable, harder AI beats easier AI, trial caps + scoring, v1 migration, balance band 40–60 % at diff 0.7 (400 deterministic fights per matchup).
 - `node tests/balance.mjs [n] [diff]` — matchup matrix. `node tests/dps.mjs` — DPS/TTK table.
 - `python tests/smoke.py [url] [out] [--quick]` — headless Chrome, 412×915 touch + 1280×800, zh + en: menu, class select (all 4), joystick walk/back-off/stand-still, keyboard / buttons (jump, guard, dodge), each class mid-combo, skill buttons + cooldown rings, ult cut-in, KO → result → next (saved), loss → revive, endless floor 12, pause/resume; hub trial caps (ladder 3 / endless 3 → trial screen, no saves), interstitial break only after a loss, v1 save migration, demo; zero console errors. Writes screenshots. Headless SwiftShader ≈ 3 FPS, so it polls state.
 
 ## 10. Known gaps / ideas
 - Balance is tuned on AI-vs-AI; human players will find the Mage's kiting and the Assassin's teleport stronger/weaker than the AI does. Watch real play data.
-- At top difficulty the Assassin beats the Mage ~63 %; at easy the Brawler is slightly favoured (~57 % overall).
+- AI-vs-AI the Mage is slightly favoured at mid difficulty (54.9 % overall at diff 0.7) and the Brawler at easy (55.9 % at diff 0.35); every single matchup is still 42–58 %.
 - No local 2-player or online play. No per-class unlockable skins yet.
 - Poses are procedural (no motion-captured clips); the cloth is a simple verlet strip; weapon trails look chunky at very low FPS.
 - Android packaging: as DATA FUSE (Capacitor 8 + `@capacitor-community/admob` v8; app id `hk.fung2222.neonstickduel`); portrait and landscape both supported.

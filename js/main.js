@@ -461,13 +461,13 @@ function frameCamera(dt, now, instant = false) {
   const tanV = Math.tan(THREE.MathUtils.degToRad(vfov / 2)), tanH = tanV * aspect;
   const top = d ? Math.max(d.a.y, d.b.y) : 0;
   let mid = d ? (d.a.x + d.b.x) / 2 : 0; const gap = d ? Math.abs(d.a.x - d.b.x) : 3;
-  const span = Math.max(portrait ? 4.4 : 6.4, gap + (portrait ? 2.4 : 3.8));
-  let dist = Math.max(span / 2 / tanH, (portrait ? 2.6 : 2.7 + top * 0.25) / tanV);
+  const span = Math.max(portrait ? 3.9 : 6.4, gap + (portrait ? 2.0 : 3.8));
+  let dist = Math.max(span / 2 / tanH, (portrait ? 2.6 : 3.0 + top * 0.25) / tanV);
   // portrait: fighters sit in the upper half (controls below) → look below them
-  let ly = ROOF_Y + (portrait ? 0.15 : 1.35) + top * 0.35, yaw = Math.sin(now * 0.2) * 0.035, pitch = 0.1;
+  let ly = ROOF_Y + (portrait ? 0.45 : 1.35) + top * 0.35, yaw = Math.sin(now * 0.2) * 0.035, pitch = 0.1;
   if (st === 'menu') { yaw = 0.22 + Math.sin(now * 0.15) * 0.07; pitch = 0.14; if (!portrait) dist *= 1.25; else { ly = ROOF_Y - 0.2; dist *= 1.15; } }
-  if (st === 'select') { dist = portrait ? 6.8 : 7.4; yaw = 0.28 + Math.sin(now * 0.3) * 0.05; pitch = 0.08; ly = portrait ? ROOF_Y - 0.25 : ROOF_Y + 1.25; mid = d ? (d.a.x + d.b.x) / 2 : 0; }
-  if (S.ultCam && S.ultCam.t > 0 && d) { const f = S.ultCam.who; mid = THREE.MathUtils.lerp(mid, f.x, 0.75); dist *= 0.62; ly = ROOF_Y + (portrait ? 0.6 : 1.3) + f.y; yaw = f.facing * 0.32; }
+  if (st === 'select') { dist = portrait ? 8.2 : 7.6; yaw = 0.28 + Math.sin(now * 0.3) * 0.05; pitch = 0.06; ly = portrait ? ROOF_Y - 0.9 : ROOF_Y + 1.25; mid = d ? (d.a.x + d.b.x) / 2 : 0; }
+  if (S.ultCam && S.ultCam.t > 0 && d) { const f = S.ultCam.who; mid = THREE.MathUtils.lerp(mid, f.x, 0.75); dist *= portrait ? 0.74 : 0.64; ly = ROOF_Y + (portrait ? 0.7 : 1.3) + f.y; yaw = f.facing * 0.32; }
   const ko = d && d.over && d.over.by === 'ko' && st === 'play'; if (ko) dist *= 0.85;
   const lx = THREE.MathUtils.clamp(mid, -4.5, 4.5);
   tL.set(lx, ly, 0); tP.set(lx + Math.sin(yaw) * dist, ly + Math.sin(pitch) * dist + (portrait ? 0.6 : 0), Math.cos(yaw) * dist);
@@ -511,7 +511,7 @@ syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   showMenu(); frameCamera(0, 0, true); ui.loaded();
-  if (S.demo) { S.cls = CLASSES[flags.cls] ? flags.cls : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = flags.floor ?? 0; startEndless(); }
+  if (S.demo) { S.cls = CLASSES[flags.get('cls')] ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });
   if (flags.fps) $('fps').classList.remove('hidden');
   ads.init().catch(() => {});

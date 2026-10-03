@@ -64,7 +64,7 @@ class Trail {
     const idx = []; for (let i = 0; i < n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
     this.mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      uniforms: { uC: { value: new THREE.Color(1, 1, 1) }, uO: { value: 0.75 } },
+      uniforms: { uC: { value: new THREE.Color(1, 1, 1) }, uO: { value: 0.5 } },
       vertexShader: 'attribute float aA; varying float vA; void main(){ vA = aA; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: 'uniform vec3 uC; uniform float uO; varying float vA; void main(){ gl_FragColor = vec4(uC * vA * uO, 1.0); }',
     });

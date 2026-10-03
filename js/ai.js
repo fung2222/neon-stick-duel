@@ -19,7 +19,8 @@ function threatOf(d, me, op) {
     const m = moveOf(op);
     if (m && op.t < m.t[0] + m.t[1] * 0.6) {
       const reach = m.box ? Math.max(m.box[1], (m.vx || 0) * (m.t[0] + m.t[1]) * 0.6 + m.box[1]) : (m.fire ? 9 : 0);
-      if (m.kind === 'ult' || gap < reach + 0.7) return { key: 'm' + op.seq, ranged: !m.box, kind: m.kind };
+      const tele = (m.fire || []).some((f) => f.type === 'teleport');   // teleport strikes threaten from range
+      if (m.kind === 'ult' || tele || gap < reach + 0.7) return { key: 'm' + op.seq, ranged: !m.box, kind: m.kind };
     }
   }
   for (const p of d.projs) {
@@ -132,6 +133,7 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   else me.in.mx = 0;
 
   if (cls === 'mage') {
+    const k = prof.diff ?? 0.5;   // low-skill mages fire less often (keeps easy mages beatable)
     if (gap < 2.6 && (op.st === 'walk' || op.st === 'atk' || gap < 1.8)) {
       if (skill('s1', 6)) return 's1';
       if (gap < 1.3 && mem.cool <= 0) { mem.cool = P.think; return rng() < 0.5 ? 'atk' : 'jump'; }
@@ -141,7 +143,7 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
     if (op.st === 'air' && op.y > 0.4 && skill('s2', 2.5)) return 's2';
     if (skill('s2', 0.9)) return 's2';
     if (gap < 3.6 && (mem.walkT || 0) <= 0 && toWall > 1.5) { mem.walkT = 0.3 + 0.3 * rng(); mem.walkDir = -dirTo; }
-    if (mem.cool <= 0) { mem.cool = P.think * (0.5 + rng()); if (rng() < P.aggr + 0.1) return 'atk'; mem.walkT = 0.25; mem.walkDir = rng() < 0.5 ? -dirTo : dirTo * 0.5; }
+    if (mem.cool <= 0) { mem.cool = P.think * (0.5 + rng()); if (rng() < P.aggr * (0.45 + 0.55 * k) + 0.1) return 'atk'; mem.walkT = 0.25; mem.walkDir = rng() < 0.5 ? -dirTo : dirTo * 0.5; }
     return null;
   }
 

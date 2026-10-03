@@ -157,9 +157,9 @@ test('v1 save migration (lap → floor, ver 2) keeps progress', () => {
   assert.equal(migrateSave(store), true); assert.equal(store.getNum('floor'), 11); assert.equal(store.get('lap'), null); assert.equal(store.getNum('ver'), 2); assert.equal(store.getNum('bestFloor'), 11); assert.equal(store.getNum('best'), 12345);
   assert.equal(migrateSave(store), false);
 });
-test('balance: every matchup 35–65 % at diff 0.7 (60 fights each)', () => {
-  const res = matrix(60, 0.7);
-  for (const [k, r] of Object.entries(res)) { const [a, b] = k.split(':'); if (a === b) continue; const p = r.wa / r.n; assert.ok(p >= 0.35 && p <= 0.65, `${k} ${Math.round(p * 100)}%`); }
+test('balance: every matchup 40–60 % at diff 0.7 (400 fights each, deterministic seeds)', () => {
+  const res = matrix(400, 0.7);
+  for (const [k, r] of Object.entries(res)) { const [a, b] = k.split(':'); if (a === b) continue; const p = r.wa / r.n; assert.ok(p >= 0.40 && p <= 0.60, `${k} ${Math.round(p * 100)}%`); }
 });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

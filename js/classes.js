@@ -54,8 +54,8 @@ export const CLASSES = {
       ult: U({ name: ['星隕天降', 'Starfall'], t: [0.3, 0.1, 0.7], dmg: 0, inv: [0, 1.1], fire: [{ at: 0.28, type: 'meteors', proj: 'meteor', n: 6 }], pose: ['ult0', 'mgCast', 'mgC1f'] }),
     },
     projs: {
-      bolt:    { dmg: 35, v: 11, life: 0.75, r: 0.32, y: 1.3, kb: 2.6, stun: 0.24 },
-      bolt2:   { dmg: 37, v: 11.5, life: 0.75, r: 0.32, y: 1.15, kb: 2.8, stun: 0.26 },
+      bolt:    { dmg: 33, v: 11, life: 0.75, r: 0.32, y: 1.3, kb: 2.6, stun: 0.24 },
+      bolt2:   { dmg: 35, v: 11.5, life: 0.75, r: 0.32, y: 1.15, kb: 2.8, stun: 0.26 },
       orb:     { dmg: 52, v: 8.5, life: 0.95, r: 0.48, y: 1.35, kb: 2.5, launch: 6.5, stun: 0.5, stop: 0.08 },
       airbolt: { dmg: 32, v: 10, vy: -7, life: 0.6, r: 0.32, y: 0.2, kb: 1.4, stun: 0.3, launch: 2 },
       blast:   { dmg: 40, v: 0, life: 0.16, r: 1.15, y: 0.4, h: 2.2, kb: 5, stun: 0.4 },
@@ -65,7 +65,7 @@ export const CLASSES = {
   },
   brawler: {
     id: 'brawler', zh: '拳師', en: 'BRAWLER', color: 0xff7a1a, trim: 0xffe14d, cloth: 0x3a1608,
-    role: 'melee', hp: 1100, walk: 2.85, weight: 1.15, reach: 1.3, prefer: 1.1,
+    role: 'melee', hp: 1080, walk: 2.85, weight: 1.15, reach: 1.3, prefer: 1.1,
     stats: { atk: 5, def: 5, spd: 2, rng: 1 },
     outfit: { weapon: 'gauntlets', head: 'headband' },
     desc: ['重拳近身 · 火箭衝拳霸體突進', 'Heavy hitter · armoured rocket rush'],
@@ -84,7 +84,7 @@ export const CLASSES = {
   },
   assassin: {
     id: 'assassin', zh: '刺客', en: 'ASSASSIN', color: 0x3bff9a, trim: 0xff2b6a, cloth: 0x0c1a16,
-    role: 'hybrid', hp: 960, walk: 3.45, weight: 0.85, reach: 1.35, prefer: 1.3,
+    role: 'hybrid', hp: 980, walk: 3.45, weight: 0.85, reach: 1.35, prefer: 1.3,
     stats: { atk: 3, def: 2, spd: 5, rng: 3 },
     outfit: { weapon: 'daggers', head: 'mask', neck: 'scarf' },
     desc: ['高速雙匕 · 影步飛刀、瞬殺繞背', 'Fast twin daggers · shadow-step throws, teleport strikes'],
@@ -97,7 +97,7 @@ export const CLASSES = {
       air1: A({ name: ['空刃', 'Air cut'], t: [0.04, 0.08, 0.12], dmg: 33, box: [-0.2, 1.4, -0.5, 1.8], chain: 0.42, pose: ['airA0', 'asAir', 'airA1f'] }),
       air2: A({ name: ['墜刃', 'Drop blade'], t: [0.05, 0.1, 0.2], dmg: 44, box: [-0.2, 1.4, -0.9, 1.5], launch: 0, spike: -13, kb: 2, stop: 0.07, pose: ['airB0', 'asDrop', 'airB1f'] }),
       s1: S({ name: ['影步飛刀', 'Shadow Step'], tag: 'escape', t: [0.08, 0.18, 0.22], dmg: 0, inv: [0, 0.22], vx: -15, vxT: [0, 0.2], cd: 5, air: true, fire: [{ at: 0.12, type: 'proj', proj: 'dagger' }, { at: 0.18, type: 'proj', proj: 'dagger', dy: 0.25 }, { at: 0.24, type: 'proj', proj: 'dagger', dy: -0.2 }], pose: ['asB0', 'asThrow', 'asA1f'] }),
-      s2: S({ name: ['瞬殺', 'Phantom Strike'], tag: 'closer', t: [0.12, 0.1, 0.3], dmg: 104, box: [-0.2, 1.4, 0.4, 2.1], inv: [0, 0.16], kb: 4, stun: 0.55, stop: 0.1, cd: 7, fire: [{ at: 0.1, type: 'teleport', behind: true, maxDist: 7 }], pose: ['blink0', 'asA1', 'asA1f'] }),
+      s2: S({ name: ['瞬殺', 'Phantom Strike'], tag: 'closer', t: [0.17, 0.1, 0.3], dmg: 104, box: [-0.2, 1.4, 0.4, 2.1], inv: [0, 0.16], kb: 4, stun: 0.55, stop: 0.1, cd: 7, fire: [{ at: 0.15, type: 'teleport', behind: true, maxDist: 7 }], pose: ['blink0', 'asA1', 'asA1f'] }),
       ult: U({ name: ['死蓮', 'Death Lotus'], t: [0.14, 1.0, 0.45], dmg: 36, box: [-1.2, 1.6, 0, 2.6], multi: 8, last: { dmg: 160, kb: 8, launch: 9, stun: 0.9, stop: 0.16 }, inv: [0, 1.6], fire: [{ at: 0.1, type: 'teleport', behind: false, maxDist: 9 }], pose: ['ult0', 'asSpin', 'asD1f'] }),
     },
     projs: {

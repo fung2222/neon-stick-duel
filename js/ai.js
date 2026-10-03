@@ -9,7 +9,7 @@ export function aiParams(diff) {
   return {
     react: lerp(0.4, 0.12, k), think: lerp(0.5, 0.14, k), guardP: lerp(0.08, 0.55, k), dodgeP: lerp(0.03, 0.22, k),
     comboP: lerp(0.4, 0.97, k), jcP: k > 0.45 ? Math.min(0.9, (k - 0.45) * 1.8) : 0, enderP: lerp(0.05, 0.75, k),
-    skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k),
+    escP: Math.max(0, k - 0.5) * 1.6, skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k),
   };
 }
 
@@ -20,7 +20,7 @@ function threatOf(d, me, op) {
     if (m && op.t < m.t[0] + m.t[1] * 0.6) {
       const reach = m.box ? Math.max(m.box[1], (m.vx || 0) * (m.t[0] + m.t[1]) * 0.6 + m.box[1]) : (m.fire ? 9 : 0);
       const tele = (m.fire || []).some((f) => f.type === 'teleport');   // teleport strikes threaten from range
-      if (m.kind === 'ult' || tele || gap < reach + 0.7) return { key: 'm' + op.seq, ranged: !m.box, kind: m.kind };
+      if (m.kind === 'ult' || tele || gap < reach + 0.7) return { key: 'm' + op.seq, ranged: !m.box, kind: m.kind, tele };
     }
   }
   for (const p of d.projs) {
@@ -48,9 +48,20 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   if (th && th.key !== mem.threatKey) { mem.threatKey = th.key; mem.reactAt = mem.t + P.react * (0.7 + 0.6 * rng()); mem.react = th; }
   if (mem.react && mem.t >= mem.reactAt) {
     const r0 = mem.react; mem.react = null;
+    // casters mid-volley can cancel a basic into Blink to escape a melee threat (escape-cancel)
+    const mvNow = moveOf(me);
+    if (th && th.key === r0.key && cls === 'mage' && !r0.ranged && me.st === 'atk' && mvNow && mvNow.kind === 'basic' && me.cd.s1 <= 0 && rng() < P.escP) return 's1';
     if (th && th.key === r0.key && actionable(me)) {
       const r = rng();
-      if (r0.pillar || r0.meteor) { if (r < P.dodgeP + P.guardP * 0.6) { me.in.mx = -dirTo * (rng() < 0.5 ? 1 : -1); return 'dodge'; } }
+      if (r0.tele && r0.kind !== 'ult') {
+        // teleport strike appears behind you: guarding the front is useless → blink / dodge / hop instead
+        if (r < P.guardP + P.dodgeP) {
+          if (cls === 'mage' && me.cd.s1 <= 0) return 's1';
+          if (rng() < 0.5 && me.dodgeCd <= 0) { me.in.mx = dirTo; return 'dodge'; }
+          me.in.mx = -dirTo; return 'jump';
+        }
+      }
+      else if (r0.pillar || r0.meteor) { if (r < P.dodgeP + P.guardP * 0.6) { me.in.mx = -dirTo * (rng() < 0.5 ? 1 : -1); return 'dodge'; } }
       else if (r0.ranged && C.role !== 'ranged') {
         // melee vs projectiles: roll through, hop over or guard
         if (r < P.dodgeP + 0.06 && me.dodgeCd <= 0) { me.in.mx = dirTo; return 'dodge'; }
@@ -143,7 +154,7 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
     if (op.st === 'air' && op.y > 0.4 && skill('s2', 2.5)) return 's2';
     if (skill('s2', 0.9)) return 's2';
     if (gap < 3.6 && (mem.walkT || 0) <= 0 && toWall > 1.5) { mem.walkT = 0.3 + 0.3 * rng(); mem.walkDir = -dirTo; }
-    if (mem.cool <= 0) { mem.cool = P.think * (0.5 + rng()); if (rng() < P.aggr * (0.45 + 0.55 * k) + 0.1) return 'atk'; mem.walkT = 0.25; mem.walkDir = rng() < 0.5 ? -dirTo : dirTo * 0.5; }
+    if (mem.cool <= 0) { mem.cool = P.think * (0.5 + rng()); if (rng() < P.aggr * (0.6 + 0.4 * k) + 0.1) return 'atk'; mem.walkT = 0.25; mem.walkDir = rng() < 0.5 ? -dirTo : dirTo * 0.5; }
     return null;
   }
 

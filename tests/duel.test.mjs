@@ -1,50 +1,165 @@
-// node tests/duel.test.mjs — pure duel logic tests
+// node tests/duel.test.mjs — pure simulation, AI, modes, balance sanity
 import assert from 'node:assert/strict';
-import { makeDuel, act, step, MOVES, TUNE, TOWER, aiThink, floorScore, guardBreak, opponentFor, isMilestone } from '../js/duel.js';
-let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok - ' + name); };
-const run = (d, sec, each) => { const dt = 1 / 60; for (let i = 0; i < sec * 60; i++) { each && each(i); step(d, dt); } };
-const close = (d, gap = 1.0) => { d.a.x = -gap / 2; d.b.x = gap / 2; };
-let seed = 7; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+import { makeDuel, step, act, DT, TUNE, CLASSES, CLASS_IDS, isInv, simulate, moveOf } from '../js/duel.js';
+import { aiThink, mulberry32 } from '../js/ai.js';
+import { LADDER, ladderFoe, endlessFoe, isBossFloor, fightScore, migrateSave, TRIAL } from '../js/modes.js';
+import { matrix } from './balance.mjs';
 
-t('fighters auto-approach to striking range', () => { const d = makeDuel(); run(d, 3); const g = d.b.x - d.a.x; assert.ok(g < TUNE.approach + 0.2 && g >= TUNE.minGap - 0.01, 'gap ' + g); });
-t('jab in range hits and knocks back', () => { const d = makeDuel(); close(d); d.b.hold = true; assert.ok(act(d.a, 'jab')); run(d, 0.5); assert.equal(d.b.hp, 100 - MOVES.jab.dmg); assert.ok(d.b.x > 0.5); });
-t('jab out of range whiffs', () => { const d = makeDuel(); d.a.hold = d.b.hold = true; d.a.x = -3; d.b.x = 3; act(d.a, 'jab'); run(d, 0.5); assert.equal(d.b.hp, 100); });
-t('three-hit combo ends in a kick', () => { const d = makeDuel(); close(d, 0.9); d.b.hold = true; const seen = []; run(d, 1.6, () => { if (d.a.st === 'idle' || (d.a.phase === 'recover')) act(d.a, 'jab'); if (d.a.move && !seen.includes(d.a.move)) seen.push(d.a.move); d.b.x = d.a.x + 0.9; }); assert.deepEqual(seen.slice(0, 3), ['jab', 'jab2', 'kick']); });
-t('parry stuns the attacker and negates damage', () => { const d = makeDuel(); close(d); act(d.b, 'parry'); act(d.a, 'jab'); run(d, 0.3); assert.equal(d.b.hp, 100); assert.equal(d.a.st, 'stun'); assert.equal(d.b.stats.parries, 1); });
-t('late parry (window expired) fails', () => { const d = makeDuel(); close(d); act(d.b, 'parry'); run(d, TUNE.parryWin + 0.02); d.b.st = 'parry'; d.b.t = TUNE.parryWin + 0.1; act(d.a, 'jab'); run(d, 0.3); assert.ok(d.b.hp < 100); });
-t('fully charged heavy breaks a parry', () => { const d = makeDuel(); close(d); d.b.hold = true; act(d.a, 'chargeStart'); run(d, TUNE.chargeMax + 0.05); act(d.a, 'chargeRelease'); assert.ok(guardBreak(d.a)); act(d.b, 'parry'); run(d, 0.4); assert.equal(d.b.hp, 100 - (MOVES.heavy.dmg + MOVES.heavy.dmgCharge)); });
-t('quick heavy is parryable and weaker', () => { const d = makeDuel(); close(d); act(d.a, 'chargeStart'); run(d, 0.2); act(d.a, 'chargeRelease'); assert.ok(!guardBreak(d.a)); act(d.b, 'parry'); run(d, 0.4); assert.equal(d.b.hp, 100); });
-t('dash i-frames evade a jab', () => { const d = makeDuel(); close(d); act(d.a, 'jab'); act(d.b, 'dashB'); run(d, 0.4); assert.equal(d.b.hp, 100); });
-t('jump avoids a ground jab, heavy hits air', () => { const d = makeDuel(); close(d); act(d.b, 'jump'); run(d, 0.15); act(d.a, 'jab'); run(d, 0.25); assert.equal(d.b.hp, 100); });
-t('dive kick from a jump hits', () => { const d = makeDuel(); close(d, 1.6); d.b.hold = true; act(d.a, 'jump'); run(d, 0.3); assert.ok(act(d.a, 'jab')); run(d, 0.8); assert.ok(d.b.hp < 100, 'hp ' + d.b.hp); });
-t('hitting a charging fighter cancels the charge', () => { const d = makeDuel(); close(d); act(d.b, 'chargeStart'); run(d, 0.3); act(d.a, 'jab'); run(d, 0.3); assert.equal(d.b.st, 'hit'); });
-t('KO ends the duel', () => { const d = makeDuel(); close(d); d.b.hp = 3; act(d.a, 'jab'); run(d, 0.4); assert.deepEqual(d.over, { winner: 'a', by: 'ko' }); assert.equal(d.a.st, 'win'); });
-t('time out decides by hp %', () => { const d = makeDuel(); d.a.hold = d.b.hold = true; d.a.x = -3; d.b.x = 3; d.b.hp = 50; d.time = 0.05; run(d, 0.1); assert.equal(d.over.winner, 'a'); assert.equal(d.over.by, 'time'); });
-t('arena bounds hold', () => { const d = makeDuel(); d.a.x = -6.9; act(d.a, 'dashB'); run(d, 0.5); assert.ok(d.a.x >= -7); });
-t('tower: 8 original opponents, rising hp at the end', () => { assert.equal(TOWER.length, 8); assert.ok(TOWER[7].hp > TOWER[0].hp); for (const o of TOWER) for (const k of ['parry', 'evade', 'heavy', 'combo']) assert.ok(o[k] >= 0 && o[k] <= 1); });
-t('AI vs AI duels finish and each AI lands hits', () => {
-  for (const lvl of [1, 4, 7]) { const d = makeDuel(TOWER[lvl].hp); const ma = {}, mb = {};
-    for (let i = 0; i < 60 * 70 && !d.over; i++) { const ca = aiThink(d, d.a, d.b, TOWER[4], ma, 1 / 60, rng), cb = aiThink(d, d.b, d.a, TOWER[lvl], mb, 1 / 60, rng); if (ca) act(d.a, ca); if (cb) act(d.b, cb); step(d, 1 / 60); }
-    assert.ok(d.over, 'duel ended'); assert.ok(d.a.stats.hits > 0 && d.b.stats.hits > 0, `hits ${d.a.stats.hits}/${d.b.stats.hits}`); }
+let passed = 0, failed = 0;
+const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+const test = (name, fn) => { try { fn(); passed++; console.log('ok  ', name); } catch (e) { failed++; console.log('FAIL', name, '\n     ', e.message); } };
+const run = (d, sec, each) => { for (let i = 0; i < Math.round(sec / DT); i++) { each && each(i); step(d, DT); d.events.length = 0; } };
+const close = (d, gap = 1.0) => { d.a.x = -gap / 2; d.b.x = gap / 2; };
+const tap = (d, f, cmd, sec = 0.02) => { act(f, cmd); run(d, sec); };
+
+test('four classes with combo 3-4, two skills with cooldowns, ultimate', () => {
+  assert.deepEqual(CLASS_IDS, ['sword', 'mage', 'brawler', 'assassin']);
+  for (const id of CLASS_IDS) {
+    const C = CLASSES[id];
+    assert.ok(C.combo.length >= 3 && C.combo.length <= 4, id + ' combo');
+    assert.ok(C.moves.s1.cd > 0 && C.moves.s2.cd > 0, id + ' cds');
+    assert.equal(C.moves.ult.kind, 'ult');
+    assert.ok(C.zh && C.en && C.outfit.weapon);
+  }
+  assert.equal(CLASSES.mage.moves.s1.tag, 'escape'); assert.equal(CLASSES.assassin.moves.s1.tag, 'escape');
+  assert.equal(CLASSES.sword.moves.s1.tag, 'closer'); assert.equal(CLASSES.brawler.moves.s1.tag, 'closer'); assert.equal(CLASSES.assassin.moves.s2.tag, 'closer');
 });
-t('higher tower AIs beat the dummy-level AI more often', () => {
-  let wins = 0; for (let g = 0; g < 20; g++) { const d = makeDuel(); const ma = {}, mb = {};
-    for (let i = 0; i < 60 * 70 && !d.over; i++) { const ca = aiThink(d, d.a, d.b, TOWER[0], ma, 1 / 60, rng), cb = aiThink(d, d.b, d.a, TOWER[7], mb, 1 / 60, rng); if (ca) act(d.a, ca); if (cb) act(d.b, cb); step(d, 1 / 60); }
-    if (d.over && d.over.winner === 'b') wins++; }
-  assert.ok(wins >= 15, 'lord wins ' + wins + '/20');
+test('ranged per-hit damage < melee per-hit damage', () => {
+  const ranged = Object.values(CLASSES.mage.projs).filter((p) => !p.ult && p.v).map((p) => p.dmg);
+  const melee = ['sword', 'brawler'].flatMap((c) => CLASSES[c].combo.map((k) => CLASSES[c].moves[k].dmg));
+  assert.ok(Math.max(...ranged) < Math.max(...melee) && avg(ranged) < avg(melee), `${avg(ranged)} vs ${avg(melee)}`);
 });
-t('floor score adds perfect bonus', () => { const d = makeDuel(); d.time = 30; const s = floorScore(3, d); assert.equal(s.total, 3000 + 1000 + 450 + 2000); });
-t('endless: floors beyond 8 are procedural, named in both languages, capped', () => {
-  assert.equal(opponentFor(3).id, TOWER[3].id); let prevHp = 0;
-  for (const f of [8, 9, 20, 57, 200, 5000]) { const o = opponentFor(f); assert.ok(o.endless && o.zh && o.en && o.descEn); assert.ok(o.hp >= prevHp && o.hp <= 330); prevHp = o.hp;
-    for (const k of ['parry', 'evade', 'heavy', 'combo', 'dash', 'jump', 'punish']) assert.ok(o[k] >= 0 && o[k] <= 0.92, k + ' ' + o[k]); assert.ok(o.think >= 0.17); }
-  assert.notEqual(opponentFor(8).en, opponentFor(15).en);
+test('free movement: no auto-forward; walk both ways; back-walk slower', () => {
+  const d = makeDuel('sword', 'brawler'); const x0 = d.a.x;
+  run(d, 1); assert.equal(d.a.x, x0, 'idle fighter stays put');
+  d.a.in.mx = 1; run(d, 0.5); const fwd = d.a.x - x0; assert.ok(fwd > 1.2, 'walks forward ' + fwd);
+  d.a.in.mx = -1; const x1 = d.a.x; run(d, 0.5); const back = x1 - d.a.x; assert.ok(back > 0.8 && back < fwd, 'backs off slower ' + back);
 });
-t('endless: floor 60 is still winnable for a strong AI player', () => {
-  let wins = 0; const P = { ...TOWER[7], think: 0.2, parry: 0.5, punish: 0.9 }; for (let g = 0; g < 12; g++) { const o = opponentFor(59); const d = makeDuel(o.hp); const ma = {}, mb = {};
-    for (let i = 0; i < 60 * 70 && !d.over; i++) { const ca = aiThink(d, d.a, d.b, P, ma, 1 / 60, rng), cb = aiThink(d, d.b, d.a, o, mb, 1 / 60, rng); if (ca) act(d.a, ca); if (cb) act(d.b, cb); step(d, 1 / 60); }
-    if (d.over && d.over.winner === 'a') wins++; }
-  assert.ok(wins >= 1, 'wins ' + wins + '/12');
+test('tapping attack chains the full basic combo (each class)', () => {
+  for (const id of CLASS_IDS) {
+    const d = makeDuel(id, 'brawler', {}, { hpMul: 10 }); close(d, 1.0); const seen = [];
+    for (let i = 0; i < 120; i++) { if (i % 6 === 0) act(d.a, 'atk'); step(d, DT); for (const e of d.events) if (e.type === 'move' && e.who === d.a) seen.push(e.key); d.events.length = 0; }
+    assert.deepEqual(seen.slice(0, CLASSES[id].combo.length), CLASSES[id].combo, id + ' ' + seen.join(','));
+  }
 });
-t('milestones every 10 floors add a bonus', () => { assert.ok(isMilestone(9) && isMilestone(19) && !isMilestone(10)); const d = makeDuel(); d.a.hp = 50; d.time = 0; assert.equal(floorScore(10, d).milestone, 5000); assert.equal(floorScore(11, d).milestone, 0); });
-console.log(`ALL PASSED (${n})`);
+test('melee combo lands and the finisher launches (juggle)', () => {
+  const d = makeDuel('brawler', 'sword', {}, { hpMul: 10 }); close(d, 1.0); let launched = false;
+  for (let i = 0; i < 120; i++) { if (i % 5 === 0) act(d.a, 'atk'); step(d, DT); if (d.b.st === 'air') launched = true; d.events.length = 0; }
+  assert.ok(d.b.stats.taken > 150 && launched, 'taken ' + d.b.stats.taken);
+});
+test('launcher → jump cancel → air combo hits an airborne foe', () => {
+  const d = makeDuel('sword', 'brawler', {}, { hpMul: 10 }); close(d, 1.0); let airHits = 0, jumped = false;
+  for (let i = 0; i < 200; i++) {
+    const m = moveOf(d.a);
+    if (!jumped && m && m.launch && d.a.connected) { act(d.a, 'jump'); jumped = true; }
+    else if (i % 5 === 0 && (!jumped || d.a.y > 0.2)) act(d.a, 'atk');
+    step(d, DT); for (const e of d.events) if (e.type === 'hit' && e.who === d.b && (e.src || '').startsWith('air')) airHits++; d.events.length = 0;
+  }
+  assert.ok(jumped && airHits >= 1, 'air hits ' + airHits);
+});
+test('cancel window: basic attack cancels into a skill', () => {
+  const d = makeDuel('sword', 'brawler', {}, { hpMul: 10 }); close(d, 1.0); act(d.a, 'atk'); let cancelled = false;
+  for (let i = 0; i < 40; i++) { if (d.a.mk === 'a1' && d.a.connected) act(d.a, 's2'); step(d, DT); if (d.a.mk === 's2' && !cancelled) cancelled = true; d.events.length = 0; }
+  assert.ok(cancelled);
+});
+test('skills go on cooldown', () => {
+  const d = makeDuel('brawler', 'sword'); tap(d, d.a, 's1'); assert.ok(d.a.cd.s1 > 5);
+  run(d, 1.2); assert.equal(act(d.a, 's1') && (run(d, 0.05), d.a.mk === 's1'), false);
+});
+test('gap-closers cover distance; escapes create distance', () => {
+  for (const [id, key, min] of [['sword', 's1', 3.5], ['brawler', 's1', 3.5]]) { const d = makeDuel(id, 'mage'); const x0 = d.a.x; tap(d, d.a, key); run(d, 0.6); assert.ok(d.a.x - x0 > min, `${id} ${key} ${d.a.x - x0}`); }
+  { const d = makeDuel('assassin', 'mage'); tap(d, d.a, 's2'); run(d, 0.3); assert.ok(Math.abs(d.a.x - d.b.x) < 1.2, 'phantom strike teleports next to the foe'); }
+  { const d = makeDuel('mage', 'brawler'); close(d, 1.0); const g0 = Math.abs(d.a.x - d.b.x); tap(d, d.a, 's1'); run(d, 0.2); assert.ok(Math.abs(d.a.x - d.b.x) > g0 + 3, 'blink'); }
+  { const d = makeDuel('assassin', 'brawler'); close(d, 1.0); tap(d, d.a, 's1'); run(d, 0.5); assert.ok(Math.abs(d.a.x - d.b.x) > 3.2, 'shadow step backs off'); }
+});
+test('mage blink in a corner crosses over instead of hugging the wall', () => {
+  const d = makeDuel('mage', 'brawler'); d.a.x = -7.3; d.b.x = -6.3; tap(d, d.a, 's1'); run(d, 0.1); assert.ok(d.a.x > d.b.x + 2, 'x ' + d.a.x);
+});
+test('projectiles fly and hit; pillar and meteors work', () => {
+  const d = makeDuel('mage', 'sword'); d.b.x = 3; tap(d, d.a, 'atk'); run(d, 0.8); assert.ok(d.b.hp < d.b.maxHp, 'bolt hit');
+  const d2 = makeDuel('mage', 'sword'); tap(d2, d2.a, 's2'); run(d2, 0.9); assert.ok(d2.b.hp < d2.b.maxHp && d2.b.stats.taken >= 100, 'pillar');
+  const d3 = makeDuel('mage', 'sword'); d3.a.ult = 100; tap(d3, d3.a, 'ult'); run(d3, 3); assert.ok(d3.b.stats.taken > 250, 'meteors ' + d3.b.stats.taken);
+});
+test('ultimate: needs a full meter, freezes time, is invulnerable, deals big damage', () => {
+  for (const id of CLASS_IDS) {
+    const d = makeDuel(id, 'brawler', {}, { hpMul: 10 }); close(d, 1.2);
+    tap(d, d.a, 'ult'); assert.notEqual(d.a.mk, 'ult', 'no meter → no ult');
+    d.a.ult = 100; act(d.a, 'ult'); step(d, DT); assert.ok(d.freeze > 0 && d.a.mk === 'ult', id + ' freeze');
+    run(d, 0.85); assert.ok(isInv(d.a), id + ' invulnerable');
+    run(d, 2.5); assert.ok(d.b.stats.taken >= 250, id + ' ult dmg ' + d.b.stats.taken); assert.equal(d.a.ult < 30, true);
+  }
+});
+test('ult meter charges by dealing and taking damage', () => {
+  const d = makeDuel('brawler', 'sword', {}, { hpMul: 10 }); close(d, 1.0);
+  for (let i = 0; i < 60; i++) { if (i % 5 === 0) act(d.a, 'atk'); step(d, DT); d.events.length = 0; }
+  assert.ok(d.a.ult > 10 && d.b.ult > d.a.ult, `${d.a.ult} / ${d.b.ult}`);
+});
+test('guard blocks with chip damage; guard meter can break', () => {
+  const d = makeDuel('brawler', 'sword'); close(d, 1.0); d.b.in.guard = true; run(d, 0.05);
+  tap(d, d.a, 'atk', 0.4); assert.ok(d.b.stats.blocks === 1 && d.b.stats.taken < 10, 'chip ' + d.b.stats.taken);
+  let broke = false; for (let i = 0; i < 1200 && !broke; i++) { if (i % 5 === 0) act(d.a, 'atk'); step(d, DT); for (const e of d.events) if (e.type === 'guardBreak') broke = true; d.events.length = 0; d.a.x = d.b.x - 1; }
+  assert.ok(broke, 'guard break');
+});
+test('dodge: i-frames make attacks whiff', () => {
+  const d = makeDuel('brawler', 'sword'); close(d, 1.0); act(d.a, 'atk'); run(d, 0.03); d.b.in.mx = 1; act(d.b, 'dodge'); run(d, 0.3);
+  assert.equal(d.b.stats.taken, 0);
+});
+test('jump avoids a ground bolt; knockdown gives wake-up invulnerability', () => {
+  const d = makeDuel('mage', 'sword'); d.b.x = 4; tap(d, d.a, 'atk'); run(d, 0.3); act(d.b, 'jump'); run(d, 0.8); assert.equal(d.b.stats.taken, 0);
+  const d2 = makeDuel('brawler', 'sword', {}, { hpMul: 10 }); close(d2, 1); for (let i = 0; i < 150; i++) { if (i % 5 === 0) act(d2.a, 'atk'); step(d2, DT); d2.events.length = 0; if (d2.b.st === 'down') break; }
+  assert.equal(d2.b.st, 'down'); assert.ok(isInv(d2.b));
+});
+test('juggle cap stops infinite air combos', () => {
+  const d = makeDuel('assassin', 'brawler', {}, { hpMul: 10 }); d.b.st = 'air'; d.b.y = 2; d.b.vy = 4; d.b.jug = TUNE.jugCap; d.b.jugCap = true; assert.ok(isInv(d.b));
+});
+test('KO and time-out decide the fight', () => {
+  const d = makeDuel('brawler', 'sword'); close(d, 1); d.b.hp = 1; tap(d, d.a, 'atk', 0.4); assert.deepEqual(d.over, { winner: 'a', by: 'ko' });
+  const d2 = makeDuel('sword', 'sword'); d2.b.hp -= 10; d2.time = 0.05; run(d2, 0.2); assert.equal(d2.over.by, 'time'); assert.equal(d2.over.winner, 'a');
+});
+test('arena bounds', () => { const d = makeDuel('sword', 'brawler'); d.a.in.mx = -1; run(d, 6); assert.ok(d.a.x >= -7.5); });
+test('ladder: 10 fights, bosses at 5 and 10, mirror uses the player class; difficulty rises', () => {
+  assert.equal(LADDER.length, 10); assert.ok(LADDER[4].boss && LADDER[9].boss);
+  assert.equal(ladderFoe(8, 'mage').cls, 'mage');
+  for (let i = 1; i < 10; i++) assert.ok(LADDER[i].diff > LADDER[i - 1].diff);
+});
+test('endless tower never ends, difficulty capped, boss every 10 floors', () => {
+  const f = [0, 9, 10, 50, 500, 5000].map(endlessFoe);
+  assert.ok(f.every((x) => CLASS_IDS.includes(x.cls) && x.zh && x.en));
+  assert.ok(f[5].diff <= 1 && f[5].hpMul <= 2.1 && f[5].dmgMul <= 1.3);
+  assert.ok(isBossFloor(9) && endlessFoe(9).boss && !endlessFoe(10).boss);
+  assert.ok(endlessFoe(30).diff > endlessFoe(3).diff);
+});
+test('endless floor 60 is winnable by a strong AI', () => {
+  let wins = 0;
+  for (let s = 0; s < 10; s++) {
+    const foe = endlessFoe(60), rng = mulberry32(s + 9); const d = makeDuel('brawler', foe.cls, {}, foe); const ma = {}, mb = {};
+    simulate(d, (dd, me, op, dt) => { const c = aiThink(dd, me, op, { diff: 1 }, ma, dt, rng); if (c) act(me, c); }, (dd, me, op, dt) => { const c = aiThink(dd, me, op, foe, mb, dt, rng); if (c) act(me, c); });
+    if (d.over && d.over.winner === 'a') wins++;
+  }
+  assert.ok(wins >= 2, 'wins ' + wins);
+});
+test('harder AI beats easier AI', () => {
+  let wins = 0;
+  for (let s = 0; s < 20; s++) {
+    const rng = mulberry32(s * 3 + 1); const d = makeDuel('sword', 'sword'); const ma = {}, mb = {};
+    simulate(d, (dd, me, op, dt) => { const c = aiThink(dd, me, op, { diff: 0.95 }, ma, dt, rng); if (c) act(me, c); }, (dd, me, op, dt) => { const c = aiThink(dd, me, op, { diff: 0.15 }, mb, dt, rng); if (c) act(me, c); });
+    if (d.over && d.over.winner === 'a') wins++;
+  }
+  assert.ok(wins >= 15, 'wins ' + wins);
+});
+test('trial caps and scoring', () => {
+  assert.deepEqual(TRIAL, { ladder: 3, endless: 3 });
+  const d = makeDuel('sword', 'mage'); const s = fightScore(3, d, true); assert.ok(s.perfect === 2000 && s.boss === 3000 && s.total > 8000);
+});
+test('v1 save migration (lap → floor, ver 2) keeps progress', () => {
+  const mem = new Map(); const store = { get: (k) => mem.has(k) ? mem.get(k) : null, set: (k, v) => mem.set(k, String(v)), remove: (k) => mem.delete(k), getNum: (k, d = 0) => mem.has(k) ? +mem.get(k) : d, setNum: (k, v) => mem.set(k, String(v)) };
+  store.setNum('floor', 3); store.setNum('lap', 1); store.setNum('bestFloor', 11); store.setNum('best', 12345);
+  assert.equal(migrateSave(store), true); assert.equal(store.getNum('floor'), 11); assert.equal(store.get('lap'), null); assert.equal(store.getNum('ver'), 2); assert.equal(store.getNum('bestFloor'), 11); assert.equal(store.getNum('best'), 12345);
+  assert.equal(migrateSave(store), false);
+});
+test('balance: every matchup 35–65 % at diff 0.7 (60 fights each)', () => {
+  const res = matrix(60, 0.7);
+  for (const [k, r] of Object.entries(res)) { const [a, b] = k.split(':'); if (a === b) continue; const p = r.wa / r.n; assert.ok(p >= 0.35 && p <= 0.65, `${k} ${Math.round(p * 100)}%`); }
+});
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

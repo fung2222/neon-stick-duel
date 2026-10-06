@@ -1,6 +1,6 @@
 # NEON STICK DUEL 霓虹火柴人對打 — Handoff
 
-Status: **web build v2.0 — four classes, arcade controls, stage ladder + endless tower** · live https://fung2222.github.io/neon-stick-duel/ · demo `?demo=1` · not yet packaged for Android.
+Status: **web build v2.1 — four classes, controller-style touch pad, stage ladder + endless tower** · live https://fung2222.github.io/neon-stick-duel/ · demo `?demo=1` · not yet packaged for Android.
 Series rules: `fung2222/cyber-arcade/docs/ARCADE-HANDOFF.md` (bilingual zh-HK/EN via `cyber.lang`, endless mode, noindex, moderate bloom/haze, hub contract in `docs/MONETIZATION.md`). Tier: **Silver**. All characters, names, icons and sounds are original (no trademarked names, no console-button symbols).
 
 v2 (2026-10) replaced the v1 one-thumb gesture duel (auto-approach, tap/hold/swipe) with a classic arcade fighter: free movement, joystick + buttons, four classes with combos / skills / ultimates. v1 saves migrate automatically (§8).
@@ -65,16 +65,26 @@ Balance pass v2.0.1 (before → after, worst cells): diff 0.95 Assassin–Mage 6
 ## 3. Controls
 | Input | Touch | Keyboard |
 |---|---|---|
-| Move / back off | floating **virtual joystick** (left 46 % of the screen; appears where you touch) | `A` `D` / `←` `→` |
+| Move / back off | floating **virtual joystick** in its own zone on the left (appears where you touch; radial dead-zone 30 % of the travel) | `A` `D` / `←` `→` |
 | Jump | stick up, or **JUMP** button | `W` / `↑` / `Space` |
 | Guard (hold) | stick down, or hold **GUARD** | `S` / `↓` |
 | Dodge (i-frames) | **GUARD** while the stick points sideways | `Shift` / `O` (+ direction) |
-| Attack (combo) | **ATTACK** — keep tapping (holding repeats every 130 ms) | `J` |
-| Skill 1 / Skill 2 | buttons with short skill names + **cooldown rings** + seconds | `K` / `L` |
-| Ultimate | **ULT** button; ring = meter, pulses when ready | `U` / `I` |
+| Attack (combo) | big **ATTACK** — keep tapping (holding repeats every 130 ms) | `J` |
+| Skill 1 / Skill 2 | buttons with short per-class skill names + **cooldown rings** + seconds | `K` / `L` |
+| Ultimate | shoulder-style **ULT** pill; its outline = meter, pulses when ready | `U` / `I` |
 | Pause / mute | top-right buttons | `P` / `Esc`, `M`; `Enter` = primary button on menus; `F` FPS |
 
 Commands are buffered 0.2 s (`TUNE.bufferT`) so slightly early presses still chain. Android back: dialog → pause → resume; result → menu; select / trial → menu.
+
+### Touch pad layout (v2.1, 2026-10-06 — Roy: "Guard sat on the joystick; make it look like a game controller")
+- **Left = joystick only.** `#joy-zone` runs from the left edge to 12 px before the leftmost button (portrait) / up to 42 % of the width (landscape); nothing else is inside it. A faint dashed panel marks the area.
+- **Right = PlayStation-style face-button arc** around a big **ATTACK** at the right-thumb rest: **GUARD** (low left, with the `+方向＝閃避` hint under it) → **SKILL 1** → **SKILL 2** → **JUMP** (above, toward the edge), 40° apart on one arc (`ARC` in `js/controls.js`; angle 0 = left of ATTACK, 90 = straight above).
+- **ULTIMATE** is a separate shoulder-style pill above the arc, flush right, ≥ 34 px (portrait) / 22 px (landscape) clear of the face buttons so it is not pressed by accident. No L/R buttons at the top corners: the top belongs to the HP bars + pause/mute, and Guard must stay on the right thumb so it can be combined with the stick for dodge.
+- Geometry is pure JS (`padGeometry(w, h, safeInsets)` → `layoutPad()` writes px positions; re-run on resize / orientation change). Scale `k` = 1 at 360–380 px wide, up to 1.12 portrait / 1.15 landscape: small buttons 58–66 px, ATTACK 84–96 px, ULT pill 100×58 → 115×67. Safe-area insets come from a hidden `env(safe-area-inset-*)` probe; `node tests/pad.test.mjs` checks 15 screen sizes × notch / gesture-bar / landscape side insets (1530 assertions).
+- Typical boxes: 360×780 — zone 145 px wide, ATTACK Ø84, buttons Ø58, closest gap 7 px; 412×915 — zone 183 px, ATTACK Ø92, buttons Ø62; 915×412 — zone 384 px (left), cluster at the right edge.
+- Short landscape (≤ 560 px tall): HP bars move to the very top and narrow so they clear pause/mute.
+- No new saves: the layout is computed, not stored, so old saves are untouched (`cyber.neon-stick-duel.*` unchanged).
+- Multi-touch: the joystick and every button capture their own pointer (`setPointerCapture`), so stick + button work together (tested with CDP two-finger touch).
 
 ## 4. Modes (js/modes.js)
 - **Stage ladder (階梯模式)**: 10 fights — 夜鴉 NIGHT CROW (assassin) · 後巷鐵拳 ALLEY IRONFIST (brawler) · 霓虹術士 NEON ADEPT (mage) · 浪人七號 RONIN-07 (sword) · **BOSS 重錘霸王 HAMMER KING** (brawler, HP ×1.55, size ×1.28) · 風暴巫女 STORM WITCH · 幻刃 PHANTOM EDGE · 劍聖 BLADE SAINT · 鏡像分身 MIRROR SHADE (your class) · **FINAL BOSS 塔主・零 TOWER LORD ZERO** (sword, HP ×1.85, ult gain ×1.35). AI difficulty 0.12 → 0.86. Progress saved per fight; clearing all 10 counts a ladder clear and restarts at fight 1. A loss retries the same fight.
@@ -100,9 +110,9 @@ Commands are buffered 0.2 s (`TUNE.bufferT`) so slightly early presses still cha
 
 ## 7. File map
 ```
-index.html        HUD (HP + ult bars, timer, stage/floor, score, combo, trial tag), joystick + 6 buttons with SVG cooldown rings,
+index.html        HUD (HP + ult bars, timer, stage/floor, score, combo, trial tag), joystick zone + 6 buttons with SVG cooldown rings (ult = pill outline),
                   ult cut-in, start / class select / pause / result / trial screens. noindex.
-css/game.css      HUD, controls layout (portrait + landscape + short landscape), select screen, cut-in
+css/game.css      HUD, control looks (positions come from js/controls.js), short-landscape HUD, select screen, cut-in
 js/classes.js     4 classes: stats, outfits, full move lists (frame data), projectiles — pure data
 js/duel.js        pure sim (fixed DT 1/60): movement, buffer, chains, cancels, juggles, guard, armour, projectiles, hit-stop,
                   ult freeze, KO / time-out, events — unit-tested
@@ -112,14 +122,14 @@ js/poses.js       base pose + per-class stances + 83 named key poses
 js/stickman.js    StickFighter: FK skeleton → lit capsule bones, outfits, weapons, cloth ribbons, weapon trail, spring pose blending,
                   guard hex, ult-ready ring, hit flash
 js/world.js       Rooftop stage + key/rim directional lights
-js/controls.js    virtual joystick + buttons + keyboard → { mx, guard } + commands
+js/controls.js    virtual joystick + buttons + keyboard → { mx, guard } + commands; padGeometry / layoutPad (touch pad layout)
 js/main.js        shell: states (menu/select/intro/play/paused/result/trial), fixed-step loop, class-select preview vs a dummy,
                   events → FX/audio, projectile meshes, ult cinematic + camera, HUD, saves, hub/trial/ads, test hook
 js/audio.js       DuelAudio · js/config.js look settings · js/strings.js zh/en table · js/hub.js hub contract
 vendor/cyber-kit  cyber-kit v0.3.0
-tests/            duel.test.mjs (26), balance.mjs, dps.mjs, smoke.py (headless Chrome)
+tests/            duel.test.mjs (26), pad.test.mjs, balance.mjs, dps.mjs, smoke.py + pad.py (headless Chrome)
 ```
-Test hook `window.__duel`: state, mode, cls, stage, floor, score, duel, foe, cmdLog, adBreaks, interstitials, rewardedAsks, and `api.cmd / setHp / close / freezeFoe / tank / setUlt / startMode(mode,{cls,stage,floor}) / pickClass / fighter(who) / store() / hub() / screenOf`.
+Test hook `window.__duel`: state, mode, cls, stage, floor, score, duel, foe, cmdLog, adBreaks, interstitials, rewardedAsks, and `api.cmd / setHp / close / freezeFoe / tank / setUlt / startMode(mode,{cls,stage,floor}) / pickClass / fighter(who) / store() / hub() / screenOf / pad()` (pad = layout geometry + live button / zone rects).
 
 ## 8. Saves (localStorage `cyber.neon-stick-duel.*`)
 `cls` (last class) · `ladder` (next fight 0–9) · `ladderScore` · `ladderBest` (fights cleared, best) · `ladderClears` · `floor` (next endless floor, 0-based) · `runScore` · `bestFloor` · `best` (kit best score) · `muted` · `ver` = 2.
@@ -127,10 +137,12 @@ Test hook `window.__duel`: state, mode, cls, stage, floor, score, duel, foe, cmd
 
 ## 9. Tests
 - `node tests/duel.test.mjs` — 26 tests: class kits (3–4 hit chains, 2 skills with cooldowns, ult), ranged per-hit < melee per-hit, free movement (no auto-forward, slower back-walk), every class chains its full combo, launcher → juggle, launcher → jump-cancel → air combo, basic → skill cancel, cooldowns, gap-closers close / escapes open distance, mage corner blink crosses over, projectiles / pillar / meteors, ult (meter, freeze, invulnerable, damage), ult meter from dealing + taking damage, guard chip + guard break, dodge i-frames, jump over a bolt + wake-up invulnerability, juggle cap, KO / time-out, arena bounds, ladder data (bosses at 5 and 10, mirror, rising difficulty), endless never ends + capped + boss every 10, floor 60 winnable, harder AI beats easier AI, trial caps + scoring, v1 migration, balance band 40–60 % at diff 0.7 (400 deterministic fights per matchup).
+- `python tests/pad.py [url] [out] [--views 412x915,915x412]` — touch pad: 412×915, 360×780, 390×844, 430×932, 412×1000, 915×412, 740×360 × zh/en: hit areas ≥ 56 px, no overlapping hit areas (circles, ult pill as a rect), nothing touches the joystick zone, inside the viewport, clear of HP bars / pause, each button topmost at its centre, labels fit, two-finger CDP test (stick + ATTACK), zero console errors; screenshots `hud-<w>x<h>-<lang>.png` + `layout.json`.
 - `node tests/balance.mjs [n] [diff]` — matchup matrix. `node tests/dps.mjs` — DPS/TTK table.
 - `python tests/smoke.py [url] [out] [--quick]` — headless Chrome, 412×915 touch + 1280×800, zh + en: menu, class select (all 4), joystick walk/back-off/stand-still, keyboard / buttons (jump, guard, dodge), each class mid-combo, skill buttons + cooldown rings, ult cut-in, KO → result → next (saved), loss → revive, endless floor 12, pause/resume; hub trial caps (ladder 3 / endless 3 → trial screen, no saves), interstitial break only after a loss, v1 save migration, demo; zero console errors. Writes screenshots. Headless SwiftShader ≈ 3 FPS, so it polls state.
 
 ## 10. Known gaps / ideas
+- Touch pad: not yet tried on a real notch / gesture-bar phone (safe areas are checked through `padGeometry` in node, not in a device); no left-handed mirror or size option yet (would go in `padGeometry` + a stored `pad` pref). The joystick up = jump stays on (some players may prefer it off).
 - Balance is tuned on AI-vs-AI; human players will find the Mage's kiting and the Assassin's teleport stronger/weaker than the AI does. Watch real play data.
 - AI-vs-AI the Mage is slightly favoured at mid difficulty (54.9 % overall at diff 0.7) and the Brawler at easy (55.9 % at diff 0.35); every single matchup is still 42–58 %.
 - No local 2-player or online play. No per-class unlockable skins yet.

@@ -61,7 +61,9 @@ export class AnimeFighter extends HQFighter {
     this.disposeParts(); this.cls = clsId; this.C = C; this.cfg = cfg; this.prof = cfg.anim; this.colorHex = hex; this.scaleK = scale; this.scale = 1.2 * RIG_SCALE * scale;
     this.keysCache = {};
     const accent = hex === C.color ? cfg.palette.trim : hex;
-    const ch = this.char = buildCharacter({ ...cfg, palette: { ...cfg.palette, trim: accent, hairTie: accent, rim: accent } });
+    // a recoloured fighter (mirror match / ladder foe) also shifts its coat toward the accent so the two read apart
+    const coat = hex === C.color ? cfg.palette.coat : new THREE.Color(cfg.palette.coat).lerp(new THREE.Color(accent).multiplyScalar(0.42), 0.55).getHex();
+    const ch = this.char = buildCharacter({ ...cfg, palette: { ...cfg.palette, coat, trim: accent, hairTie: accent, rim: accent } });
     for (const b of ch.bones) this.rig.add(b);
     this.rig.add(ch.body, ch.outline, ch.weapon);
     this.parts = [ch.body, ch.outline, ch.weapon, ...ch.bones]; this.blade = ch.weapon;

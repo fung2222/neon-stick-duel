@@ -29,7 +29,7 @@ def font(sz, cjk=False):
         if os.path.exists(f): return ImageFont.truetype(f, sz)
     return ImageFont.load_default()
 
-CLEAN = "#hud,#controls,#banner,.banner,.popup,#combo,#ult-cut,#ult-dim,.controls-hint,#demo-tag{display:none!important}"
+CLEAN = "#hud,#controls,#banner,.banner,.popup,#combo,#ult-cut,#ult-dim,.controls-hint,#demo-tag,#loading{display:none!important}"
 COMBO_JS = """(S) => {   // scripted showcase: a1-a4 chain → jump cancel → air1/air2 → iai dash → corkscrew
   const d = S.duel, a = d.a, api = S.api; const m = a.mk ? a.C.moves[a.mk] : null; S.cs = S.cs || { i: 0, t: 0 }; const c = S.cs; c.t += 1/60;
   const T = m ? m.t[0] + m.t[1] + m.t[2] : 0;
@@ -59,6 +59,7 @@ def fight(pg, stage=1, clean=True):
     pg.evaluate("window.__duel.api.manual(true)")
     pg.evaluate("window.__duel.api.advance(1/30, 70)")
     if clean: pg.add_style_tag(content=CLEAN)
+    else: pg.add_style_tag(content="#loading{display:none!important}")   # the loader can still be fading out under a busy CPU
     pg.evaluate("()=>{const a=window.__duel.api; a.freezeFoe(true); a.tank(); const d=window.__duel.duel; d.time=60; d.a.x=-0.9; d.b.x=0.9; d.a.facing=1; d.b.facing=-1;}")
     pg.evaluate("window.__duel.api.advance(1/30, 20)")
 
@@ -130,7 +131,7 @@ def card(p):
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
     ctx, pg, errs = boot(b, w, h)
     fight(pg)
-    pg.evaluate("window.__duel.api.dbg().fb.visible=false; window.__duel.api.cam({fov:23,pos:[1.0,1.75,3.6],look:[-0.82,1.42,0]})")
+    pg.evaluate("window.__duel.api.dbg().fb.visible=false; window.__duel.api.cam({fov:24,pos:[1.0,2.0,3.9],look:[-0.84,1.62,0]})")
     pose(pg, {'st': 'idle', 't': 0}, 40)
     f = os.path.join(OUT, '_card.png'); shot(pg, f)
     im = Image.open(f).convert('RGB'); os.remove(f)

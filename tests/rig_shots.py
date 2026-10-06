@@ -25,7 +25,7 @@ def want(k): return ONLY is None or k in ONLY
 
 CLEAN = "#hud,#controls,#banner,.banner,.popup,#combo,#ult-cut,#ult-dim,.controls-hint,#demo-tag{display:none!important}"
 
-def boot(b, w, h, query='?mute=1'):
+def boot(b, w, h, query='?mute=1&style=neon'):   # v2.3: the Swordsman defaults to the anime look; this script shows the neon HQ rig
     ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=1, has_touch=w < 600)
     ctx.add_init_script("try{localStorage.setItem('cyber.lang','en')}catch(e){}")
     pg = ctx.new_page(); errs = []

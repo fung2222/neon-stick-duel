@@ -2,6 +2,7 @@
 // Mage / Brawler / Assassin / final boss by writing one config + one animation profile each (see docs/HANDOFF.md §12).
 import { PROFILE as SWORD_ANIM } from './sword.js';
 import { PROFILE as MAGE_ANIM } from './mage.js';
+import { PROFILE as BRAWLER_ANIM } from './brawler.js';
 
 export const ANIME_CLASSES = {
   sword: {
@@ -33,5 +34,22 @@ export const ANIME_CLASSES = {
     outlinePx: 1.9,
     rimLight: { rimK: 0.85, rimW: 0.07 },   // v2.5: stronger / wider rim so the dark suit separates from the night city
     anim: MAGE_ANIM,
+  },
+  brawler: {
+    id: 'brawler', build: 'brawler', recolor: ['jacket', 'sash'],
+    concept: 'cyber street martial artist: broad V-torso, torn sleeveless jacket open over a bare chest, cybernetic near arm + glowing knuckle-plate gauntlets, hand wraps, sash belt, baggy kung-fu trousers into ankle wraps, undercut + headband with long spring tails, cyber-eye + scar',
+    palette: {
+      skin: 0xe8b08c, hair: 0x241316, stubble: 0x4a3434, jacket: 0x6e1a1c, jacketDark: 0x4a1012, lining: 0x2a0d0e, sash: 0xd2581c, sashEdge: 0xffb347,
+      pants: 0x221c26, wrap: 0xe2d6c0, wrapDark: 0x9a8b78, shoes: 0x17141a, metal: 0x5b6070, metalDark: 0x34363f, band: 0xb3261e,
+      trim: 0xff8a1f, hairTie: 0xff8a1f, line: 0x0d0606,
+    },
+    hair: { style: 'undercut' },
+    outfit: {},
+    weapon: { type: 'fists' },
+    face: { iris: '#c9761e', irisDark: '#3a1404', brow: '#1d1012', eyeK: 0.84, eyeW: 1.04, browK: 1.35, browY: 0.7, noBlush: true, shout: true, scar: '#d9928a',
+      cyberEye: { iris: '#ffa232', dark: '#5a1e00' } },
+    outlinePx: 2.0,
+    rimLight: { rimK: 0.7, rimW: 0.05 },
+    anim: BRAWLER_ANIM,
   },
 };

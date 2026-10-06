@@ -128,7 +128,16 @@ function stepFx(c) {
     _fxP.y = c.y + 0.02; waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.55), { r0: 0.12, r1: 1.0 * c.k, h: 0.07, dur: 0.26, a: 0.9 });
   } else if (c.type === 'slide') { _fxP.set(c.x, c.y + 0.05, 0.15); particles.burst(_fxP, DUST, Math.round(5 * c.k), { speed: 1.6, up: 0.5, life: 0.28, size: 0.42, grav: -2, bright: 0.8 }); }
   else if (c.type === 'ring') { _fxP.set(c.x, c.y, 0); waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.6), { r0: 0.35, r1: 1.5, h: 0.04, dur: 0.22, a: 0.85 }); }
+  else if (c.type === 'quake') {   // Brawler 震腳 heavy stomp: thick dust + a fast flat shockwave and a slower wide one, a little camera thump
+    _fxP.set(c.x, c.y + 0.08, 0.15); particles.burst(_fxP, DUST, Math.round(16 * c.k), { speed: 3.4 * c.k, up: 1.2, life: 0.42, size: 0.62, grav: -3, bright: 0.95 });
+    _fxP.y = c.y + 0.03; waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.7), { r0: 0.15, r1: 1.6 * c.k, h: 0.06, dur: 0.22, a: 1.1 });
+    waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.4), { r0: 0.3, r1: 2.6 * c.k, h: 0.12, dur: 0.42, a: 0.7 });
+    camKick(0, -0.04 * c.k); fx.kick({ trauma: 0.05 * c.k });
+  } else if (c.type === 'breath') {   // Brawler kiai: exhale puff in front of the mouth on the impact frame (c.k = facing)
+    _fxP.set(c.x, c.y, 0.2); particles.burst(_fxP, BREATH, 5, { speed: 1.1, up: 0.15, life: 0.22, size: 0.3, grav: 0, bright: 0.7 });
+  }
 }
+const BREATH = new THREE.Color(0xdfe6ff);
 
 // ------------------------------------------------------------------ duel setup
 function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color : (S.foe?.color ?? 0xff2bd6); }

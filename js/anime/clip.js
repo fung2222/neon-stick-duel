@@ -69,21 +69,25 @@ export const SHOULDER = ['ctw'];                 // chest counter-twist = the sh
 export const ARM = ['gx', 'gy', 'ox', 'oy', 'oa', 'cF1', 'cF2', 'cB1', 'cB2'];   // hands (grip + off hand + mudra fingers); the blade / cast angle (ga, gw) stays exactly on time
 // lead multipliers per link (× lead seconds): feet → hips → torso → shoulder → arm → blade
 export const CHAIN_LEAD = { feet: 2, hips: 1.4, torso: 0.9, shoulder: 0.5, arm: 0.18 };
+/** Brawler variant: the fists' roll (ga = lead fist, oa = rear fist: chambered palm-up → palm-down corkscrew) stays exactly on time like
+ *  the blade, so the sixth link — the fist snap — lands last on BOTH hands; the hand targets (= the elbow extension) keep the 0.18 lead */
+export const ARM_FIST = ARM.filter((q) => q !== 'oa');
 const _f = blankA(), _h = blankA(), _t = blankA(), _s = blankA(), _a = blankA();
-const CHAIN = new Function('f', 'h', 't', 's', 'a', 'out', [...FEET.map((q) => `out.${q} = f.${q};`), ...HIPS.map((q) => `out.${q} = h.${q};`),
-  ...TORSO.map((q) => `out.${q} = t.${q};`), ...SHOULDER.map((q) => `out.${q} = s.${q};`), ...ARM.map((q) => `out.${q} = a.${q};`)].join('\n'));
+const chainFn = (arm) => new Function('f', 'h', 't', 's', 'a', 'out', [...FEET.map((q) => `out.${q} = f.${q};`), ...HIPS.map((q) => `out.${q} = h.${q};`),
+  ...TORSO.map((q) => `out.${q} = t.${q};`), ...SHOULDER.map((q) => `out.${q} = s.${q};`), ...arm.map((q) => `out.${q} = a.${q};`)].join('\n'));
+const CHAIN = chainFn(ARM), CHAIN_FIST = chainFn(ARM_FIST);
 /** power chain: every link samples the clip slightly ahead of the next — feet ×2 lead, hips ×1.4, torso ×0.9, shoulder line
  *  ×0.5, hands ×0.18, blade angle + spin + roll exactly at t — so a strike starts in the feet, the hips open before the
  *  chest, the shoulder before the arm, and the blade whips through last (the hand leads the blade = wrist snap). The contact
  *  pose still lands on the first active frame (tests/anime.test.mjs checks the blade against the hitbox with the chain on).
  *  The lead ramps in over the first 2·lead seconds so a clip still starts exactly at the crossfade snapshot. */
-export function evalChain(keys, t, from, out = blankA(), lead = 0.028) {
+export function evalChain(keys, t, from, out = blankA(), lead = 0.028, fist = false) {
   evalA(keys, t, from, out);
   if (lead <= 0) return out;
   const r = clamp(t / (2 * lead), 0, 1) * lead, L = CHAIN_LEAD;
   evalA(keys, t + L.feet * r, from, _f); evalA(keys, t + L.hips * r, from, _h); evalA(keys, t + L.torso * r, from, _t);
   evalA(keys, t + L.shoulder * r, from, _s); evalA(keys, t + L.arm * r, from, _a);
-  CHAIN(_f, _h, _t, _s, _a, out);
+  if (fist) CHAIN_FIST(_f, _h, _t, _s, _a, out); else CHAIN(_f, _h, _t, _s, _a, out);
   return out;
 }
 /** build a form from frame data: list of [phase, u, pose, ease, fx] with phase s (startup) · a (active) · r (recovery) ·

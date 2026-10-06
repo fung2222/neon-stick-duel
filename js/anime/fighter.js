@@ -131,7 +131,7 @@ export class AnimeFighter extends HQFighter {
     const S = this.snapA, T = this.stT, xf = this.xfB || (this.xfB = (pose, dur, e = 'inOutSine') => lerpA(this.snapA, pose, XE[e](clamp(this.stT / dur, 0, 1)), this._p, true));
     let rrAdd = 0;
     switch (f.st) {
-      case 'atk': { const keys = this.keysFor(f); if (keys) evalChain(keys, f.t, S, out, this.prof.lead); else xf(st, 0.15); break; }
+      case 'atk': { const keys = this.keysFor(f); if (keys) evalChain(keys, f.t, S, out, this.prof.lead, !!this.prof.fist); else xf(st, 0.15); break; }
       case 'idle': {
         const w = 0.5 - 0.5 * Math.cos(t * TAU / 2.8), ph = t % 6.5;   // breath + an occasional suri-ashi shuffle (in → hold → back)
         const sh = ph < 3.8 ? 0 : ph < 4.15 ? EASE.inOutSine((ph - 3.8) / 0.35) : ph < 5.0 ? 1 : ph < 5.4 ? 1 - EASE.inOutSine((ph - 5.0) / 0.4) : 0;
@@ -252,7 +252,9 @@ export class AnimeFighter extends HQFighter {
     const plants = this.footTargets(f, p, rdt, grounded, baseY);
     const J = solveInto(p, plants.F, plants.B, this.Jm);
     if (this.prof.focus) this.focusSeg(J, p);
+    else if (this.prof.fist) this.fistSeg(J, p, this.limbOf(f));
     splayKnee(J.hipF, J.kneeF, J.ankleF, p.kF || 0, J.kneeF); splayKnee(J.hipB, J.kneeB, J.ankleB, p.kB || 0, J.kneeB);
+    if (this.prof.fist && this.limbOf(f) >= 4) this.fistSeg(J, p, this.limbOf(f));   // knee / foot strikes: use the splayed knee
     let lift = 0;
     if (grounded) { const lo = Math.min(J.head[1] - 0.15, J.kneeF[1] - 0.06, J.kneeB[1] - 0.06, J.ankleF[1] - 0.075, J.ankleB[1] - 0.075, J.pelvis[1] - 0.1, J.handF[1] - 0.05, J.handB[1] - 0.05); if (lo < 0) lift = -lo; }
     this.rig.position.y = lift * s;
@@ -317,12 +319,16 @@ export class AnimeFighter extends HQFighter {
     const keys = this.keysFor(f); if (!keys) return;
     if (this.fxSeq !== f.seq) { this.fxSeq = f.seq; this.fxT = -1; }
     for (const k of keys) if (k.fx && k.t > this.fxT && k.t <= f.t) {
-      const J = this.Jw, base = this.group.position.y - f.y;
-      if (k.fx === 'stamp') this.cue('stamp', J.footF.x || f.x, base, 1);
-      else if (k.fx === 'sink') this.cue('stamp', J.hip.x || f.x, base, 0.75);
-      else if (k.fx === 'slide' || k.fx === 'skid') this.cue('slide', (k.fx === 'skid' ? J.footF.x : J.footB.x) || f.x, base, k.fx === 'skid' ? 1.2 : 0.7);
-      else if (k.fx === 'ring') this.cue('ring', f.x, this.group.position.y + 1.05 * this.scale, 1);
-      else if (k.fx === 'gust') { this.gustK = 1; this.gustDir = -f.facing; this.signFire = true; }
+      const J = this.Jw, base = this.group.position.y - f.y, fx = k.fx;   // one tag, or several joined with '+' (e.g. 'quake+exhale')
+      if (fx === 'stamp' || fx.includes('stamp')) this.cue('stamp', J.footF.x || f.x, base, 1);
+      if (fx === 'sink' || fx.includes('sink')) this.cue('stamp', J.hip.x || f.x, base, 0.75);
+      if (fx === 'slide' || fx.includes('slide')) this.cue('slide', J.footB.x || f.x, base, 0.7);
+      if (fx === 'skid' || fx.includes('skid')) this.cue('slide', J.footF.x || f.x, base, 1.2);
+      if (fx === 'ring' || fx.includes('ring')) this.cue('ring', f.x, this.group.position.y + 1.05 * this.scale, 1);
+      if (fx === 'gust') { this.gustK = 1; this.gustDir = -f.facing; this.signFire = true; }
+      // Brawler: 震腳 heavy stomp (big dust + double shockwave), exhale snap (kiai: breath puff at the mouth + a chest squash kick)
+      if (fx.includes('quake')) { this.cue('quake', (fx.includes('quakeH') ? J.hip.x : J.footF.x) || f.x, base, fx.includes('quakeX') ? 1.5 : 1); this.sp.sq.v -= 0.9; }
+      if (fx.includes('exhale')) { this.cue('breath', J.head.x + f.facing * 0.14 * this.scale, J.head.y - 0.05 * this.scale, f.facing); this.sp.sq.v -= 0.45; this.sp.rc.v += 1.2; }
     }
     this.fxT = f.t;
   }
@@ -350,7 +356,13 @@ export class AnimeFighter extends HQFighter {
     this.setBone(B.head, J.head, b.h, -0.62 * Math.cos(this.yaw + sy) + twC * 0.3);   // 3/4 view: the face turns toward the camera
     this.setBone(B.uaF, J.shF, J.elbowF, 0); this.setBone(B.faF, J.elbowF, J.handF, 0);
     const bd = J.bladeDir, fing = this.char.fingers;
-    if (fing) {   // Mage: open hands, palm toward the cast direction (fingers ⟂ it, blended with the forearm), mudra finger curls
+    if (this.char.fists) {   // Brawler: fists along the forearm; ga / oa = fist roll (0 = palm down, π = chambered palm up, π/2 = vertical fist)
+      b.hd[0] = J.handF[0] * 2 - J.elbowF[0]; b.hd[1] = J.handF[1] * 2 - J.elbowF[1]; b.hd[2] = J.handF[2] * 2 - J.elbowF[2];
+      this.setBone(B.handF, J.handF, b.hd, p.ga);
+      this.setBone(B.uaB, J.shB, J.elbowB, 0); this.setBone(B.faB, J.elbowB, J.handB, 0);
+      b.hb[0] = J.handB[0] * 2 - J.elbowB[0]; b.hb[1] = J.handB[1] * 2 - J.elbowB[1]; b.hb[2] = J.handB[2] * 2 - J.elbowB[2];
+      this.setBone(B.handB, J.handB, b.hb, p.oa || 0);
+    } else if (fing) {   // Mage: open hands, palm toward the cast direction (fingers ⟂ it, blended with the forearm), mudra finger curls
       this.palmBone(B.handF, J.handF, J.elbowF, -bd[1], bd[0], p.cF1, p.cF2, fing.F);
       this.setBone(B.uaB, J.shB, J.elbowB, 0); this.setBone(B.faB, J.elbowB, J.handB, 0);
       const oa = (p.oa || 0) + J.roll; this.palmBone(B.handB, J.handB, J.elbowB, -Math.sin(oa), Math.cos(oa), p.cB1, p.cB2, fing.B);
@@ -372,6 +384,7 @@ export class AnimeFighter extends HQFighter {
     }
     // katana at the weapon hand (or sliding into the saya during the win flourish) · Mage: focus crystal + holo rings at the glyph point
     const w = this.char.weapon;
+    if (this.char.fists) return;   // Brawler: no weapon mesh
     if (this.char.focus) {
       const fa = this._fa || (this._fa = A3()), fb = this._fb || (this._fb = A3()), fr = p.fr || 0.14, bob = 0.012 * Math.sin(this.tNow * 2.4);
       for (let i = 0; i < 3; i++) fa[i] = J.handF[i] + bd[i] * fr; fa[1] += bob; for (let i = 0; i < 3; i++) fb[i] = fa[i] + bd[i];
@@ -416,6 +429,31 @@ export class AnimeFighter extends HQFighter {
     let qx = -bd[1], qy = bd[0]; const ql = Math.hypot(qx, qy) || 1; qx /= ql; qy /= ql;
     const cx = hd[0] + bd[0] * fr, cy = hd[1] + bd[1] * fr, cz = hd[2] + bd[2] * fr;
     J.base[0] = cx - qx * r; J.base[1] = cy - qy * r; J.base[2] = cz; J.tip[0] = cx + qx * r; J.tip[1] = cy + qy * r; J.tip[2] = cz;
+  }
+
+  /** Brawler: which limb strikes in the current move (0 lead fist · 1 rear fist · 2 lead elbow · 3 rear elbow · 4 lead knee · 5 rear knee ·
+   *  6 lead foot); 'auto' (multi-hit flurries) = per key, from the form's `limb` tags (the key that last started before t) */
+  limbOf(f) {
+    if (f.st !== 'atk' || !f.mk) return 0;
+    const L = this.prof.strike[f.mk];
+    if (L !== 'auto') return L ?? 0;
+    const keys = this.keysFor(f); let li = 0; if (keys) for (let i = 0; i < keys.length; i++) { if (keys[i].t > f.t + 0.02) break; if (keys[i].limb != null) li = keys[i].limb; }
+    return li;
+  }
+  /** Brawler: the "blade" segment (trail / contact sparks) runs through the striking surface: wrist → past the knuckles, upper arm → past
+   *  the elbow point, thigh → past the knee, ankle → toe */
+  fistSeg(J, p, limb) {
+    let a, b, k0, k1;
+    switch (limb) {
+      case 1: a = J.elbowB; b = J.handB; k0 = 0.85; k1 = 1.42; break;
+      case 2: a = J.handF; b = J.elbowF; k0 = 0.62; k1 = 1.22; break;
+      case 3: a = J.handB; b = J.elbowB; k0 = 0.62; k1 = 1.22; break;
+      case 4: a = J.hipF; b = J.kneeF; k0 = 0.68; k1 = 1.14; break;
+      case 5: a = J.hipB; b = J.kneeB; k0 = 0.68; k1 = 1.14; break;
+      case 6: a = J.kneeF; b = J.ankleF; k0 = 0.9; k1 = 1.35; break;
+      default: a = J.elbowF; b = J.handF; k0 = 0.85; k1 = 1.42;
+    }
+    for (let i = 0; i < 3; i++) { const d = b[i] - a[i]; J.base[i] = a[i] + d * k0; J.tip[i] = a[i] + d * k1; }
   }
 
   // ---------------------------------------------------------------- spring chains (verlet in world space)
@@ -483,12 +521,13 @@ export class AnimeFighter extends HQFighter {
       const t0 = Math.max(this.prevT, on0), t1 = Math.min(f.t, on1);
       if (keys && t1 > t0) {
         const tp = this._tp;
-        evalChain(keys, f.t, this.snapA, tp, this.prof.lead); const now = solveInto(tp, null, null, this.Jt); if (foc) this.focusSeg(now, tp);
+        const limb = this.prof.fist ? this.limbOf(f) : 0;
+        evalChain(keys, f.t, this.snapA, tp, this.prof.lead, !!this.prof.fist); const now = solveInto(tp, null, null, this.Jt); if (foc) this.focusSeg(now, tp); else if (limb >= 0 && this.prof.fist) this.fistSeg(now, tp, limb);
         const offB = this.offB, offT = this.offT; for (let i = 0; i < 3; i++) { offB[i] = J.base[i] - now.base[i]; offT[i] = J.tip[i] - now.tip[i]; }
         const n = clamp(Math.ceil((t1 - t0) / (1 / 300)), 1, 24);
         for (let i = 1; i <= n; i++) {
-          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
-          if (foc) this.focusSeg(q, tp);
+          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead, !!this.prof.fist); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
+          if (foc) this.focusSeg(q, tp); else if (this.prof.fist) this.fistSeg(q, tp, limb);
           const dx = (this.prevRoot.x - this.group.position.x) * (1 - k), dy = (this.prevRoot.y - this.group.position.y) * (1 - k), sy = wrapA(tp.sy || 0), pv = tp.pv || 0;
           const smp = this.smpPool[i - 1]; this.toW(q.base, offB, sy, pv, dx, dy, smp.b); this.toW(q.tip, offT, sy, pv, dx, dy, smp.t); samples.push(smp);
         }

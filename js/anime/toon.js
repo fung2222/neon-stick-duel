@@ -138,7 +138,7 @@ export function faceAtlas(cfg = {}) {
   const iris = cfg.iris || '#1fd6ff', irisDark = cfg.irisDark || '#0a3d7a', line = cfg.line || '#120c1c', brow = cfg.brow || '#2a2f4a', blush = cfg.blush || 'rgba(255,120,140,0.28)';
   const skin = cfg.skin ?? 0xf9cfb6, shade = css(skin, SKIN_SHADOW), deep = css(skin, SKIN_SHADOW, 0.8), noseLine = css(skin, SKIN_SHADOW, 0.62);
   const L = cfg.lash === 'long';
-  const eye = (cx, cy, w, h, mode, mirror) => {
+  const eye = (cx, cy, w, h, mode, mirror, cyber = false) => {
     g.save(); g.translate(cx, cy); if (mirror) g.scale(-1, 1);
     if (mode === 'blink' || mode === 'hurt') {   // closed: a curved lash line (hurt: squeezed chevron)
       g.strokeStyle = line; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath();
@@ -155,10 +155,16 @@ export function faceAtlas(cfg = {}) {
     g.save(); g.beginPath(); g.ellipse(0, ey0, w * 0.5, ry, 0, 0, Math.PI * 2); g.clip();
     // iris: tall ellipse, dark top → iris → bright bottom; dark rim, big pupil, two large highlights + a small coloured bounce
     const ix = w * 0.07, iy = h * 0.09, irx = w * 0.37, iry = h * 0.47;
-    const gr = g.createLinearGradient(0, iy - iry, 0, iy + iry); gr.addColorStop(0, irisDark); gr.addColorStop(0.42, irisDark); gr.addColorStop(0.62, iris); gr.addColorStop(1, '#e6fdff');
+    const ci = cyber ? cfg.cyberEye : null;   // Brawler: cyber-eye — glowing iris, targeting ring + ticks, hex pupil
+    const gr = g.createLinearGradient(0, iy - iry, 0, iy + iry); gr.addColorStop(0, ci ? ci.dark : irisDark); gr.addColorStop(0.42, ci ? ci.dark : irisDark); gr.addColorStop(0.62, ci ? ci.iris : iris); gr.addColorStop(1, ci ? '#fff4d6' : '#e6fdff');
     g.fillStyle = gr; g.beginPath(); g.ellipse(ix, iy, irx, iry, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = irisDark; g.lineWidth = 4; g.stroke();
-    g.fillStyle = '#05030c'; g.beginPath(); g.ellipse(ix, iy + h * 0.02, w * 0.16, h * 0.24, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = ci ? ci.iris : irisDark; g.lineWidth = 4; g.stroke();
+    if (ci) {
+      g.strokeStyle = '#fff1c8'; g.lineWidth = 2.2; g.beginPath(); g.ellipse(ix, iy, irx * 0.7, iry * 0.7, 0, 0, Math.PI * 2); g.stroke();
+      for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; g.beginPath(); g.moveTo(ix + Math.cos(a) * irx * 0.7, iy + Math.sin(a) * iry * 0.7); g.lineTo(ix + Math.cos(a) * irx * 0.98, iy + Math.sin(a) * iry * 0.98); g.stroke(); }
+      g.fillStyle = '#1a0800'; g.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.lineTo(ix + Math.cos(a) * w * 0.12, iy + h * 0.02 + Math.sin(a) * h * 0.15); } g.closePath(); g.fill();
+      g.fillStyle = ci.iris; g.beginPath(); g.arc(ix, iy + h * 0.02, w * 0.045, 0, Math.PI * 2); g.fill();
+    } else { g.fillStyle = '#05030c'; g.beginPath(); g.ellipse(ix, iy + h * 0.02, w * 0.16, h * 0.24, 0, 0, Math.PI * 2); g.fill(); }
     g.fillStyle = 'rgba(10,6,24,0.55)'; g.beginPath(); g.ellipse(0, ey0 - ry * 0.98, w * 0.62, h * 0.24, 0, 0, Math.PI * 2); g.fill();   // lid shadow
     g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(-w * 0.07, -h * 0.1, w * 0.13, h * 0.14, -0.4, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(w * 0.22, h * 0.27, w * 0.065, 0, Math.PI * 2); g.fill();
@@ -185,7 +191,7 @@ export function faceAtlas(cfg = {}) {
   const modes = ['neutral', 'blink', 'hurt', 'fierce'];
   modes.forEach((mode, i) => {
     g.save(); g.translate(i * S, 0); g.scale(K, K);
-    const W = 256, ey = W * 0.52, ew = W * 0.2, eh = W * 0.28, dx = W * 0.155;
+    const W = 256, ey = W * 0.52, ew = W * 0.2 * (cfg.eyeW || 1), eh = W * 0.28 * (cfg.eyeK || 1), dx = W * 0.155;
     // shadow under the bangs: a band below the hairline with a jagged lower edge (one tooth per lock)
     g.fillStyle = shade; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, 60);
     const teeth = 7; for (let t = teeth; t >= 0; t--) { const x = W * (0.06 + 0.88 * t / teeth), y = (t % 2 ? 76 : 64) + (t === 3 ? 4 : 0); g.lineTo(x, y); if (t) g.lineTo(x - W * 0.88 / teeth * 0.5, 54 + (t % 3) * 3); }
@@ -194,7 +200,7 @@ export function faceAtlas(cfg = {}) {
     g.fillStyle = shade; g.beginPath(); g.moveTo(W, 118); g.lineTo(242, 118); g.bezierCurveTo(222, 158, 214, 196, 196, 226); g.bezierCurveTo(186, 242, 166, 252, 140, 256); g.lineTo(W, 256); g.closePath(); g.fill();
     g.fillStyle = deep; g.beginPath(); g.moveTo(W, 196); g.bezierCurveTo(236, 220, 214, 246, 176, 256); g.lineTo(W, 256); g.closePath(); g.fill();   // under the jaw: deeper shade
     // blush: soft pink under each eye + three short hatch strokes
-    for (const sx of [-1, 1]) {
+    if (!cfg.noBlush) for (const sx of [-1, 1]) {
       const bx = W / 2 + sx * (dx + 5), by = ey + eh * 0.72;
       const rg = g.createRadialGradient(bx, by, 1, bx, by, 22); rg.addColorStop(0, blush); rg.addColorStop(1, 'rgba(255,140,160,0)');
       g.fillStyle = rg; g.save(); g.translate(bx, by); g.scale(1, 0.42); g.translate(-bx, -by); g.beginPath(); g.arc(bx, by, 22, 0, Math.PI * 2); g.fill(); g.restore();
@@ -202,8 +208,22 @@ export function faceAtlas(cfg = {}) {
       for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(bx + k * 7 - 2, by + 3); g.lineTo(bx + k * 7 + 3, by - 3); g.stroke(); }
     }
     const bAng = (mode === 'fierce' ? 0.32 : mode === 'hurt' ? -0.3 : 0.1) * (L ? 0.7 : 1);
-    browL(W / 2 - dx, ey - eh * 0.74, ew * 1.08, bAng, false); browL(W / 2 + dx, ey - eh * 0.74, ew * 1.08, bAng, true);
-    eye(W / 2 - dx, ey, ew, eh, mode, false); eye(W / 2 + dx, ey, ew, eh, mode, true);
+    const by0 = ey - eh * (cfg.browY || 0.74);
+    if (cfg.browK) { g.save(); g.translate(W / 2 - dx, by0); g.scale(1, cfg.browK); g.translate(-(W / 2 - dx), -by0); browL(W / 2 - dx, by0, ew * 1.08, bAng, false); g.restore();
+      g.save(); g.translate(W / 2 + dx, by0); g.scale(1, cfg.browK); g.translate(-(W / 2 + dx), -by0); browL(W / 2 + dx, by0, ew * 1.08, bAng, true); g.restore(); }
+    else { browL(W / 2 - dx, by0, ew * 1.08, bAng, false); browL(W / 2 + dx, by0, ew * 1.08, bAng, true); }
+    eye(W / 2 - dx, ey, ew, eh, mode, false, !!cfg.cyberEye); eye(W / 2 + dx, ey, ew, eh, mode, true);
+    if (cfg.cyberEye && mode !== 'blink' && mode !== 'hurt') {   // circuit trace from the cyber-eye to the temple (camera side)
+      g.strokeStyle = cfg.cyberEye.iris; g.fillStyle = cfg.cyberEye.iris; g.lineWidth = 2.4; g.lineCap = 'square';
+      const tx = W / 2 - dx - ew * 0.62; g.beginPath(); g.moveTo(tx, ey + 4); g.lineTo(tx - 12, ey + 4); g.lineTo(tx - 20, ey - 6); g.lineTo(tx - 30, ey - 6); g.stroke();
+      g.beginPath(); g.arc(tx - 31, ey - 6, 3, 0, Math.PI * 2); g.fill();
+    }
+    if (cfg.scar) {   // scar: a diagonal pale slash through the camera-side brow and cheek (past the cyber-eye) with stitch ticks
+      g.strokeStyle = cfg.scar; g.lineWidth = 4.2; g.lineCap = 'round'; const sx0 = W / 2 - dx + ew * 0.32, sy0 = ey - eh * 1.05;
+      g.beginPath(); g.moveTo(sx0, sy0); g.lineTo(sx0 - ew * 0.75, ey + eh * 1.05); g.stroke();
+      g.strokeStyle = 'rgba(120,40,40,0.75)'; g.lineWidth = 2;
+      for (const k of [0.15, 0.82, 0.95]) { const x = sx0 - ew * 0.75 * k, y = sy0 + (ey + eh * 1.05 - sy0) * k; g.beginPath(); g.moveTo(x - 6, y - 2); g.lineTo(x + 6, y + 2); g.stroke(); }
+    }
     // nose hint: a short shade tick on the far side of the bridge, a tiny shadow under the tip, a highlight dot on the camera side
     { const nx = W / 2 + 6, ny = ey + eh * 0.8;
       g.strokeStyle = noseLine; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(nx + 1, ny - 12); g.quadraticCurveTo(nx + 5, ny - 2, nx + 1, ny + 3); g.stroke();
@@ -220,6 +240,10 @@ export function faceAtlas(cfg = {}) {
     g.beginPath();
     if (cfg.mouth === 'small' && mode !== 'hurt' && mode !== 'fierce') { g.moveTo(W / 2 - 7, my - 1); g.quadraticCurveTo(W / 2 - 2, my + 3.5, W / 2, my); g.quadraticCurveTo(W / 2 + 2, my + 3.5, W / 2 + 7, my - 1); g.stroke(); }
     else if (mode === 'hurt') { g.ellipse(W / 2, my, 9, 7, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    else if (mode === 'fierce' && cfg.shout) {   // Brawler kiai: open shouting mouth, upper teeth
+      g.moveTo(W / 2 - 14, my - 4); g.quadraticCurveTo(W / 2, my - 8, W / 2 + 14, my - 4); g.quadraticCurveTo(W / 2 + 9, my + 12, W / 2, my + 13); g.quadraticCurveTo(W / 2 - 9, my + 12, W / 2 - 14, my - 4); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#fff6ee'; g.beginPath(); g.moveTo(W / 2 - 11, my - 3.5); g.quadraticCurveTo(W / 2, my - 6.5, W / 2 + 11, my - 3.5); g.lineTo(W / 2 + 9, my); g.lineTo(W / 2 - 9, my); g.closePath(); g.fill();
+    }
     else if (mode === 'fierce') { g.moveTo(W / 2 - 12, my); g.lineTo(W / 2 + 12, my - 1); g.stroke(); g.beginPath(); g.moveTo(W / 2 - 6, my + 3); g.lineTo(W / 2 + 6, my + 3); g.stroke(); }
     else { g.moveTo(W / 2 - 9, my); g.quadraticCurveTo(W / 2, my + 2.5, W / 2 + 9, my - 1); g.stroke(); }
     g.restore();

@@ -48,7 +48,7 @@ void main() {
   c += uRim * rim * 0.42;
   // soft anime highlight (hair band, blade glint): crisp-edged where the half vector meets the normal; masked per vertex
   vec3 h = normalize(uLight + v); float nh = dot(n, h);
-  c += vec3(smoothstep(0.86, 0.9, nh) * 0.36 + smoothstep(0.955, 0.975, nh) * 0.22) * vShine;
+  c += (smoothstep(0.86, 0.9, nh) * 0.36 + smoothstep(0.955, 0.975, nh) * 0.22) * vShine * min(vec3(1.0), base * 3.5 + 0.15);   // tinted on dark hair, white on light
   c *= uDim;
   c += vCol * vGlow * uGlowK;                        // emissive trims (vertex colour × glow)
   c = mix(c, vec3(1.0), uFlash);                     // hit flash
@@ -167,10 +167,10 @@ export function faceAtlas(cfg = {}) {
     eye(S / 2 - dx, ey, ew, eh, mode, false); eye(S / 2 + dx, ey, ew, eh, mode, true);
     g.fillStyle = blush; g.beginPath(); g.ellipse(S / 2 - dx - 6, ey + eh * 0.72, 14, 5, 0, 0, Math.PI * 2); g.ellipse(S / 2 + dx + 6, ey + eh * 0.72, 14, 5, 0, 0, Math.PI * 2); g.fill();
     if (cfg.tattoo) {   // glowing circuit trace on the camera-side cheek (Mage)
-      g.strokeStyle = cfg.tattoo; g.fillStyle = cfg.tattoo; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round';
-      const tx = S / 2 - dx - ew * 0.25, ty = ey + eh * 0.62;
-      g.beginPath(); g.moveTo(tx + 14, ty); g.lineTo(tx, ty); g.lineTo(tx - 10, ty + 10); g.lineTo(tx - 10, ty + 24); g.stroke();
-      g.beginPath(); g.arc(tx + 16, ty, 3.4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(tx - 10, ty + 27, 3.4, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = cfg.tattoo; g.fillStyle = cfg.tattoo; g.lineWidth = 2.2; g.lineCap = 'square'; g.lineJoin = 'miter';
+      const tx = S / 2 - dx - ew * 0.62, ty = ey + eh * 1.05;   // two parallel right-angle traces from the cheekbone toward the jaw, pad terminals
+      for (const o of [0, 7]) { g.beginPath(); g.moveTo(tx + 18 - o * 0.4, ty + o); g.lineTo(tx + 4, ty + o); g.lineTo(tx - 6, ty + 10 + o); g.lineTo(tx - 6, ty + 20 + o * 0.6); g.stroke(); }
+      g.fillRect(tx + 18, ty - 2.5, 5, 5); g.beginPath(); g.arc(tx - 6, ty + 26, 2.6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(tx - 6, ty + 22 + 7 * 0.6 + 4, 2, 0, Math.PI * 2); g.fill();
     }
     // mouth
     g.strokeStyle = line; g.fillStyle = '#5a1020'; g.lineWidth = 3.2; g.lineCap = 'round'; const my = S * 0.86;

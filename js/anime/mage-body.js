@@ -176,7 +176,7 @@ export function buildMage(ctx) {
     const p = cap.attributes.position;
     for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0.02) { const k = 1 + Math.min(0.2, (0.02 - y) * 1.6); p.setX(i, p.getX(i) * (p.getX(i) < 0 ? k : 1)); p.setZ(i, p.getZ(i) * k); } }
     cap.computeVertexNormals();
-    acc.add(cap, hm, { part: 'hair', color: pal.hair, shine: 1, weights: W1(B.head), line: 1,
+    acc.add(cap, hm, { part: 'hair', color: pal.hair, shine: 0.7, weights: W1(B.head), line: 1,
       keep: (c) => !(c.x > 0.012 * hk && c.y < 0.06 * hk) && c.y > -0.15 * hk && !(c.x > -0.03 * hk && c.y < -0.03 * hk) });
     const spikes = [];
     // bangs: blunt-ish fringe swept toward the far side (asymmetric), uneven lengths
@@ -196,12 +196,12 @@ export function buildMage(ctx) {
     }
     // long near-side lock: 3-bone chain down past the collarbone, glowing ring near the end
     {
-      const P0 = new THREE.Vector3(0.05 * hk, 0.035 * hk, 0.118 * hk).add(new THREE.Vector3(...HB)), n = 3, L = 0.32, dir = new THREE.Vector3(0.16, -1, 0.1).normalize();
+      const P0 = new THREE.Vector3(0.035 * hk, 0.035 * hk, 0.12 * hk).add(new THREE.Vector3(...HB)), n = 3, L = 0.32, dir = new THREE.Vector3(0.12, -1, 0.16).normalize();
       const pts = []; for (let k = 0; k <= n; k++) pts.push(P0.clone().addScaledVector(dir, L * k / n).toArray());
       const ids = chain('lock', B.head, pts, { stiff: [0, 0.18, 0.1, 0.06], drag: 0.9, grav: 4, collide: false, tail: true });
       const tm = new THREE.Matrix4().compose(P0, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), new THREE.Vector3(1, 1, 1));
-      const rings = [{ y: -0.01, rx: 0 }, { y: 0, rx: 0.02, rz: 0.028 }];
-      for (let k = 1; k <= 8; k++) { const u = k / 8; rings.push({ y: L * u, rx: 0.02 * (1 - u * 0.55), rz: 0.03 * (1 - u * 0.6) }); }
+      const rings = [{ y: -0.01, rx: 0 }, { y: 0, rx: 0.016, rz: 0.028 }];
+      for (let k = 1; k <= 8; k++) { const u = k / 8; rings.push({ y: L * u, rx: 0.016 * (1 - u * 0.5), rz: 0.03 * (1 - u * 0.6) * (1 + 0.15 * Math.sin(u * 6)) }); }
       rings.splice(8, 0, { y: L * 0.8, rx: 0.016, rz: 0.019 }, { y: L * 0.815, rx: 0.019, rz: 0.022 }, { y: L * 0.86, rx: 0.019, rz: 0.022 }, { y: L * 0.875, rx: 0.014, rz: 0.017 });
       rings.sort((a, b) => a.y - b.y); rings.push({ y: L + 0.02, rx: 0 });
       const ring = (l) => l.y > L * 0.81 && l.y < L * 0.87;

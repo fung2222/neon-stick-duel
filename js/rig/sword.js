@@ -47,7 +47,7 @@ const M = {
   // 橫斬 Slash: high wind-up behind the head → diagonal cut through the chest; hips open first, front foot steps in
   a1: {
     A: P({ px: -0.05, py: 0.88, sp: -0.04, ch: -0.06, hd: -0.04, tw: -0.12, ctw: -0.32, gx: 0.02, gy: 1.78, ga: 2.3, gw: -0.35, ox: 0.15, oy: 1.2 }),
-    S: P({ px: 0.08, py: 0.86, sp: 0.15, ch: 0.08, tw: 0.52, ctw: 0.02, fFx: 0.42, gx: 0.54, gy: 1.38, ga: 0.32, gw: 0.12, ox: -0.22, oy: 1.04 }),
+    S: P({ px: 0.08, py: 0.86, sp: 0.15, ch: 0.08, tw: 0.52, ctw: 0.02, fFx: 0.42, gx: 0.6, gy: 1.32, ga: 0.0, gw: 0.12, ox: -0.22, oy: 1.04 }),
     E: P({ px: 0.12, py: 0.83, sp: 0.2, ch: 0.12, tw: 0.56, ctw: 0.32, fFx: 0.44, gx: 0.52, gy: 0.98, ga: -0.6, gw: 0.3, ox: -0.3, oy: 1.05 }),
     F: P({ px: 0.1, py: 0.82, sp: 0.22, ch: 0.12, tw: 0.48, ctw: 0.38, fFx: 0.44, gx: 0.38, gy: 0.8, ga: -0.95, gw: 0.45, ox: -0.3, oy: 1.0 }),
   },

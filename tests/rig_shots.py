@@ -142,7 +142,7 @@ def video(p, w=1280, h=800, seconds=5.2, fps=30):
     n = int(seconds * fps)
     for i in range(n):
         pg.evaluate("window.__duel.api.advance(1/60, 2, %s)" % COMBO_JS)
-        pg.screenshot(path=os.path.join(fd, '%04d.png' % i))
+        pg.screenshot(path=os.path.join(fd, '%04d.png' % i), timeout=180000)
     mp4 = os.path.join(OUT, 'hq-combo.mp4'); gif = os.path.join(OUT, 'hq-combo.gif')
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(fps), '-i', os.path.join(fd, '%04d.png'), '-vf', 'scale=960:-2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', mp4], check=True)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', mp4, '-vf', 'fps=15,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer', gif], check=True)

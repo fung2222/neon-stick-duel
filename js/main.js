@@ -11,6 +11,7 @@ import './strings.js';
 import { FighterView, setRigMode, rigFor, setStyleMode, styleFor } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
+import { BossFx } from './boss-fx.js';
 import { createControls } from './controls.js';
 import { readHub, returnToHub } from './hub.js';
 import { POST } from './config.js';
@@ -32,6 +33,7 @@ const roof = new Rooftop(scene);
 const particles = new Particles(scene, 2400, { floorY: ROOF_Y + 0.02 });
 stage.onResize((w, h, pr) => particles.resize(h, pr));
 const waves = new Shockwaves(scene, 12);
+const bossFx = new BossFx(scene, particles, waves);   // final boss telegraphs (js/boss-fx.js)
 const fx = new FxState();
 const audio = new DuelAudio(store); ui.setMuted(audio.muted);
 const ads = createAds({ gameId: GAME_ID, interstitialCooldownSec: 180, breaksBetweenInterstitials: 2, graceSec: 120, units: { android: {} }, onAdOpen: (on) => audio.duckAll(on) });
@@ -40,7 +42,7 @@ const SHORT = { sword: [['突刺', 'LUNGE'], ['昇龍', 'DRAGON']], mage: [['閃
 
 // ------------------------------------------------------------------ state
 const S = {
-  state: 'menu', demo: !!flags.demo, mode: 'ladder', cls: CLASSES[store.get('cls')] ? store.get('cls') : 'sword', selCls: null,
+  state: 'menu', demo: !!flags.demo, mode: 'ladder', cls: CLASS_IDS.includes(store.get('cls')) ? store.get('cls') : 'sword', selCls: null,
   stage: Math.min(9, store.getNum('ladder', 0)), floor: store.getNum('floor', 0), score: 0,
   duel: null, foe: null, memA: {}, memB: {}, acc: 0, introT: 0, revived: false, result: null, attract: null,
   preview: null, freezeFoe: false, comboShown: 0, cmdLog: [], interstitials: 0, adBreaks: 0, rewardedAsks: 0, migrated,
@@ -77,7 +79,7 @@ function makeProjMesh(p) {
     const m = new THREE.Mesh(G.ball, glowMat(c.clone().lerp(new THREE.Color(1, 0.9, 0.6), 0.5), 1.3)); m.scale.setScalar(p.r * 0.42); g.add(m);
     const tl = new THREE.Mesh(G.tail, addMat(c, 0.45)); tl.scale.set(p.r * 0.38, 2.6, p.r * 0.38); tl.position.y = 1.3; g.add(tl);
     const warn = new THREE.Mesh(G.disc, addMat(c, 0.4)); warn.rotation.x = -Math.PI / 2; warn.scale.setScalar(p.r); g.add(warn); g.userData = { warn };
-  } else if (p.key === 'blast') { g.visible = false; }
+  } else if (p.key === 'blast' || p.key === 'dblade' || p.key === 'decoy') { g.visible = false; }   // boss: drawn by BossFx
   else {
     const big = p.key === 'orb';
     const m = new THREE.Mesh(G.ball, glowMat(c.clone().lerp(new THREE.Color(1, 1, 1), 0.35), 1.25)); m.scale.setScalar(p.r * (big ? 0.62 : 0.5)); g.add(m);
@@ -93,7 +95,7 @@ function syncProjs(dt) {
     g.position.set(p.x, ROOF_Y + p.y, 0);
     if (p.key === 'pillar') { const on = !(p.delay > 0); u.warn.visible = !on; u.beam.visible = on; u.core.visible = on; u.warn.material.opacity = 0.35 + Math.sin(p.t * 40) * 0.25; g.position.y = ROOF_Y + 0.03; if (on) { const k = Math.max(0, p.life / 0.28); u.beam.material.opacity = 0.55 * k; u.core.material.opacity = 0.75 * k; } }
     else if (p.key === 'meteor') { u.warn.position.y = -p.y + 0.03; u.warn.material.opacity = 0.2 + 0.25 * Math.max(0, 1 - p.y / 10); particles.emit(g.position, new THREE.Vector3((Math.random() - 0.5) * 0.6, 2, 0), u.c, { life: 0.35, size: 1.1, bright: SPARK_BRIGHT }); }
-    else if (p.key !== 'blast' && p.key !== 'dagger') { if (u.ring) u.ring.rotation.y += dt * 8; if (Math.random() < 0.7) particles.emit(g.position, new THREE.Vector3(-p.vx * 0.05, 0.3, 0), u.c, { life: 0.25, size: 0.6, bright: SPARK_BRIGHT }); }
+    else if (p.key !== 'blast' && p.key !== 'dagger' && p.key !== 'dblade' && p.key !== 'decoy') { if (u.ring) u.ring.rotation.y += dt * 8; if (Math.random() < 0.7) particles.emit(g.position, new THREE.Vector3(-p.vx * 0.05, 0.3, 0), u.c, { life: 0.25, size: 0.6, bright: SPARK_BRIGHT }); }
   }
   for (const [id, e] of projMeshes) if (!live.has(id)) { scene.remove(e.g); projMeshes.delete(id); }
 }
@@ -147,8 +149,8 @@ function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color 
 function setupDuel(clsA, foe, { oa = {}, preview = false } = {}) {
   S.foe = foe; clearProjMeshes();
   S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss });
-  S.memA = {}; S.memB = {}; S.acc = 0; S.comboShown = 0;
-  fa.setClass(clsA, oa.color ?? null, 1); fb.setClass(foe.cls, foe.color, foe.scale || 1);
+  S.memA = {}; S.memB = {}; S.acc = 0; S.comboShown = 0; bossFx.reset();
+  fa.setClass(clsA, oa.color ?? null, 1); fb.setClass(foe.cls, foe.color, foe.scale || 1); fb.setPhaseLook(1); fb.setCloak(false);
   fa.visible = true; fb.visible = true;
   document.documentElement.style.setProperty('--me', hex(oa.color ?? CLASSES[clsA].color));
   document.documentElement.style.setProperty('--foe', hex(foe.color));
@@ -258,8 +260,13 @@ function startFight() {
 function hudNames() {
   const f = S.foe, C = CLASSES[S.cls];
   ui.setText('hp-name-a', t('you')); ui.setText('hp-cls-a', L() ? C.en : C.zh);
-  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh);
+  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', (L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh) + phaseTag());
   ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
+}
+/** final boss: " · 秩序" / " · ORDER" after the class label, and the 50 % marker on the HP bar while in phase 1 */
+function phaseTag() {
+  const b = S.duel && S.duel.b, P = b && b.C.phases; $('hp-mark-b').classList.toggle('hidden', !P || b.phase !== 1);
+  return P ? ' · ' + P.names[b.phase - 1][L()] : '';
 }
 function setSkillLabels() {
   const sh = SHORT[S.cls];
@@ -295,7 +302,12 @@ function handleEvents() {
   for (const e of d.events) {
     const me = e.who === d.a;
     switch (e.type) {
-      case 'move': if (vol && e.kind !== 'ult' && viewOf(e.who).rig === 'classic') audio.swing(e.who.cls, e.kind); break;   // HQ / anime rigs cue the swing when the blade accelerates (tick)
+      case 'move': {
+        if (vol && e.kind !== 'ult' && viewOf(e.who).rig === 'classic') audio.swing(e.who.cls, e.kind);   // HQ / anime rigs cue the swing when the blade accelerates (tick)
+        const bm = e.who.C.phases && e.who.C.moves[e.key || e.who.mk];   // final boss: move-name callout over the head (not for the ult: it has the cut-in)
+        if (bm && bm.callout && (bm.kind !== 'ult' || bm.sub) && !menuish) { const [sx, sy] = xy(e.who.x, 3.1 * (e.who.scale || 1)); ui.popup(sx, sy, bm.name[L()], bm.name[1 - L()], 'boss-call'); }
+        break;
+      }   // HQ / anime rigs cue the swing when the blade accelerates (tick)
       case 'hit': {
         const att = e.att, col = new THREE.Color(colorOf(att)), av = viewOf(att), dv = viewOf(e.who);
         // sparks at the real contact point (where the weapon meets the body), streaks along the weapon's motion
@@ -338,9 +350,24 @@ function handleEvents() {
         for (const x of [e.from, e.to]) particles.burst(new THREE.Vector3(x, ROOF_Y + 1.1 + e.y, 0), c, 26, { speed: 3.5, up: 0.6, life: 0.35, size: 0.8, bright: SPARK_BRIGHT });
         if (vol) audio.blink(); break;
       }
-      case 'pillar': { const c = new THREE.Color(colorOf(e.who)); waves.spawn(new THREE.Vector3(e.p.x, ROOF_Y + 0.05, 0), c, { r0: 0.3, r1: 2.6, h: 0.8, dur: 0.4, a: 1.4 }); if (vol) audio.thunder(); fx.kick({ trauma: 0.15 }); break; }
-      case 'projEnd': case 'projHit': if (e.p.key === 'meteor') { const c = new THREE.Color(colorOf(e.p.owner)); waves.spawn(new THREE.Vector3(e.p.x, ROOF_Y + 0.05, 0), c, { r0: 0.3, r1: 3.2, h: 0.7, dur: 0.45, a: 1.4 }); particles.burst(new THREE.Vector3(e.p.x, ROOF_Y + 0.3, 0), c, 30, { speed: 5, up: 3, life: 0.5, size: 0.9, bright: SPARK_BRIGHT }); if (vol) audio.boom(); fx.kick({ trauma: 0.2 }); } break;
+      case 'pillar': if (e.p.key === 'dblade') { const c = new THREE.Color(colorOf(e.who)), pp = new THREE.Vector3(e.p.x, ROOF_Y + 0.05, 0); waves.spawn(pp, c, { r0: 0.2, r1: 1.4, h: 0.5, dur: 0.3, a: 1.4 }); pp.y += 0.2; particles.burst(pp, c, 18, { speed: 3.5, up: 2, life: 0.35, size: 0.6, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT }); if (vol) audio.block(); fx.kick({ trauma: 0.06 }); break; }
+      // falls through for the Mage pillar
+      { const c = new THREE.Color(colorOf(e.who)); waves.spawn(new THREE.Vector3(e.p.x, ROOF_Y + 0.05, 0), c, { r0: 0.3, r1: 2.6, h: 0.8, dur: 0.4, a: 1.4 }); if (vol) audio.thunder(); fx.kick({ trauma: 0.15 }); break; }
+      case 'projEnd': case 'projHit': if (e.p.key === 'decoy') bossFx.onEvent(e, d, viewOf(e.p.owner)); else if (e.p.key === 'meteor') { const c = new THREE.Color(colorOf(e.p.owner)); waves.spawn(new THREE.Vector3(e.p.x, ROOF_Y + 0.05, 0), c, { r0: 0.3, r1: 3.2, h: 0.7, dur: 0.45, a: 1.4 }); particles.burst(new THREE.Vector3(e.p.x, ROOF_Y + 0.3, 0), c, 30, { speed: 5, up: 3, life: 0.5, size: 0.9, bright: SPARK_BRIGHT }); if (vol) audio.boom(); fx.kick({ trauma: 0.2 }); } break;
       case 'ult': ultCinematic(e.who, menuish); break;
+      // ---- final boss (HANDOFF §16): telegraphs + the phase change
+      case 'flash': bossFx.onEvent(e, d, viewOf(e.who)); if (vol) { audio.block(); audio.blink(); } if (!menuish) ui.flash('rgba(255,235,240,0.16)', 90); break;
+      case 'proj': if (e.p.key === 'decoy') { bossFx.onEvent(e, d, viewOf(e.who)); if (vol) audio.blink(); } break;
+      case 'parry': bossFx.onEvent(e, d, viewOf(e.who)); if (vol) audio.block(); if (!menuish) { const [sx, sy] = xy(e.x, e.y + 0.6); ui.popup(sx, sy, t('boss.parry'), '', 'big'); } fx.kick({ trauma: 0.15, aberr: 0.3 }); break;
+      case 'crush': bossFx.onEvent(e, d, viewOf(e.who)); if (vol) audio.breakGuard(); if (!menuish) { const [sx, sy] = xy(e.x, e.y + 0.6); ui.popup(sx, sy, t('boss.crush'), '', 'big'); } break;
+      case 'phase': {
+        bossFx.onEvent(e, d, viewOf(e.who)); viewOf(e.who).setPhaseLook(2); hudNames();
+        if (vol) { audio.ko(); audio.ult(); } fx.kick({ trauma: 0.45, aberr: 0.8, slowmo: 0.5 });
+        if (!menuish) { ui.flash('rgba(255,30,60,0.35)', 260); ui.banner(t('boss.phase2'), t('boss.phase2S'), ''); Platform.haptic('heavy'); }
+        S.ultCam = { who: e.who, t: 1.1 };
+        break;
+      }
+      case 'phaseEnd': if (vol) audio.bell(2); break;
       case 'ko': {
         const c = new THREE.Color(colorOf(e.att || (e.who === d.a ? d.b : d.a)));
         if (vol) audio.ko(); fx.kick({ trauma: 0.5, aberr: 0.7, slowmo: 0.9 }); if (!menuish) ui.flash('rgba(255,255,255,0.3)', 240);
@@ -508,6 +535,7 @@ S.api = {
   setPose: (who, spec) => { const f = S.duel[who], o = who === 'a' ? S.duel.b : S.duel.a; Object.assign(f, { vx: 0, vy: 0, y: 0, mk: null, t: 0 }, spec); if (spec.mk) f.seq = (f.seq || 0) + 1;
     if (spec.st === 'hit') { const e = { who: f, att: o, dmg: 48, kb: 1.6, heavy: false, src: 'a2', back: false, ...(spec.hit || {}) }; viewOf(f).onHit(e); } }, dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
   hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
+  foeCmd: (c) => act(S.duel.b, c), bossPhase: () => ({ phase: S.duel.b.phase, phaseN: S.duel.b.phaseN, st: S.duel.b.st, mk: S.duel.b.mk }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },
 };
 
@@ -587,6 +615,11 @@ function tick(dt, now) {
     if (!paused && S.state !== 'menu' && S.state !== 'select') for (const [v, f] of [[fa, d.a], [fb, d.b]]) { const m = v.takeSwingCue(f); if (m && m.kind !== 'ult') audio.swing(f.cls, m.kind); }
     if (!paused) for (const v of [fa, fb]) { const cues = v.takeFx(); if (cues) for (const c of cues) stepFx(c); }
     syncProjs(paused ? 0 : dt);
+    if (d.b.C.phases) {   // final boss: telegraph FX + Glitch Step cloak (the body vanishes between the take-off and the real strike)
+      const g = d.b.st === 'atk' && d.b.mk === 'glitch', tel = g && d.b.C.moves.glitch.fire.find((q) => q.type === 'teleport');
+      fb.setCloak(!!(g && d.b.t >= 0.03 && d.b.t < tel.at));
+      bossFx.update(paused ? 0 : dt, d, d.b, fb);
+    } else if (bossFx.halo.visible || bossFx.zone.visible) bossFx.reset();
   }
   roof.update(now); particles.update(dt); waves.update(dt); updateStars(dt); updateSlashes(dt);
   city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); if (!S.skipR) stage.render(dt);
@@ -601,7 +634,7 @@ syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   showMenu(); frameCamera(0, 0, true); ui.loaded();
-  if (S.demo) { S.cls = CLASSES[flags.get('cls')] ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
+  if (S.demo) { S.cls = CLASS_IDS.includes(flags.get('cls')) ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });
   if (flags.fps) $('fps').classList.remove('hidden');
   ads.init().catch(() => {});

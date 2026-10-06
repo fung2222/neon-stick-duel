@@ -12,6 +12,10 @@
 .foe .fh-track, .foe .ult-track { transform: scaleX(-1); }
 .foe .fh-track { border-color: color-mix(in srgb, var(--foe) 60%, transparent); }
 .fh-fill, .fh-lag { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
+.fh-mark { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px var(--foe); opacity: .85; }   /* final boss: phase change at 50 % */
+.fh-mark.hidden { display: none; }
+.popup.boss-call { font-family: var(--font-zh); font-size: 20px; letter-spacing: 4px; color: #ffe6ea; text-shadow: 0 0 6px #ff2440, 0 0 16px #ff2440; animation-duration: 1.05s; }
+.popup.boss-call small { display: block; margin: 2px 0 0; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 3px; color: #ffb3c0; text-align: center; }
 .fh-lag { background: rgba(255,255,255,.7); transition: width .6s .25s ease-out; }
 .me .fh-fill { background: linear-gradient(90deg, color-mix(in srgb, var(--me) 55%, #000), var(--me)); transition: width .1s; }
 .foe .fh-fill { background: linear-gradient(90deg, color-mix(in srgb, var(--foe) 55%, #000), var(--foe)); transition: width .1s; }

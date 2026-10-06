@@ -20,6 +20,12 @@ export const TUNE = {
   turnDelay: 0.12,                   // grounded fighters stuck facing away (guard / block / hit) turn to the foe after this
   stopMin: 2 / 60, stopMax: 6 / 60,  // hit-stop 2–6 frames by hit strength
 };
+/** final boss tuning (only fighters whose class has `phases` use it; the four player classes never touch this) */
+export const BOSS_TUNE = {
+  parryStun: 0.26,      // Mirror Guard: stagger of a parried attacker (the counter's startup is 0.34 s → ~5 frames to have guard held / a dodge buffered)
+  crushMul: 1.25, crushStun: 0.7,   // a skill / ult / projectile into Mirror Guard breaks it: +25 % damage, long stun
+  shove: 7,             // phase transition: shockwave pushes a close opponent away (no damage)
+};
 /** hit-stop (s) from hit strength: 2 frames for chip-light hits → 6 frames for heavy launchers / spikes / finishers */
 export function hitStopOf(dmg, spec) {
   const heavy = (spec.launch || 0) >= 8 || !!spec.spike || (spec.kb || 0) >= 5;
@@ -37,6 +43,7 @@ export function makeFighter(clsId, x, facing, o = {}) {
     comboN: 0, comboT: 0, airN: 0, cd: { s1: 0, s2: 0 }, ult: o.ult || 0, ultGain: o.ultGain || 1, gd: 100, gdT: 0,
     inv: 0, stunT: 0, jug: 0, jugCap: false, chain: 0, dodgeCd: 0, dodgeDir: 0, dj: false, djT: 9, airT: 0, faceT: 0,
     in: { mx: 0, guard: false }, buf: null, dmgMul: o.dmgMul || 1, scale: o.scale || 1, boss: !!o.boss,
+    phase: C.phases ? 1 : 0, phaseN: 0, flashSeq: -1,   // boss only: current phase (1 → 2 once), number of flips (tests), telegraph flash done for seq
     stats: { hits: 0, dmg: 0, taken: 0, blocks: 0, evades: 0, maxCombo: 0, ults: 0, skills: 0 },
   };
 }
@@ -55,7 +62,7 @@ export function phaseOf(f) {
 }
 const inWin = (w, t) => w && t >= w[0] && t <= w[1];
 export function isInv(f) {
-  if (f.inv > 0 || f.st === 'down' || f.st === 'rise' || f.jugCap) return true;
+  if (f.inv > 0 || f.st === 'down' || f.st === 'rise' || f.st === 'phase' || f.jugCap) return true;
   const m = moveOf(f); return f.st === 'atk' && !!m && inWin(m.inv, f.t);
 }
 const isArmor = (f) => { const m = moveOf(f); return f.st === 'atk' && !!m && inWin(m.armor, f.t); };
@@ -81,6 +88,12 @@ function tryCmd(d, f, o, cmd) {
   const afterActive = inMove && f.t >= m.t[0] + (f.connected ? 0 : m.t[1]);
   const skillCancel = inMove && (m.kind === 'basic' || m.kind === 'air') && afterActive && f.t >= m.t[0];
   const act0 = actionable(f), inAir = f.st === 'jump';
+  if (C.phases && cmd.startsWith('bm:')) {   // boss move command (classes.js: phase / cd / sub)
+    const key = cmd.slice(3), bm = C.moves[key];
+    if (!bm || bm.sub || (bm.phase && bm.phase !== f.phase) || (f.cd[key] || 0) > 0 || !grounded(f)) return false;
+    if (!(act0 || skillCancel)) return false;
+    faceFoe(f, o); startMove(d, f, key); if (bm.cd) f.cd[key] = bm.cd; f.comboN = 0; f.stats.skills++; return true;
+  }
   switch (cmd) {
     case 'atk': {
       if (act0) {
@@ -105,6 +118,7 @@ function tryCmd(d, f, o, cmd) {
     }
     case 'ult': {
       if (f.ult < 100 || !grounded(f)) return false;
+      if (C.moves.ult.phase && C.moves.ult.phase !== f.phase) return false;   // boss: ult only in its phase
       const fromSkill = inMove && m.kind === 'skill' && f.connected && f.t >= m.t[0] + m.t[1];
       if (!(act0 || skillCancel || fromSkill)) return false;
       if (act0) f.facing = o.x >= f.x ? 1 : -1;
@@ -182,6 +196,18 @@ function fire(d, f, o, ev) {
       spawnProj(d, f, o, ev.proj, { x: clampX(f.x + dx), y: 0 });
       break;
     }
+    case 'rain': {   // boss Data-Blade Rain: n telegraphed blades centred on the foe, dropping left → right (marker time = delay)
+      const span = (ev.n - 1) * ev.gap;   // the foe stands under blade 2 (standing still is never safe); gaps of gap − 2 × (r + body half-width) between markers
+      const x0 = Math.max(-ARENA_HALF + 0.4, Math.min(ARENA_HALF - 0.4 - span, o.x - 2 * ev.gap));
+      for (let i = 0; i < ev.n; i++) spawnProj(d, f, o, ev.proj, { x: x0 + i * ev.gap, y: 0, delay: ev.delay + i * ev.step, idx: i, delay0: ev.delay + i * ev.step });
+      break;
+    }
+    case 'decoy': {  // boss Glitch Step after-image: a harmless image near the foe (side 1 = between foe and boss, -1 = behind the foe)
+      const s = f.C.projs.decoy, side = Math.sign(f.x - o.x) || f.facing, x = clampX(o.x + ev.side * side * ev.dist);
+      const p = { id: PID++, owner: f, key: 'decoy', cls: f.cls, ...s, life: ev.life || s.life, life0: ev.life || s.life, t: 0, hit: false, dead: false, x, y: 0, vx: 0, vy: 0, dir: Math.sign(o.x - x) || 1, harmless: true };
+      d.projs.push(p); d.events.push({ type: 'proj', who: f, p });
+      break;
+    }
     case 'meteors': {
       const offs = [-1.1, 0.8, -0.3, 1.3, 0.2, 0];
       for (let i = 0; i < ev.n; i++) {
@@ -216,11 +242,23 @@ function applyHit(d, att, def, spec, srcX) {
     return 'evade';
   }
   const isUlt = spec.kind === 'ult' || spec.ult;
+  const dm = def.st === 'atk' ? moveOf(def) : null, stance = !!(dm && dm.parry && inWin(dm.parry, def.t));
+  if (stance && !spec.key && (spec.kind === 'basic' || spec.kind === 'air') && (att.x - def.x) * def.facing >= -0.15) {
+    // boss Mirror Guard: parry a basic / air melee hit from the front → attacker staggers, the boss counters
+    const dir = Math.sign(att.x - def.x) || -def.facing;
+    att.mk = null; att.comboN = 0; att.t = 0; att.vx = dir * 2.6;
+    if (att.y > 0.05) { att.st = 'air'; att.vy = Math.max(att.vy, 4); att.jug++; } else { att.st = 'hit'; att.stunT = BOSS_TUNE.parryStun; }
+    def.facing = dir; startMove(d, def, dm.counter);
+    d.stop = Math.max(d.stop, 5 / 60);
+    d.events.push({ type: 'parry', who: def, att, x: def.x + def.facing * 0.7, y: def.y + 1.3 });
+    return 'parry';
+  }
   let dmg = spec.dmg * att.dmgMul;
   const guarding = (def.st === 'guard' || def.st === 'block') && grounded(def) && (srcX - def.x) * def.facing >= -0.15;
   if (guarding && !spec.unblockable) {
     const chip = Math.round(dmg * (isUlt ? TUNE.chipUlt : TUNE.chip));
     def.hp = Math.max(1, def.hp - chip); def.stats.taken += chip; def.stats.blocks++;
+    if (bossPhase(d, def, att)) return 'block';
     def.gd -= dmg * TUNE.guardDrain; def.gdT = 1.0;
     def.st = 'block'; def.t = 0; def.stunT = Math.min(0.4, (spec.stun || 0.3) * 0.6);
     def.vx = Math.sign(def.x - srcX || -def.facing) * ((spec.kb || 1) * 0.6 + 1.2);
@@ -237,6 +275,8 @@ function applyHit(d, att, def, spec, srcX) {
   def.chain = stunned ? def.chain + 1 : 1;
   const scale = Math.max(isUlt ? TUNE.prorateUlt : TUNE.prorateMin, 1 - TUNE.prorate * (def.chain - 1));
   dmg = Math.max(1, Math.round(dmg * scale));
+  const crush = stance;   // skill / ult / projectile into Mirror Guard: the mirror breaks
+  if (crush) dmg = Math.round(dmg * BOSS_TUNE.crushMul);
   if (isArmor(def) && def.hp - dmg > 0) {
     dmg = Math.round(dmg * 0.8);
     def.hp -= dmg; def.stats.taken += dmg; att.stats.dmg += dmg; att.stats.hits++;
@@ -248,6 +288,13 @@ function applyHit(d, att, def, spec, srcX) {
   def.hp = Math.max(0, def.hp - dmg);
   def.stats.taken += dmg; att.stats.dmg += dmg; att.stats.hits++;
   att.stats.maxCombo = Math.max(att.stats.maxCombo, def.chain);
+  if (bossPhase(d, def, att)) {   // the hit crossed the boss's phase line: it still counts, then the transition takes over (no KO in phase 1)
+    if (!isUlt) { att.ult = Math.min(100, att.ult + dmg * TUNE.ultDeal * att.ultGain); def.ult = Math.min(100, def.ult + dmg * TUNE.ultTake * def.ultGain); }
+    const stop = Math.min(TUNE.stopMax, Math.max(TUNE.stopMin, hitStopOf(dmg, spec) + 2 / 60)); d.stop = Math.max(d.stop, stop);
+    d.events.push({ type: 'hit', who: def, att, dmg, heavy: true, stop, kb: spec.kb || 1, spike: false, back: (att.x - def.x) * def.facing < 0, kind: spec.kind || (isUlt ? 'ult' : 'proj'), ult: isUlt, launch: 0,
+      x: def.x, y: def.y + 1.3, chain: def.chain, ko: false, proj: spec.key || null, src: spec.key ? 'p:' + spec.key : att.mk, phase: true });
+    return 'hit';
+  }
   if (!isUlt) { att.ult = Math.min(100, att.ult + dmg * TUNE.ultDeal * att.ultGain); def.ult = Math.min(100, def.ult + dmg * TUNE.ultTake * def.ultGain); }
   const airborne = def.y > 0.05 || def.st === 'air';
   const kdir = Math.sign(def.x - srcX) || att.facing;
@@ -265,6 +312,7 @@ function applyHit(d, att, def, spec, srcX) {
   } else {
     def.st = 'hit'; def.stunT = spec.stun || 0.3; def.vx = kdir * kb;
   }
+  if (crush) { if (def.st === 'hit') def.stunT = Math.max(def.stunT, BOSS_TUNE.crushStun); d.events.push({ type: 'crush', who: def, att, x: def.x, y: def.y + 1.5 }); }
   if (att.st === 'atk' && att.y > 0.05 && moveOf(att)?.kind === 'air') att.vy = Math.max(att.vy, 3.4);
   const heavy = dmg >= 70 || (spec.launch || 0) >= 8 || !!spec.spike;
   const stop = Math.min(TUNE.stopMax, Math.max(TUNE.stopMin, hitStopOf(dmg, spec) + (def.hp <= 0 ? 2 / 60 : 0)));
@@ -275,11 +323,24 @@ function applyHit(d, att, def, spec, srcX) {
   return 'hit';
 }
 
+/** boss phase line: the first time HP reaches phases.at × max HP the boss enters the invulnerable 'phase' transition and phase 2.
+ *  Overflow damage does not carry (HP clamps to the line), the ult meter is kept, a close foe is shoved away.
+ *  View hook: event { type: 'phase', who, phase: 2 } now and { type: 'phaseEnd' } when it ends; f.st === 'phase', f.t = time into it. */
+function bossPhase(d, f, o) {
+  const P = f.C.phases; if (!P || f.phase !== 1) return false;
+  const line = Math.round(f.maxHp * P.at); if (f.hp > line) return false;
+  f.hp = line; f.phase = 2; f.phaseN++;
+  f.st = 'phase'; f.t = 0; f.mk = null; f.buf = null; f.comboN = 0; f.chain = 0; f.jug = 0; f.jugCap = false; f.vx = 0; f.stunT = P.transT;
+  if (Math.abs(o.x - f.x) < 3.2 && o.st !== 'ko') o.vx = (Math.sign(o.x - f.x) || -f.facing) * BOSS_TUNE.shove;
+  d.events.push({ type: 'phase', who: f, phase: 2, x: f.x, y: f.y });
+  return true;
+}
+
 // -------------------------------------------------------------- fighter step
 function stepFighter(d, f, o, dt, pend) {
   f.t += dt; f.djT += dt;
   f.comboT = Math.max(0, f.comboT - dt); f.inv = Math.max(0, f.inv - dt); f.dodgeCd = Math.max(0, f.dodgeCd - dt);
-  f.cd.s1 = Math.max(0, f.cd.s1 - dt); f.cd.s2 = Math.max(0, f.cd.s2 - dt);
+  for (const k in f.cd) f.cd[k] = Math.max(0, f.cd[k] - dt);   // s1 / s2 (+ the boss's per-move cooldowns)
   f.gdT = Math.max(0, f.gdT - dt); if (f.gdT <= 0 && f.st !== 'guard' && f.st !== 'block') f.gd = Math.min(100, f.gd + TUNE.guardRegen * dt);
   if (f.buf && pend) { f.buf.t -= dt; if (tryCmd(d, f, o, f.buf.cmd)) { d.events.push({ type: 'cmd', who: f, cmd: f.buf.cmd }); f.buf = null; } else if (f.buf.t <= 0) f.buf = null; }
   const fr = Math.max(0, 1 - TUNE.friction * dt);
@@ -309,6 +370,7 @@ function stepFighter(d, f, o, dt, pend) {
       if (m.selfVy && !f.selfVyDone && t >= su) { f.vy = m.selfVy; f.selfVyDone = true; }
       if (m.kind === 'air' && t < su + ac && f.vy < -1.5) f.vy = -1.5;   // brief air hang while swinging
       if (m.fire) m.fire.forEach((ev, i) => { if (!(f.fired & (1 << i)) && t >= ev.at) { f.fired |= 1 << i; fire(d, f, o, ev); } });
+      if (m.flash && f.flashSeq !== f.seq && t >= m.flash) { f.flashSeq = f.seq; d.events.push({ type: 'flash', who: f, key: f.mk, x: f.x + f.facing * 0.6, y: f.y + 1.2 }); }   // boss telegraph
       if (m.box && t >= su && t < su + ac && pend) {
         const n = m.multi || 1;
         if (n === 1) { if (!f.connected) pend.push({ att: f, def: o, m, last: true, key: f.mk, seq: f.seq }); }
@@ -317,6 +379,7 @@ function stepFighter(d, f, o, dt, pend) {
           if (f.ticks <= i) { f.ticks = i + 1; pend.push({ att: f, def: o, m, last: i === n - 1, key: f.mk, seq: f.seq }); }
         }
       }
+      if (t >= T && m.follow && !d.over) { startMove(d, f, m.follow); break; }   // boss strings (Ten-Step, ult → finale)
       if (t >= T) {
         const k = m.kind; f.mk = null; f.t = 0;
         if (!grounded(f)) f.st = 'jump';
@@ -330,6 +393,7 @@ function stepFighter(d, f, o, dt, pend) {
     case 'down': f.vx *= Math.max(0, 1 - 8 * dt); if (f.t >= TUNE.downT) { f.st = 'rise'; f.t = 0; faceFoe(f, o); } break;
     case 'rise': f.vx = 0; if (f.t >= TUNE.riseT) { f.st = 'idle'; f.t = 0; f.chain = 0; f.inv = Math.max(f.inv, 0.12); } break;
     case 'ko': f.vx *= Math.max(0, 1 - (grounded(f) ? 5 : 0.5) * dt); break;
+    case 'phase': f.vx *= fr; if (f.t >= f.stunT && grounded(f)) { f.st = 'idle'; f.t = 0; f.inv = Math.max(f.inv, 0.15); faceFoe(f, o); d.events.push({ type: 'phaseEnd', who: f, phase: f.phase, x: f.x, y: f.y }); } break;
     case 'win': f.vx = 0; break;
   }
   // vertical physics
@@ -360,6 +424,7 @@ function stepProjs(d, dt) {
   for (const p of d.projs) {
     if (p.dead) continue;
     p.t += dt;
+    if (p.harmless) { p.life -= dt; if (p.life <= 0) { d.events.push({ type: 'projEnd', p }); p.dead = true; } continue; }   // boss decoys: never collide
     if (p.delay > 0) { p.delay -= dt; if (p.delay <= 0) d.events.push({ type: 'pillar', who: p.owner, p }); continue; }
     p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
     const def = p.owner === d.a ? d.b : d.a;

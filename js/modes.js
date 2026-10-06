@@ -13,7 +13,7 @@ export const LADDER = [
   { id: 'phantom', zh: '幻刃',     en: 'PHANTOM EDGE',    cls: 'assassin', diff: 0.6,  color: 0x2bffd0, desc: ['瞬殺繞背 · 留意身後', 'Teleport strikes · mind your back'] },
   { id: 'saint',   zh: '劍聖',     en: 'BLADE SAINT',     cls: 'sword',    diff: 0.68, color: 0xe8f6ff, desc: ['昇龍對空 · 唔好亂跳', 'Rising dragon anti-air · do not jump carelessly'] },
   { id: 'mirror',  zh: '鏡像分身', en: 'MIRROR SHADE',    cls: 'mirror',   diff: 0.74, color: 0xd8d8ff, desc: ['同你一樣嘅職業 · 鬥技術', 'Your own class · pure skill'] },
-  { id: 'zero',    zh: '塔主・零', en: 'TOWER LORD ZERO', cls: 'sword',    diff: 0.86, color: 0xff2bd6, boss: true, hpMul: 1.85, dmgMul: 1.1, ultGain: 1.35, scale: 1.34, desc: ['最終頭目 · 必殺技充得特別快', 'FINAL BOSS · charges the ultimate fast'] },
+  { id: 'zero',    zh: '塔主・零', en: 'TOWER LORD ZERO', cls: 'shogun',   diff: 0.86, color: 0xff2440, boss: true, final: true, hpMul: 1.85, dmgMul: 1.1, ultGain: 1.35, scale: 1.34, desc: ['最終頭目 · 機械將軍，血量一半變第二型態', 'FINAL BOSS · the KAGE-SHŌGUN changes form at half HP'] },
 ];
 
 const RIVALS = {

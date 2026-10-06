@@ -6,6 +6,7 @@ export class DuelAudio extends SynthAudio {
   /** swing / cast sound for a move of class cls */
   swing(cls, kind = 'basic') {
     const big = kind !== 'basic' && kind !== 'air';
+    if (cls === 'shogun') cls = 'sword';   // final boss: nodachi = the sword whoosh
     if (cls === 'sword') this.noiseHit({ dur: big ? 0.22 : 0.11, vol: big ? 0.09 : 0.06, type: 'bandpass', f: 4200, f2: 1200, q: 2.2, a: 0.004 });
     else if (cls === 'assassin') this.noiseHit({ dur: 0.07, vol: 0.05, type: 'bandpass', f: 6000, f2: 2500, q: 2.5, a: 0.003 });
     else if (cls === 'brawler') { this.noiseHit({ dur: big ? 0.2 : 0.09, vol: big ? 0.09 : 0.05, type: 'bandpass', f: 1300, f2: 500, q: 1.1, a: 0.006 }); if (big) this.osc({ type: 'sawtooth', f: 90, f2: 160, dur: 0.25, vol: 0.05, lp: 900 }); }
@@ -13,7 +14,7 @@ export class DuelAudio extends SynthAudio {
   }
   cast(big = false) { this.osc({ type: 'sine', f: big ? 520 : 880, f2: big ? 1400 : 1760, dur: big ? 0.25 : 0.12, vol: 0.05, send: 0.35 }); this.osc({ type: 'triangle', f: big ? 260 : 440, dur: 0.15, vol: 0.03, send: 0.3 }); }
   hit(heavy = false, cls = 'sword') {
-    const metal = cls === 'sword' || cls === 'assassin';
+    const metal = cls === 'sword' || cls === 'assassin' || cls === 'shogun';
     this.noiseHit({ dur: heavy ? 0.28 : 0.1, vol: heavy ? 0.18 : 0.11, type: 'lowpass', f: heavy ? 2600 : 3400, f2: 200, q: 0.9, a: 0.002 });
     this.osc({ type: 'sine', f: heavy ? 150 : 220, f2: 50, dur: heavy ? 0.28 : 0.12, vol: heavy ? 0.26 : 0.14 });
     if (metal) this.osc({ type: 'square', f: heavy ? 1400 : 2100, f2: 900, dur: 0.06, vol: 0.025, lp: 6000 });

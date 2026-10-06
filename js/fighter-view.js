@@ -13,7 +13,7 @@ import { ANIME_CLASSES } from './anime/configs.js';
 
 // Look per class: 'anime' (cel-shaded character, js/anime/) or 'neon' (the v2.2 HQ / classic stick look).
 //   ?style=anime | ?style=neon   (pause screen STYLE button stores `style`); classes without an anime config are always neon.
-export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime' };   // v2.3: anime Swordsman · v2.4: anime Mage · v2.6: anime Brawler · v2.7: anime Assassin (perf in docs/HANDOFF.md §12–15)
+export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime', shogun: 'anime' };   // v2.3: anime Swordsman · v2.4: anime Mage · v2.6: anime Brawler · v2.7: anime Assassin (perf in docs/HANDOFF.md §12–15)
 let styleOv = null;
 export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
 export const styleMode = () => styleOv;
@@ -63,6 +63,11 @@ export class FighterView {
   flash() { this.cur.flash(); }
   onHit(e) { if (this.cur.onHit) this.cur.onHit(e); }
   get joints() { return this.cur.joints; }
+  // final boss hooks (anime only; the neon / classic rigs ignore them)
+  get cloaked() { return !!this.cur.cloaked; }
+  setCloak(on) { if (this.cur.setCloak) this.cur.setCloak(on); }
+  setPhaseLook(p) { if (this.cur.setPhaseLook) this.cur.setPhaseLook(p); }
+  get spawnGhostAt() { return this.cur.spawnGhostAt && this.cur.ghosts ? (...a) => this.cur.spawnGhostAt(...a) : null; }
   /** Assassin 居合: the ult's delayed hits land while the blades go home (main.js draws X cuts on the foe instead of contact sparks) */
   zan() { return !!(this.cur.zanNow && this.cur.zanNow()); }
   /** swing-sound cue: HQ fires when the blade starts accelerating; classic fires on the move start (handled by main) */

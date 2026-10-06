@@ -102,3 +102,4 @@ export const POSES = {
   asDrop: { lean: 0.6, uaF: 1.0, faF: 0.2, wF: -1.2, uaB: 0.9, faB: 0.2, wB: -1.2, thF: 0.8, shF: -1.2, thB: 0.2, shB: -1.0 },
   asThrow: { hipX: -0.12, lean: -0.15, uaF: 1.7, faF: 0.1, wF: 0.0, uaB: -0.6, faB: 0.5, thF: 0.4, thB: -0.7 },
 };
+STANCE.shogun = STANCE.sword;   // final boss (classic stick rig fallback): the Swordsman's stance

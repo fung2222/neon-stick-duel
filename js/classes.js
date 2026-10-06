@@ -106,6 +106,50 @@ export const CLASSES = {
   },
 };
 
+// ------------------------------------------------------------------ final boss (not player-selectable: not in CLASS_IDS)
+// 機械將軍 KAGE-SHŌGUN — the body of 塔主・零 TOWER LORD ZERO (ladder fight 10, endless floors 30 / 60 / 90 …). docs/HANDOFF.md §16.
+// Extra move fields used only by the boss (duel.js):
+//   phase: 1 | 2 — only usable in that phase (0 / missing = both)      follow: key of a move that starts automatically when this one ends
+//   sub: true — only reachable through follow / counter (not a command)   flash: time of the telegraph flash event (dodge / jump cue)
+//   parry: [t0, t1] — a basic / air melee hit landing from the front in this window is parried: the attacker staggers
+//          (BOSS_TUNE.parryStun) and the boss starts `counter`; skills, ults and projectiles break the stance instead (+25 %, long stun)
+//   callout: show the move name over the boss when it starts (telegraph text)
+// Boss commands are 'bm:<key>' (act(f, 'bm:iai')). The phase flips once at phases.at × max HP (duel.js: 'phase' state, invulnerable).
+const BS = (o) => ({ kind: 'skill', stop: 0.08, stun: 0.45, kb: 3, launch: 0, callout: true, ...o });
+export const BOSS_IDS = ['shogun'];
+CLASSES.shogun = {
+  id: 'shogun', zh: '機械將軍', en: 'KAGE-SHŌGUN', color: 0xff2440, trim: 0xffd2d8, cloth: 0x140a0e,
+  role: 'melee', boss: true, selectable: false, hp: 1000, walk: 2.55, weight: 1.3, reach: 1.75, prefer: 2.4,
+  stats: { atk: 5, def: 4, spd: 2, rng: 3 },
+  outfit: { weapon: 'blade', body: 'coat' },
+  desc: ['最終頭目 · 兩個型態：秩序 → 崩壞', 'Final boss · two phases: Order → Collapse'],
+  phases: { at: 0.5, transT: 1.2, names: [['秩序', 'ORDER'], ['崩壞', 'COLLAPSE']] },
+  combo: ['a1', 'a2', 'a3'], airCombo: [],
+  moves: {
+    // nodachi basics (both phases): reach 1.8 m, startups 0.18–0.26 s
+    a1: B({ name: ['袈裟斬', 'Kesa Cut'], t: [0.2, 0.08, 0.28], dmg: 48, box: [0, 1.8, 0.4, 2.1], vx: 2.0, chain: 0.5, pose: ['swA0', 'swA1', 'swA1f'] }),
+    a2: B({ name: ['逆袈裟', 'Rising Kesa'], t: [0.18, 0.08, 0.28], dmg: 52, box: [0, 1.8, 0.4, 2.2], vx: 2.0, chain: 0.5, pose: ['swB0', 'swB1', 'swB1f'] }),
+    a3: B({ name: ['唐竹割', 'Karatake Split'], t: [0.26, 0.1, 0.42], dmg: 66, box: [0, 1.75, 0.2, 2.4], vx: 1.6, kb: 3.2, stun: 0.45, stop: 0.07, pose: ['swD0', 'swD1', 'swD1f'] }),
+    // ---- phase 1 「秩序」 Order: slow, perfect kenjutsu
+    iai: BS({ name: ['居合裁き', 'Iai Judgement'], phase: 1, t: [0.62, 0.08, 0.55], flash: 0.42, dmg: 120, box: [0.2, 5.6, 0.1, 1.55], kb: 5, stun: 0.6, stop: 0.1, cd: 4.5, pose: ['swC0', 'lunge', 'swC1f'] }),
+    ten1: BS({ name: ['十歩詰め', 'Ten-Step Advance'], phase: 1, t: [0.3, 0.08, 0.14], dmg: 46, box: [0, 1.85, 0.3, 2.1], vx: 3.4, vxT: [0.04, 0.36], kb: 3.4, stun: 0.36, cd: 6, follow: 'ten2', pose: ['swA0', 'swA1', 'swA1f'] }),
+    ten2: BS({ name: ['十歩詰め・二', 'Ten-Step II'], sub: true, callout: false, t: [0.26, 0.08, 0.14], dmg: 46, box: [0, 1.85, 0.3, 2.1], vx: 3.4, vxT: [0.02, 0.32], kb: 3.4, stun: 0.36, follow: 'ten3', pose: ['swB0', 'swB1', 'swB1f'] }),
+    ten3: BS({ name: ['十歩詰め・終', 'Ten-Step Finale'], sub: true, callout: false, t: [0.3, 0.1, 0.5], dmg: 66, box: [0, 1.95, 0.2, 2.2], vx: 3.6, vxT: [0.02, 0.38], kb: 7, stun: 0.5, stop: 0.1, pose: ['swD0', 'swD1', 'swD1f'] }),
+    mirror: BS({ name: ['鏡受け', 'Mirror Guard'], phase: 1, t: [0.1, 0.95, 0.42], dmg: 0, parry: [0.08, 1.05], counter: 'mcut', cd: 6.5, pose: ['guard', 'guard', 'guard'] }),
+    mcut: BS({ name: ['鏡返し', 'Mirror Return'], sub: true, t: [0.34, 0.1, 0.4], dmg: 100, box: [-0.2, 2.0, 0.2, 2.3], kb: 5, stun: 0.55, stop: 0.1, pose: ['swC0', 'swC1', 'swC1f'] }),
+    // ---- phase 2 「崩壞」 Collapse: fast and glitchy
+    rain: BS({ name: ['數據刃雨', 'Data-Blade Rain'], phase: 2, t: [0.45, 0.1, 0.5], dmg: 0, cd: 7, fire: [{ at: 0.4, type: 'rain', proj: 'dblade', n: 6, gap: 1.8, delay: 0.6, step: 0.13 }], pose: ['swD0', 'dragon', 'swD1f'] }),
+    glitch: BS({ name: ['故障步', 'Glitch Step'], phase: 2, t: [0.62, 0.1, 0.42], dmg: 88, box: [-0.2, 1.9, 0.3, 2.2], inv: [0, 0.4], kb: 4, stun: 0.5, stop: 0.09, cd: 5,
+      fire: [{ at: 0.04, type: 'decoy', side: -1, dist: 2.1, life: 0.34 }, { at: 0.18, type: 'decoy', side: 1, dist: 1.15, life: 0.3 }, { at: 0.36, type: 'teleport', behind: true, maxDist: 9 }], pose: ['blink0', 'swA1', 'swA1f'] }),
+    ult: U({ name: ['千刃斬・鏡', 'Thousand Edges Mirrored'], phase: 2, t: [0.26, 0.81, 0.14], dmg: 28, box: [-0.6, 2.3, 0, 2.6], vx: 19.5, vxT: [0.22, 0.42], multi: 7, last: { dmg: 40, kb: 1.5, stun: 0.6 }, inv: [0, 1.0], follow: 'ultEnd', pose: ['ult0', 'ultSword', 'swD1f'] }),
+    ultEnd: U({ name: ['千刃斬・鏡　終之型', 'Mirrored Finale'], sub: true, callout: true, t: [0.5, 0.1, 0.6], dmg: 140, box: [-0.3, 2.4, 0, 2.8], kb: 8, launch: 7, stun: 0.9, stop: 0.12, pose: ['swD0', 'swD1', 'swD1f'] }),
+  },
+  projs: {
+    dblade: { dmg: 62, v: 0, life: 0.14, r: 0.32, y: 0, h: 3.0, kb: 2.2, stun: 0.42, stop: 0.06 },   // data blade: telegraphed column (delay = marker time)
+    decoy: { dmg: 0, v: 0, life: 0.32, r: 0.4, y: 0, harmless: true },                              // Glitch Step after-image: no hitbox at all
+  },
+};
+
 /** display info for the class-select screen */
 export const STAT_KEYS = ['atk', 'def', 'spd', 'rng'];
 export const classOf = (id) => CLASSES[id] || CLASSES.sword;

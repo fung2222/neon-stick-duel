@@ -4,6 +4,7 @@ import { PROFILE as SWORD_ANIM } from './sword.js';
 import { PROFILE as MAGE_ANIM } from './mage.js';
 import { PROFILE as BRAWLER_ANIM } from './brawler.js';
 import { PROFILE as ASSASSIN_ANIM } from './assassin.js';
+import { PROFILE as SHOGUN_INTERIM_ANIM } from './shogun-interim.js';
 
 export const ANIME_CLASSES = {
   sword: {
@@ -68,4 +69,18 @@ export const ANIME_CLASSES = {
     rimLight: { rimK: 0.62, rimW: 0.05 },
     anim: ASSASSIN_ANIM,
   },
+};
+// final boss 機械將軍 KAGE-SHŌGUN — INTERIM (HANDOFF §16 step 1): the anime Swordsman body in black lacquer + crimson, ash hair,
+// red eyes; the fight renders it at the ladder scale (1.34). Phase 2 turns the outline red (AnimeFighter.setPhaseLook).
+// Steps 2–3 replace it with build: 'shogun' (armour plates, kabuto, mask visor, nodachi, data blades).
+ANIME_CLASSES.shogun = {
+  ...ANIME_CLASSES.sword, id: 'shogun', recolor: [], interim: true,
+  concept: 'INTERIM boss look: anime Swordsman body, black-lacquer coat with crimson lining / obi / trims, ash-white hair, red eyes',
+  palette: { ...ANIME_CLASSES.sword.palette, coat: 0x17121a, lining: 0xb0102a, inner: 0x3a2228, pants: 0x1c1720, sash: 0xd01030, sashEdge: 0x2a0a10,
+    armor: 0x2a2228, boots: 0x0e0b10, glove: 0x120e14, trim: 0xff2440, metal: 0xffe0e4, tsukaWrap: 0x8a1020, gold: 0xb02030, saya: 0x0a0809,
+    hair: 0xd8d2d6, hairTie: 0xff2440, skin: 0xe8c2b0, line: 0x060306 },
+  paletteV2: { pants: 0x2a2230, boots: 0x15101a, inner: 0x4a2a32 },
+  face: { ...ANIME_CLASSES.sword.face, iris: '#ff3048', irisDark: '#4a0010', brow: '#2a1418', blush: 'rgba(0,0,0,0)' },
+  outlinePx: 2.1,
+  anim: SHOGUN_INTERIM_ANIM,
 };

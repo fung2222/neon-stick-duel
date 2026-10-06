@@ -23,6 +23,7 @@ const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _s = new THREE.Vector
   _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _inv = new THREE.Matrix4(), UPV = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _d = new THREE.Vector3(),
   _fm = new THREE.Matrix4(), _fm2 = new THREE.Matrix4(), _ft = new THREE.Matrix4(), _fr = new THREE.Matrix4(), _hm = new THREE.Matrix4();
 const A3 = () => new Float64Array(3);
+const _white = new THREE.Color(1, 1, 1);
 const TAU = Math.PI * 2;
 const SIDES = ['F', 'B'];
 const SIGN_LIFE = 0.32;   // hand-sign after-image lifetime (s)
@@ -96,6 +97,7 @@ export class AnimeFighter extends HQFighter {
     });
     this.rolled = { ...this.prof.stance, rr: -TAU };
     if (this.prof.ghosts) this.makeGhosts(ch);
+    this.phaseLook = 1; this.cloaked = false;
     this.resetAnim();
     this.visible = this.vis;
   }
@@ -109,7 +111,7 @@ export class AnimeFighter extends HQFighter {
   /** Assassin after-images: skinned silhouettes sharing the body geometry, each with its own frozen copy of the bone matrices
    *  (snapshot of the last rendered pose), additive emerald, fading in GHOST_LIFE. One draw call each while visible. */
   makeGhosts(ch) {
-    this.ghosts = Array.from({ length: GHOST_N }, () => {
+    this.ghosts = Array.from({ length: this.prof.ghostN || GHOST_N }, () => {
       const skel = new THREE.Skeleton(ch.bones, ch.skeleton.boneInverses); skel.update = () => {};   // frozen: never re-read the live bones
       const mat = new THREE.MeshBasicMaterial({ color: this.c.clone().lerp(new THREE.Color(1, 1, 1), 0.15), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
       const mesh = new THREE.SkinnedMesh(ch.body.geometry, mat); mesh.bindMode = 'detached'; mesh.bind(skel, new THREE.Matrix4()); mesh.frustumCulled = false; mesh.visible = false; mesh.renderOrder = 1;
@@ -120,10 +122,33 @@ export class AnimeFighter extends HQFighter {
   /** freeze the last rendered pose into the next ghost, shifted by dx (world) */
   spawnGhost(dx, a = 0.5, life = GHOST_LIFE) {
     const src = this.char.skeleton; if (!this.ghosts || !src.boneMatrices) return;
-    const g = this.ghosts[this.ghostI++ % GHOST_N];
+    const g = this.ghosts[this.ghostI++ % this.ghosts.length];
     if (!g.skel.boneTexture) g.skel.computeBoneTexture();
     g.skel.boneMatrices.set(src.boneMatrices.subarray(0, Math.min(src.boneMatrices.length, g.skel.boneMatrices.length))); g.skel.boneTexture.needsUpdate = true;
-    g.mesh.position.set(dx, 0, -0.02); g.t = 0; g.life = life; g.a = a;
+    g.mesh.position.set(dx, 0, -0.02); g.mesh.scale.x = 1; g.mesh.material.side = THREE.FrontSide; g.mesh.material.color.copy(this.c).lerp(_white, 0.15); g.t = 0; g.life = life; g.a = a;
+    return g;
+  }
+  /** boss Glitch Step decoy: freeze the current pose into a ghost standing at world x, facing `face` (mirrored when it differs
+   *  from the fighter's facing), tinted `tint` */
+  spawnGhostAt(x, face, a = 0.6, life = 0.35, tint = null) {
+    const g = this.spawnGhost(0, a, life); if (!g) return null;
+    const bx = this.group.position.x, mirror = face !== this.lastFacing;
+    g.mesh.scale.x = mirror ? -1 : 1; g.mesh.position.x = mirror ? x + bx : x - bx;
+    if (mirror) g.mesh.material.side = THREE.DoubleSide;
+    if (tint != null) g.mesh.material.color.set(tint);
+    return g;
+  }
+  /** boss: hide the body while it is "in transit" (Glitch Step) — ghosts / decoys stay visible */
+  setCloak(on) {
+    if (on && !this.cloaked) this.trail.clear(); this.cloaked = on;
+    this.group.visible = this.vis && !on; this.shadow.visible = this.vis && !on;
+  }
+  /** boss phase look: phase 2 = red outline, wider line, hot red rim (interim; the real body swaps the visor too) */
+  setPhaseLook(phase) {
+    if (!this.char || this.phaseLook === phase) return; this.phaseLook = phase;
+    const OU = this.char.OU, U = this.char.U, base = this.cfg.outlinePx ?? 1.9;
+    if (phase >= 2) { OU.uColor.value.set(0xff1a2e); OU.uPx.value = base + 0.8; U.uRim.value.set(0xff3048); U.uRimK.value = 0.9; U.uRimW.value = 0.08; }
+    else { OU.uColor.value.set(this.cfg.palette.line ?? 0x07060f); OU.uPx.value = base; const r = this.cfg.rimLight || {}; U.uRim.value.set(this.c); U.uRimK.value = r.rimK ?? 0.42; U.uRimW.value = r.rimW ?? 0; }
   }
   stepGhosts(dt) {
     if (!this.ghosts) return;
@@ -249,7 +274,7 @@ export class AnimeFighter extends HQFighter {
     if (this.lastFacing === 0) { this.yaw = yawT; this.lastFacing = f.facing; this.turnT = 1; }
     if (f.facing !== this.lastFacing) { this.lastFacing = f.facing; this.turnT = this.prof.snapTurn && f.st === 'atk' ? 1 : 0; this.yaw0 = this.yaw; }   // teleports snap the facing
     if (this.prof.ghosts && !frozen) {
-      if (f.st === 'atk' && this.lastX !== undefined && Math.abs(f.x - this.lastX) > 1.2) {   // teleport: after-images along the path, feet re-plant
+      if (f.st === 'atk' && this.lastX !== undefined && Math.abs(f.x - this.lastX) > 1.2 && this.prof.ghostTrail !== false) {   // teleport: after-images along the path, feet re-plant
         const d = this.lastX - f.x; for (const [k, a] of [[0, 0.32], [0.38, 0.42], [0.72, 0.55]]) this.spawnGhost(-d * k, a, GHOST_LIFE + 0.1 * k);
         for (const sd of SIDES) { this.feet[sd].planted = false; this.feet[sd].step = null; }
       } else if (f.st === 'atk' && Math.abs(f.vx) > 9) { this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = 0.05; this.spawnGhost(0, 0.4, 0.24); } }

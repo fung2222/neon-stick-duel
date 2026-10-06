@@ -38,11 +38,13 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   const P = mem.P || (mem.P = aiParams(prof.diff ?? 0.5));
   const C = me.C, cls = C.id;
   mem.t = (mem.t || 0) + dt;
+  if (C.phases) return bossThink(d, me, op, prof, mem, dt, rng, P);   // final boss brain (below)
   const gap = Math.abs(op.x - me.x), dirTo = Math.sign(op.x - me.x) || me.facing;
   const opM = moveOf(op), opVuln = op.st === 'stun' || (op.st === 'atk' && phaseOf(op) === 'rc' && opM && opM.kind !== 'basic');
   const hitConfirm = op.st === 'hit' || op.st === 'air' || op.st === 'stun';
   me.in.guard = false;
   if (grounded(me)) mem.djAsked = false;
+  if (op.C.phases) { const r = vsBoss(d, me, op, prof, mem, dt, rng, P); if (r !== undefined) return r; }   // only against the boss: read its telegraphs
 
   // ---- reactive defence (decided once per threat, after a human-like reaction delay)
   const th = threatOf(d, me, op);
@@ -197,6 +199,152 @@ function enderSkill(me, op, gap) {
   if (c === 'brawler') return me.cd.s2 <= 0 && gap < 2 ? 's2' : me.cd.s1 <= 0 ? 's1' : null;
   if (c === 'assassin') return me.cd.s1 <= 0 ? 's1' : null;
   if (c === 'mage') return me.cd.s2 <= 0 ? 's2' : null;
+  return null;
+}
+
+// ------------------------------------------------------------------ final boss: 機械將軍 KAGE-SHŌGUN (classes.js CLASSES.shogun)
+// Phase 1 「秩序」 Order: holds the line just outside the foe's reach, draws Iai Judgement at mid range, walks the foe to the wall
+// with Ten-Step Advance, waits in Mirror Guard when the foe presses in. Phase 2 「崩壞」 Collapse: thinks faster, Glitch Step
+// cross-ups, Data-Blade Rain from range, Thousand Edges Mirrored on a full meter.
+function bossThink(d, me, op, prof, mem, dt, rng, P) {
+  const C = me.C, ph = me.phase, k = prof.diff ?? 0.5;
+  const gap = Math.abs(op.x - me.x), dirTo = Math.sign(op.x - me.x) || me.facing;
+  const opM = moveOf(op), opVuln = op.st === 'stun' || (op.st === 'atk' && phaseOf(op) === 'rc' && opM && opM.kind !== 'basic');
+  const hitConfirm = op.st === 'hit' || op.st === 'air' || op.st === 'stun';
+  me.in.guard = false;
+  if (me.st === 'phase') { me.in.mx = 0; mem.guardT = 0; mem.react = null; return null; }
+  // reactive defence (guard / back-dodge, decided once per threat after the reaction delay)
+  const th = threatOf(d, me, op);
+  if (th && th.key !== mem.threatKey) { mem.threatKey = th.key; mem.reactAt = mem.t + P.react * (0.7 + 0.6 * rng()); mem.react = th; }
+  if (mem.react && mem.t >= mem.reactAt) {
+    const r0 = mem.react; mem.react = null;
+    if (th && th.key === r0.key && actionable(me)) {
+      const r = rng();
+      if (r < P.guardP * (r0.ranged ? 0.8 : 1)) mem.guardT = 0.3 + 0.22 * rng();
+      else if (r < P.guardP + P.dodgeP * 0.5 && !r0.ranged && me.dodgeCd <= 0) { me.in.mx = -dirTo; return 'dodge'; }
+    }
+  }
+  if (mem.guardT > 0) {
+    mem.guardT -= dt;
+    if (opVuln && gap < C.reach + 0.3) mem.guardT = 0;
+    else if (me.st === 'guard' || me.st === 'block' || actionable(me)) { me.in.guard = true; me.in.mx = 0; return null; }
+  }
+  // attacking: continue the nodachi chain (the sim strings Ten-Step and the ult finale itself)
+  if (me.st === 'atk') {
+    me.in.mx = 0; const m = moveOf(me);
+    if (!m || m.kind !== 'basic') return null;
+    const T = m.t[0] + m.t[1] + m.t[2];
+    if (m.chain != null && me.t >= m.chain * T && me.comboN < C.combo.length) {
+      if (mem.decSeq !== me.seq) { mem.decSeq = me.seq; mem.go = (me.connected || gap < C.reach + 0.4) && rng() < (me.connected ? P.comboP : P.comboP * 0.45); }
+      if (mem.go) return 'atk';
+    }
+    return null;
+  }
+  if (!actionable(me)) { me.in.mx = 0; return null; }
+  if (ph === 2 && me.ult >= 100 && gap < 3.6 && op.st !== 'down' && op.st !== 'rise' && op.st !== 'dodge' && rng() < dt * P.ultRate * (hitConfirm || opVuln ? 3 : 1)) return 'ult';
+  if (opVuln && gap < C.reach + 0.25 && rng() < dt * 10 * P.aggr) return 'atk';
+  const can = (key) => (me.cd[key] || 0) <= 0;
+  const want = (key, rate) => can(key) && rng() < dt * rate * P.skillRate;
+  mem.cool = (mem.cool ?? 0) - dt;
+  if (mem.walkT > 0) { mem.walkT -= dt; me.in.mx = mem.walkDir; } else me.in.mx = 0;
+  if (ph === 1) {
+    const pressing = (op.st === 'walk' && Math.sign(op.vx) === -dirTo) || (op.st === 'atk' && phaseOf(op) === 'su' && opM && opM.box);
+    if (gap > 2.3 && gap < 5.3 && want('iai', 0.95)) return 'bm:iai';
+    if (gap > 5.4) { if ((mem.walkT || 0) <= 0) me.in.mx = dirTo; return null; }
+    if (gap < 2.8 && pressing && want('mirror', 1.6)) return 'bm:mirror';
+    if (gap < 2.1 && want('ten1', 0.75)) return 'bm:ten1';
+    if (mem.cool <= 0) {
+      mem.cool = P.think * (0.75 + 0.6 * rng()); const r = rng();
+      if (gap < C.reach + 0.15 && r < P.aggr * 0.75) return 'atk';
+      if (gap > C.prefer + 0.4) { mem.walkT = 0.25 + 0.25 * rng(); mem.walkDir = dirTo; }          // close in slowly
+      else if (gap < C.reach - 0.2 && r < 0.9) { mem.walkT = 0.2 + 0.15 * rng(); mem.walkDir = -dirTo; }   // step back to the nodachi's range
+    }
+    return null;
+  }
+  // phase 2 「崩壞」
+  if (gap > 2.4 && want('glitch', 1.0)) return 'bm:glitch';
+  if (gap > 1.4 && want('rain', 0.75)) return 'bm:rain';
+  if (gap > C.reach + 0.2) { if ((mem.walkT || 0) <= 0) me.in.mx = dirTo; return null; }
+  if (want('glitch', 0.3)) return 'bm:glitch';
+  if (mem.cool <= 0) {
+    mem.cool = P.think * (0.45 + 0.6 * rng());
+    if (rng() < Math.min(0.92, P.aggr + 0.1 * k)) return 'atk';
+    mem.walkT = 0.2; mem.walkDir = -dirTo;
+  }
+  return null;
+}
+
+/** ladder player vs the boss: reads its telegraphs. On a new boss move the player (after the reaction delay) answers with the
+ *  move's fair answer with probability `read` (rises with skill), otherwise falls back to the normal AI (which often eats it).
+ *  Answers: Iai → guard through / dodge on the flash / jump on the flash · Ten-Step → guard the string · Mirror Guard → don't
+ *  hit it: back off and punish the recovery, or break it with a skill (casters keep shooting) · Mirror Return → hold guard ·
+ *  Glitch Step → hold guard (auto-turn) or dodge as the real image appears · Data-Blade Rain → guard / step into a gap ·
+ *  ult → guard the dash, dodge (or guard) the held overhead. Returns undefined to let the normal AI run. */
+function vsBoss(d, me, op, prof, mem, dt, rng, P) {
+  const k = Math.max(0, Math.min(1, prof.diff ?? 0.5)), read = lerp(0.3, 0.92, k);
+  const C = me.C, m = moveOf(op), gap = Math.abs(op.x - me.x), dirTo = Math.sign(op.x - me.x) || me.facing;
+  const key = op.st === 'atk' && m ? 'm' + op.seq : null;
+  if (key && key !== mem.bKey) { mem.bKey = key; mem.bAt = mem.t + P.react * (0.7 + 0.6 * rng()); mem.bDone = false; if (!(mem.bPlan && mem.bPlan.keep)) mem.bPlan = null; }
+  if (key && !mem.bDone && mem.t >= mem.bAt) { mem.bDone = true; const pl = planVsBoss(op.mk, m, me, op, gap, rng, read, k); if (pl) mem.bPlan = pl; }
+  // Data-Blade Rain: a marker under me → guard it out or step into the gap (one decision per blade)
+  for (const p of d.projs) {
+    if (p.owner !== op || p.key !== 'dblade' || p.dead || p.hit || !(p.delay > 0) || Math.abs(p.x - me.x) > p.r + 0.4) continue;
+    if (mem.bladeId === p.id) break;
+    mem.bladeId = p.id;
+    if (mem.bPlan && mem.bPlan.blade) break;
+    if (rng() < read) mem.bPlan = rng() < 0.55 || !grounded(me) ? { type: 'guard', blade: p, keep: true } : { type: 'step', blade: p, keep: true, dir: me.x <= p.x ? -1 : 1 };
+    break;
+  }
+  const pl = mem.bPlan; if (!pl) return undefined;
+  if (pl.blade) { if (pl.blade.dead || pl.blade.hit || pl.blade.passed) { mem.bPlan = null; return undefined; } }
+  else if (!pl.keep && 'm' + op.seq !== mem.bKey) { mem.bPlan = null; return undefined; }
+  if (pl.done && pl.done(op)) { mem.bPlan = null; return undefined; }
+  const free = actionable(me) || me.st === 'guard' || me.st === 'block';
+  switch (pl.type) {
+    case 'guard': me.in.guard = true; me.in.mx = 0; return null;   // also held through hit-stun / stagger, so it is up on the first free frame
+    case 'step': {   // walk out of the marker toward the nearer gap
+      if (Math.abs(pl.blade.x - me.x) > pl.blade.r + 0.4) { me.in.mx = 0; return null; }
+      if (free && me.st !== 'guard') { me.in.mx = pl.dir; return null; }
+      return undefined;
+    }
+    case 'dodge': case 'jump': {
+      if (op.st !== 'atk' || 'm' + op.seq !== mem.bKey) { mem.bPlan = null; return undefined; }
+      if (op.t >= pl.at) {
+        mem.bPlan = null;
+        if (actionable(me) && (pl.type === 'jump' || me.dodgeCd <= 0)) { me.in.mx = pl.type === 'jump' ? 0 : pl.dir * dirTo; return pl.type; }
+        me.in.guard = true; return null;
+      }
+      me.in.mx = 0; return free ? null : undefined;   // wait for the flash (don't walk into it, don't attack)
+    }
+    case 'wait': {   // Mirror Guard: stay out of it, then punish the recovery (normal AI punish logic)
+      if (gap < 2.3 && free) { me.in.mx = -dirTo; return null; }
+      me.in.mx = 0; return free ? null : undefined;
+    }
+    case 'skill': mem.bPlan = null; return pl.cmd;
+  }
+  return undefined;
+}
+function planVsBoss(mk, m, me, op, gap, rng, read, k) {
+  if (rng() >= read) return null;   // misread: the normal AI handles it
+  const C = me.C, su = m.t[0], end = m.t[0] + m.t[1] + 0.03, r = rng();
+  const until = (t) => (o) => !(o.st === 'atk' && o.mk === mk) || o.t > t;
+  switch (mk) {
+    case 'iai': if (gap > m.box[1] + 0.6) return null;
+      return r < 0.45 ? { type: 'guard', done: until(end) } : r < 0.75 ? { type: 'dodge', at: su - 0.12, dir: 1 } : { type: 'jump', at: su - 0.31 };
+    case 'ten1': return { type: 'guard', keep: true, done: (o) => !(o.st === 'atk' && /^ten/.test(o.mk)) || (o.mk === 'ten3' && o.t > o.C.moves.ten3.t[0] + o.C.moves.ten3.t[1] + 0.02) };
+    case 'mirror': {
+      if (C.role === 'ranged') return null;   // bolts break the mirror: keep shooting
+      const sk = C.id === 'sword' ? (me.cd.s1 <= 0 && gap > 1.2 && gap < 4.6 ? 's1' : me.cd.s2 <= 0 && gap < 1.6 ? 's2' : null)
+        : C.id === 'brawler' ? (me.cd.s2 <= 0 && gap < 2.1 ? 's2' : me.cd.s1 <= 0 && gap > 1.2 && gap < 5 ? 's1' : null)
+        : C.id === 'assassin' ? (me.cd.s2 <= 0 && gap < 6.5 ? 's2' : null) : null;
+      if (sk && r < 0.55) return { type: 'skill', cmd: sk };
+      return { type: 'wait', done: (o) => !(o.st === 'atk' && o.mk === 'mirror') || o.t > o.C.moves.mirror.parry[1] };
+    }
+    case 'mcut': return { type: 'guard', done: until(end) };
+    case 'glitch': return r < 0.55 ? { type: 'guard', done: until(end) } : { type: 'dodge', at: su - 0.12, dir: 1 };
+    case 'ult': return { type: 'guard', keep: true, done: (o) => !(o.st === 'atk' && o.mk === 'ult') };
+    case 'ultEnd': return r < 0.5 ? { type: 'guard', done: until(end) } : { type: 'dodge', at: su - 0.12, dir: 1 };
+  }
   return null;
 }
 

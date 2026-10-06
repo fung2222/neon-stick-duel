@@ -27,6 +27,8 @@ i18n.add({
   stageTag: ['第 {n} 戰', 'FIGHT {n}'], floorTag: ['{f}F', '{f}F'], endlessTag: ['無盡', 'ENDLESS'], bossTag: ['頭目', 'BOSS'],
   stageBanner: ['第 {n} 戰 · {name}', 'FIGHT {n} · {name}'], floorBanner: ['{f} 樓 · {name}', '{f}F · {name}'],
   fight: ['開打！', 'FIGHT!'], fightS: ['FIGHT!', '開打！'], ko: ['K.O.', 'K.O.'], down: ['倒地', 'DOWN'], knockout: ['擊倒', 'KNOCK OUT'],
+  'boss.phase2': ['第二型態・崩壞', 'PHASE 2 · COLLAPSE'], 'boss.phase2S': ['機械將軍 · 型態轉換', 'KAGE-SHŌGUN · FORM SHIFT'],
+  'boss.parry': ['鏡受け！', 'PARRIED!'], 'boss.crush': ['破鏡！', 'MIRROR BROKEN!'],
   evade: ['閃避', 'EVADE'], guardBreak: ['破防！', 'GUARD BREAK!'], armor: ['霸體', 'ARMOR'], block: ['擋', 'BLOCK'], hits: ['{n} 連擊', '{n} HITS'], counter: ['反擊', 'COUNTER'],
   ultReady: ['必殺技準備好！', 'ULTIMATE READY!'],
   rigBtn: ['劍士動畫：{v}', 'SWORDSMAN RIG: {v}'], rigHQ: ['高質 HQ', 'HQ'], rigClassic: ['經典', 'CLASSIC'],

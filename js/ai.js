@@ -213,6 +213,12 @@ function bossThink(d, me, op, prof, mem, dt, rng, P) {
   const hitConfirm = op.st === 'hit' || op.st === 'air' || op.st === 'stun';
   me.in.guard = false;
   if (me.st === 'phase') { me.in.mx = 0; mem.guardT = 0; mem.react = null; return null; }
+  // phase 1 vs zoning: raise Mirror Guard into an incoming basic bolt / dagger (decided once per projectile) — it flies back
+  if (ph === 1 && actionable(me) && (me.cd.mirror || 0) <= 0) for (const p of d.projs) {
+    if (p.owner !== op || p.dead || p.hit || !p.vx || (p.srcKind !== 'basic' && p.srcKind !== 'air') || Math.sign(me.x - p.x) !== Math.sign(p.vx)) continue;
+    const dist = Math.abs(me.x - p.x); if (dist > 3.2 || mem.mirP === p.id) continue;
+    mem.mirP = p.id; if (rng() < 0.5 * P.skillRate) { me.facing = Math.sign(op.x - me.x) || me.facing; return 'bm:mirror'; }
+  }
   // reactive defence (guard / back-dodge, decided once per threat after the reaction delay)
   const th = threatOf(d, me, op);
   if (th && th.key !== mem.threatKey) { mem.threatKey = th.key; mem.reactAt = mem.t + P.react * (0.7 + 0.6 * rng()); mem.react = th; }
@@ -249,10 +255,10 @@ function bossThink(d, me, op, prof, mem, dt, rng, P) {
   if (mem.walkT > 0) { mem.walkT -= dt; me.in.mx = mem.walkDir; } else me.in.mx = 0;
   if (ph === 1) {
     const pressing = (op.st === 'walk' && Math.sign(op.vx) === -dirTo) || (op.st === 'atk' && phaseOf(op) === 'su' && opM && opM.box);
-    if (gap > 2.3 && gap < 5.3 && want('iai', 0.95)) return 'bm:iai';
+    if (gap > 2.3 && gap < 5.3 && want('iai', 1.2)) return 'bm:iai';
     if (gap > 5.4) { if ((mem.walkT || 0) <= 0) me.in.mx = dirTo; return null; }
-    if (gap < 2.8 && pressing && want('mirror', 1.6)) return 'bm:mirror';
-    if (gap < 2.1 && want('ten1', 0.75)) return 'bm:ten1';
+    if (gap < 2.8 && want('mirror', pressing ? 2.0 : 0.25)) return 'bm:mirror';
+    if (gap < (C.role === 'ranged' || op.C.role === 'ranged' ? 4.4 : 2.3) && want('ten1', 1.1)) return 'bm:ten1';   // vs a zoner Ten-Step is the gap-closer
     if (mem.cool <= 0) {
       mem.cool = P.think * (0.75 + 0.6 * rng()); const r = rng();
       if (gap < C.reach + 0.15 && r < P.aggr * 0.75) return 'atk';
@@ -263,9 +269,9 @@ function bossThink(d, me, op, prof, mem, dt, rng, P) {
   }
   // phase 2 「崩壞」
   if (gap > 2.4 && want('glitch', 1.0)) return 'bm:glitch';
-  if (gap > 1.4 && want('rain', 0.75)) return 'bm:rain';
+  if (want('rain', gap > 1.4 ? 0.8 : 0.55)) return 'bm:rain';   // close: Rain opens with a back-slide out of reach
   if (gap > C.reach + 0.2) { if ((mem.walkT || 0) <= 0) me.in.mx = dirTo; return null; }
-  if (want('glitch', 0.3)) return 'bm:glitch';
+  if (want('glitch', 0.6)) return 'bm:glitch';
   if (mem.cool <= 0) {
     mem.cool = P.think * (0.45 + 0.6 * rng());
     if (rng() < Math.min(0.92, P.aggr + 0.1 * k)) return 'atk';
@@ -333,8 +339,8 @@ function planVsBoss(mk, m, me, op, gap, rng, read, k) {
       return r < 0.45 ? { type: 'guard', done: until(end) } : r < 0.75 ? { type: 'dodge', at: su - 0.12, dir: 1 } : { type: 'jump', at: su - 0.31 };
     case 'ten1': return { type: 'guard', keep: true, done: (o) => !(o.st === 'atk' && /^ten/.test(o.mk)) || (o.mk === 'ten3' && o.t > o.C.moves.ten3.t[0] + o.C.moves.ten3.t[1] + 0.02) };
     case 'mirror': {
-      if (C.role === 'ranged') return null;   // bolts break the mirror: keep shooting
-      const sk = C.id === 'sword' ? (me.cd.s1 <= 0 && gap > 1.2 && gap < 4.6 ? 's1' : me.cd.s2 <= 0 && gap < 1.6 ? 's2' : null)
+      const sk = C.id === 'mage' ? (me.cd.s2 <= 0 && gap < 7 ? 's2' : null)   // the pillar (a skill) breaks it; bolts would be reflected
+        : C.id === 'sword' ? (me.cd.s1 <= 0 && gap > 1.2 && gap < 4.6 ? 's1' : me.cd.s2 <= 0 && gap < 1.6 ? 's2' : null)
         : C.id === 'brawler' ? (me.cd.s2 <= 0 && gap < 2.1 ? 's2' : me.cd.s1 <= 0 && gap > 1.2 && gap < 5 ? 's1' : null)
         : C.id === 'assassin' ? (me.cd.s2 <= 0 && gap < 6.5 ? 's2' : null) : null;
       if (sk && r < 0.55) return { type: 'skill', cmd: sk };

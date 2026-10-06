@@ -13,7 +13,7 @@ export const LADDER = [
   { id: 'phantom', zh: '幻刃',     en: 'PHANTOM EDGE',    cls: 'assassin', diff: 0.6,  color: 0x2bffd0, desc: ['瞬殺繞背 · 留意身後', 'Teleport strikes · mind your back'] },
   { id: 'saint',   zh: '劍聖',     en: 'BLADE SAINT',     cls: 'sword',    diff: 0.68, color: 0xe8f6ff, desc: ['昇龍對空 · 唔好亂跳', 'Rising dragon anti-air · do not jump carelessly'] },
   { id: 'mirror',  zh: '鏡像分身', en: 'MIRROR SHADE',    cls: 'mirror',   diff: 0.74, color: 0xd8d8ff, desc: ['同你一樣嘅職業 · 鬥技術', 'Your own class · pure skill'] },
-  { id: 'zero',    zh: '塔主・零', en: 'TOWER LORD ZERO', cls: 'shogun',   diff: 0.86, color: 0xff2440, boss: true, final: true, hpMul: 1.85, dmgMul: 1.1, ultGain: 1.35, scale: 1.34, desc: ['最終頭目 · 機械將軍，血量一半變第二型態', 'FINAL BOSS · the KAGE-SHŌGUN changes form at half HP'] },
+  { id: 'zero',    zh: '塔主・零', en: 'TOWER LORD ZERO', cls: 'shogun',   diff: 0.86, color: 0xff2440, boss: true, final: true, hpMul: 2.65, dmgMul: 1.16, ultGain: 1.35, scale: 1.34, time: 90, vs: { sword: 0.93, mage: 1.04, brawler: 1.05, assassin: 0.97 }, desc: ['最終頭目 · 機械將軍，血量一半變第二型態', 'FINAL BOSS · the KAGE-SHŌGUN changes form at half HP'] },
 ];
 
 const RIVALS = {
@@ -33,12 +33,27 @@ export const isMilestone = isBossFloor;
 export function ladderFoe(stage, playerCls = 'sword') {
   const L = LADDER[Math.max(0, Math.min(LADDER.length - 1, stage))];
   const cls = L.cls === 'mirror' ? playerCls : L.cls;
-  return { ...L, cls, mode: 'ladder', stage, hpMul: L.hpMul || 1, dmgMul: L.dmgMul || 1, ultGain: L.ultGain || 1, scale: L.scale || 1 };
+  const vs = (L.vs && L.vs[playerCls]) || 1;   // final boss: small per-class HP trim so every class lands in the same first-try band (tests/boss.mjs)
+  return { ...L, cls, mode: 'ladder', stage, hpMul: (L.hpMul || 1) * vs, dmgMul: L.dmgMul || 1, ultGain: L.ultGain || 1, scale: L.scale || 1 };
 }
 
 /** foe profile for any endless floor (0-based). Never ends; the curve is capped so it stays winnable. */
+export const isZeroFloor = (floor) => (floor + 1) % 30 === 0;   // every 3rd boss floor (30F, 60F, …): an echo of the final boss
 export function endlessFoe(floor) {
   const n = Math.max(0, floor | 0), boss = isBossFloor(n);
+  if (isZeroFloor(n)) {
+    const k = (n + 1) / 30, Z = LADDER[LADDER.length - 1], R = ['', '', 'II', 'III', 'IV', 'V'][k] || String(k), RZ = ['', '', '貳', '參', '肆', '伍'][k] || String(k);
+    return {
+      id: 'endless-' + n, mode: 'endless', floor: n, cls: 'shogun', boss: true, zero: true,
+      zh: k === 1 ? '塔主・零之影' : `塔主・零之影 ${RZ}`, en: k === 1 ? 'ECHO OF ZERO' : `ECHO OF ZERO ${R}`,
+      desc: ['塔主之影 · 機械將軍，血量一半變第二型態', 'Echo of the Tower Lord · the KAGE-SHŌGUN changes form at half HP'],
+      color: Z.color,
+      // capped like every endless curve: 30F ≈ ladder fight 10, then it creeps up and stops at 150F
+      diff: Math.min(0.94, capCurve(n, 0.18, 0.95, 16) + 0.02),
+      hpMul: Math.min(2.9, 2.2 + (k - 1) * 0.15), dmgMul: Math.min(1.3, 1.12 + (k - 1) * 0.04),
+      ultGain: Z.ultGain, scale: Z.scale, time: Z.time,
+    };
+  }
   let k = hash(n) % 4; if (n > 0 && CLASS_IDS[k] === endlessCls(n - 1)) k = (k + 1) % 4;
   const cls = CLASS_IDS[k], R = RIVALS[cls][hash(n + 77) % 3], pre = PREFIX[Math.floor(n / 10) % PREFIX.length];
   const hue = (HUES[n % HUES.length] + n * 0.037) % 1;

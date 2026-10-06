@@ -25,6 +25,9 @@ export const BOSS_TUNE = {
   parryStun: 0.26,      // Mirror Guard: stagger of a parried attacker (the counter's startup is 0.34 s → ~5 frames to have guard held / a dodge buffered)
   crushMul: 1.25, crushStun: 0.7,   // a skill / ult / projectile into Mirror Guard breaks it: +25 % damage, long stun
   shove: 7,             // phase transition: shockwave pushes a close opponent away (no damage)
+  // poise: the big boss can't be juggled like a normal fighter — non-ult launches ×0.55, falls out after 3 juggle hits,
+  // basic hit-stun ×0.8 (still stuns: every basic string still interrupts it; it just recovers sooner)
+  launchMul: 0.7, jugCap: 4, stunMul: 0.8,
 };
 /** hit-stop (s) from hit strength: 2 frames for chip-light hits → 6 frames for heavy launchers / spikes / finishers */
 export function hitStopOf(dmg, spec) {
@@ -48,7 +51,7 @@ export function makeFighter(clsId, x, facing, o = {}) {
   };
 }
 export function makeDuel(clsA = 'sword', clsB = 'brawler', oa = {}, ob = {}) {
-  return { a: makeFighter(clsA, -2.6, 1, oa), b: makeFighter(clsB, 2.6, -1, ob), projs: [], time: TUNE.roundTime,
+  return { a: makeFighter(clsA, -2.6, 1, oa), b: makeFighter(clsB, 2.6, -1, ob), projs: [], time: ob.time || TUNE.roundTime,   // ob.time: longer round for the final boss
     over: null, events: [], clock: 0, stop: 0, freeze: 0, freezeBy: null, overT: 0 };
 }
 
@@ -159,7 +162,7 @@ function tryCmd(d, f, o, cmd) {
 // -------------------------------------------------------------- projectiles / spawned effects
 function spawnProj(d, f, o, key, extra = {}) {
   const s = f.C.projs[key];
-  const p = { id: PID++, owner: f, key, cls: f.cls, ...s, ...extra, t: 0, hit: false, dead: false };
+  const p = { id: PID++, owner: f, key, cls: f.cls, ...s, ...extra, t: 0, hit: false, dead: false, srcKind: f.mk ? f.C.moves[f.mk].kind : null };
   p.x = extra.x ?? f.x + f.facing * 0.6;
   p.y = (extra.y ?? (f.y + s.y)) + (extra.dy || 0);
   p.vx = (s.v || 0) * f.facing; p.vy = s.vy || 0; p.dir = f.facing;
@@ -253,6 +256,13 @@ function applyHit(d, att, def, spec, srcX) {
     d.events.push({ type: 'parry', who: def, att, x: def.x + def.facing * 0.7, y: def.y + 1.3 });
     return 'parry';
   }
+  if (stance && spec.key && spec.vx && (spec.srcKind === 'basic' || spec.srcKind === 'air') && (srcX - def.x) * def.facing >= -0.15) {
+    // Mirror Guard vs a basic projectile (bolt / orb / thrown dagger) from the front: the mirror sends it back at the caster.
+    // Skill projectiles (pillar, Phantom daggers…) and the meteors are not reflected — they break the mirror like a melee skill.
+    d.stop = Math.max(d.stop, 3 / 60);
+    d.events.push({ type: 'parry', who: def, att, proj: true, x: def.x + def.facing * 0.7, y: def.y + 1.3 });
+    return 'reflect';
+  }
   let dmg = spec.dmg * att.dmgMul;
   const guarding = (def.st === 'guard' || def.st === 'block') && grounded(def) && (srcX - def.x) * def.facing >= -0.15;
   if (guarding && !spec.unblockable) {
@@ -306,11 +316,11 @@ function applyHit(d, att, def, spec, srcX) {
     def.st = 'air'; def.vy = spec.spike; def.vx = kdir * kb * 0.5; def.jug++;
   } else if ((spec.launch || 0) > 0 || airborne) {
     def.jug++;
-    const decay = Math.max(0.35, 1 - 0.14 * (def.jug - 1));
-    def.st = 'air'; def.vy = Math.max(spec.launch || 0, airborne ? 3.6 : 0) * decay; def.vx = kdir * kb * 0.6;
-    if (def.jug >= TUNE.jugCap) def.jugCap = true;
+    const decay = Math.max(0.35, 1 - 0.14 * (def.jug - 1)), poise = def.C.phases && !isUlt ? BOSS_TUNE.launchMul : 1;
+    def.st = 'air'; def.vy = Math.max(spec.launch || 0, airborne ? 3.6 : 0) * decay * poise; def.vx = kdir * kb * 0.6;
+    if (def.jug >= (def.C.phases ? BOSS_TUNE.jugCap : TUNE.jugCap)) def.jugCap = true;
   } else {
-    def.st = 'hit'; def.stunT = spec.stun || 0.3; def.vx = kdir * kb;
+    def.st = 'hit'; def.stunT = (spec.stun || 0.3) * (def.C.phases && spec.kind === 'basic' ? BOSS_TUNE.stunMul : 1); def.vx = kdir * kb;
   }
   if (crush) { if (def.st === 'hit') def.stunT = Math.max(def.stunT, BOSS_TUNE.crushStun); d.events.push({ type: 'crush', who: def, att, x: def.x, y: def.y + 1.5 }); }
   if (att.st === 'atk' && att.y > 0.05 && moveOf(att)?.kind === 'air') att.vy = Math.max(att.vy, 3.4);
@@ -331,7 +341,10 @@ function bossPhase(d, f, o) {
   const line = Math.round(f.maxHp * P.at); if (f.hp > line) return false;
   f.hp = line; f.phase = 2; f.phaseN++;
   f.st = 'phase'; f.t = 0; f.mk = null; f.buf = null; f.comboN = 0; f.chain = 0; f.jug = 0; f.jugCap = false; f.vx = 0; f.stunT = P.transT;
-  if (Math.abs(o.x - f.x) < 3.2 && o.st !== 'ko') o.vx = (Math.sign(o.x - f.x) || -f.facing) * BOSS_TUNE.shove;
+  if (Math.abs(o.x - f.x) < 3.2 && o.st !== 'ko' && o.st !== 'down' && o.st !== 'rise') {   // shockwave: knocks a close foe back out of its move (no damage)
+    o.mk = null; o.comboN = 0; o.t = 0; o.buf = null; o.vx = (Math.sign(o.x - f.x) || -f.facing) * BOSS_TUNE.shove;
+    if (o.y > 0.05) { o.st = 'air'; o.vy = Math.max(o.vy, 4); } else { o.st = 'hit'; o.stunT = 0.32; }
+  }
   d.events.push({ type: 'phase', who: f, phase: 2, x: f.x, y: f.y });
   return true;
 }
@@ -433,6 +446,7 @@ function stepProjs(d, dt) {
       const r = applyHit(d, p.owner, def, p, p.vx ? p.x - Math.sign(p.vx) : p.owner.x);
       if (r === 'hit' || r === 'block' || r === 'armor') { p.hit = true; if (!p.h) p.dead = true; d.events.push({ type: 'projHit', p, res: r }); }
       else if (r === 'evade') p.passed = true;   // dodged through: the projectile flies on harmlessly
+      else if (r === 'reflect') { p.owner = def; p.cls = def.cls; p.vx = -p.vx; p.dir = -p.dir; p.life = Math.max(p.life, 1.0); p.reflected = true; p.srcKind = 'reflect'; }
     }
     if (p.life <= 0 || Math.abs(p.x) > ARENA_HALF + 2 || (p.y <= 0 && p.vy < 0)) { if (!p.dead) d.events.push({ type: 'projEnd', p }); p.dead = true; }
   }

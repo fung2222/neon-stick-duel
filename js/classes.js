@@ -138,7 +138,7 @@ CLASSES.shogun = {
     mirror: BS({ name: ['鏡受け', 'Mirror Guard'], phase: 1, t: [0.1, 0.95, 0.42], dmg: 0, parry: [0.08, 1.05], counter: 'mcut', cd: 6.5, pose: ['guard', 'guard', 'guard'] }),
     mcut: BS({ name: ['鏡返し', 'Mirror Return'], sub: true, t: [0.34, 0.1, 0.4], dmg: 100, box: [-0.2, 2.0, 0.2, 2.3], kb: 5, stun: 0.55, stop: 0.1, pose: ['swC0', 'swC1', 'swC1f'] }),
     // ---- phase 2 「崩壞」 Collapse: fast and glitchy
-    rain: BS({ name: ['數據刃雨', 'Data-Blade Rain'], phase: 2, t: [0.45, 0.1, 0.5], dmg: 0, cd: 7, fire: [{ at: 0.4, type: 'rain', proj: 'dblade', n: 6, gap: 1.8, delay: 0.6, step: 0.13 }], pose: ['swD0', 'dragon', 'swD1f'] }),
+    rain: BS({ name: ['數據刃雨', 'Data-Blade Rain'], phase: 2, t: [0.45, 0.1, 0.5], dmg: 0, vx: -4.2, vxT: [0.02, 0.3], cd: 7, fire: [{ at: 0.4, type: 'rain', proj: 'dblade', n: 6, gap: 1.8, delay: 0.6, step: 0.13 }], pose: ['swD0', 'dragon', 'swD1f'] }),
     glitch: BS({ name: ['故障步', 'Glitch Step'], phase: 2, t: [0.62, 0.1, 0.42], dmg: 88, box: [-0.2, 1.9, 0.3, 2.2], inv: [0, 0.4], kb: 4, stun: 0.5, stop: 0.09, cd: 5,
       fire: [{ at: 0.04, type: 'decoy', side: -1, dist: 2.1, life: 0.34 }, { at: 0.18, type: 'decoy', side: 1, dist: 1.15, life: 0.3 }, { at: 0.36, type: 'teleport', behind: true, maxDist: 9 }], pose: ['blink0', 'swA1', 'swA1f'] }),
     ult: U({ name: ['千刃斬・鏡', 'Thousand Edges Mirrored'], phase: 2, t: [0.26, 0.81, 0.14], dmg: 28, box: [-0.6, 2.3, 0, 2.6], vx: 19.5, vxT: [0.22, 0.42], multi: 7, last: { dmg: 40, kb: 1.5, stun: 0.6 }, inv: [0, 1.0], follow: 'ultEnd', pose: ['ult0', 'ultSword', 'swD1f'] }),

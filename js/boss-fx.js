@@ -143,12 +143,12 @@ export class BossFx {
       mk.f.material.opacity = wait ? 0.18 + 0.3 * k : 0.8 * Math.max(0, p.life / 0.14);
       mk.c.scale.set(p.r * 0.8, 6, p.r * 0.8); mk.c.position.y = 3; mk.c.material.opacity = wait ? 0.05 + 0.12 * k : 0.35 * Math.max(0, p.life / 0.14);
       const fall = wait ? Math.max(0, Math.min(1, 1 - p.delay / 0.22)) : 1;   // the blade drops in the last 0.22 s of the marker
-      mk.b.visible = fall > 0; mk.b.position.y = 0.75 + (1 - fall * fall) * 7; mk.b.material.opacity = 1;
+      mk.b.visible = fall > 0 && !(view && view.hasDataBlades); mk.b.position.y = 0.75 + (1 - fall * fall) * 7; mk.b.material.opacity = 1;
     }
     for (const mk of this.marks) if (mk.id >= 0 && !live.has(mk.id)) { mk.id = -1; mk.g.visible = false; }
     // phase-2 halo
     const p2 = boss && boss.phase === 2 && boss.st !== 'ko';
-    if (p2 && view.cloaked) this.halo.visible = false;
+    if (p2 && (view.cloaked || view.hasDataBlades)) this.halo.visible = false;   // the real boss body fans its own six blades
     else if (p2) {
       this.phaseT += dt; const grow = Math.min(1, this.phaseT / 0.9), t = performance.now() / 1000;
       const rain = m && boss.mk === 'rain' && boss.t < m.t[0] + m.t[1]; this.flare = rain ? Math.min(1, this.flare + dt * 5) : Math.max(0, this.flare - dt * 2);

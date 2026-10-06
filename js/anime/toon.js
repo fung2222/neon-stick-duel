@@ -32,7 +32,7 @@ void main() {
 const FRAG = /* glsl */`
 #include <common>
 #include <fog_pars_fragment>
-uniform vec3 uLight; uniform vec3 uShadow; uniform vec3 uSkinShadow; uniform vec3 uRim; uniform float uRimK; uniform float uRimW; uniform float uGlowK; uniform float uFlash; uniform float uDim;
+uniform vec3 uLight; uniform vec3 uShadow; uniform vec3 uSkinShadow; uniform vec3 uRim; uniform float uRimK; uniform float uRimW; uniform float uGlowK; uniform vec3 uGlowTint; uniform float uFlash; uniform float uDim;
 varying vec3 vCol; varying float vGlow; varying float vShine; varying float vSkin; varying float vAO; varying vec3 vN; varying vec3 vV;
 void main() {
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
@@ -52,7 +52,7 @@ void main() {
   vec3 h = normalize(uLight + v); float nh = dot(n, h);
   c += (smoothstep(0.86, 0.9, nh) * 0.36 + smoothstep(0.955, 0.975, nh) * 0.22) * vShine * min(vec3(1.0), base * 3.5 + 0.15);   // tinted on dark hair, white on light
   c *= uDim;
-  c += vCol * vGlow * uGlowK;                        // emissive trims (vertex colour × glow)
+  c += vCol * vGlow * uGlowK * uGlowTint;            // emissive trims (vertex colour × glow; uGlowTint = boss phase seams, 1 for everyone else)
   c = mix(c, vec3(1.0), uFlash);                     // hit flash
   gl_FragColor = vec4(c, 1.0);
   #include <tonemapping_fragment>
@@ -68,7 +68,7 @@ export function toonUniforms(rim = 0x00e5ff, o = {}) {
   return {
     uLight: { value: LIGHT.clone() }, uShadow: { value: new THREE.Color(0.42, 0.42, 0.62) }, uSkinShadow: { value: new THREE.Color().setRGB(...SKIN_SHADOW) },
     uRim: { value: new THREE.Color(rim) }, uRimK: { value: o.rimK ?? 0.42 }, uRimW: { value: o.rimW ?? 0 },
-    uGlowK: { value: 0.85 }, uFlash: { value: 0 }, uDim: { value: 1 },
+    uGlowK: { value: 0.85 }, uGlowTint: { value: new THREE.Color(1, 1, 1) }, uFlash: { value: 0 }, uDim: { value: 1 },
   };
 }
 export function toonMat(U, { side = THREE.DoubleSide } = {}) {
@@ -90,6 +90,9 @@ void main() {
   #include <skinnormal_vertex>
   #include <begin_vertex>
   #include <skinning_vertex>
+  #ifdef USE_INSTANCING
+    transformed = (instanceMatrix * vec4(transformed, 1.0)).xyz; objectNormal = mat3(instanceMatrix) * objectNormal;   // boss data blades (InstancedMesh)
+  #endif
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   vec3 nv = normalize(normalMatrix * objectNormal);
   float w = min(uPx * uPxK * max(0.1, -mvPosition.z), uMax) * aLine;   // constant screen-space width, capped in world units

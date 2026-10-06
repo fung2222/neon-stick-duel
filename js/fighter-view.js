@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { StickFighter } from './stickman.js';
 import { HQFighter, HQ_PROFILES } from './rig/hq-fighter.js';
 import { AnimeFighter } from './anime/fighter.js';
-import { ANIME_CLASSES } from './anime/configs.js';
+import { ANIME_CLASSES, animeCfg } from './anime/configs.js';
 
 // Look per class: 'anime' (cel-shaded character, js/anime/) or 'neon' (the v2.2 HQ / classic stick look).
 //   ?style=anime | ?style=neon   (pause screen STYLE button stores `style`); classes without an anime config are always neon.
@@ -17,7 +17,7 @@ export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', 
 let styleOv = null;
 export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
 export const styleMode = () => styleOv;
-export const hasAnime = (cls) => !!ANIME_CLASSES[cls];
+export const hasAnime = (cls) => !!animeCfg(cls);
 export function styleFor(cls) { return hasAnime(cls) ? styleOv || STYLE_DEFAULT[cls] || 'neon' : 'neon'; }
 
 export const RIG_DEFAULT = { sword: 'hq' };
@@ -66,6 +66,8 @@ export class FighterView {
   // final boss hooks (anime only; the neon / classic rigs ignore them)
   get cloaked() { return !!this.cur.cloaked; }
   setCloak(on) { if (this.cur.setCloak) this.cur.setCloak(on); }
+  bossSync(projs, simF) { if (this.cur.bossSync) this.cur.bossSync(projs, simF); }
+  get hasDataBlades() { return !!this.cur.hasDataBlades; }
   setPhaseLook(p) { if (this.cur.setPhaseLook) this.cur.setPhaseLook(p); }
   get spawnGhostAt() { return this.cur.spawnGhostAt && this.cur.ghosts ? (...a) => this.cur.spawnGhostAt(...a) : null; }
   /** Assassin 居合: the ult's delayed hits land while the blades go home (main.js draws X cuts on the foe instead of contact sparks) */

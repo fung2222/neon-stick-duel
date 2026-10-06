@@ -658,6 +658,7 @@ function tick(dt, now) {
   }
   if (d) {
     const paused = S.state === 'paused', stop = d.stop > 0 || paused, fz = d.freeze > 0;
+    if (d.b.C.phases) fb.bossSync(d.projs, d.b);   // boss data blades follow the sim's Data-Blade Rain projectiles
     fa.update(d.a, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.a), d.stop > 0 && !paused ? 0.05 : 0);
     fb.update(d.b, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.b), d.stop > 0 && !paused ? 0.05 : 0);
     if (!paused && S.state !== 'menu' && S.state !== 'select') for (const [v, f] of [[fa, d.a], [fb, d.b]]) { const m = v.takeSwingCue(f); if (m && m.kind !== 'ult') audio.swing(f.cls, m.kind); }

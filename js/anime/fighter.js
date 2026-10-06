@@ -12,7 +12,8 @@ import { buildCharacter, frameMat, BODY } from './builder.js';
 import { FINGER, HOLO_K } from './mage-body.js';
 import { SHEATH } from './assassin-body.js';
 import { DAGGER } from './assassin.js';
-import { ANIME_CLASSES } from './configs.js';
+import { animeCfg, SHOGUN_INTERIM } from './configs.js';
+import { nodachi } from './shogun.js';
 import { FACE } from './toon.js';
 import { CLASSES } from '../classes.js';
 import { TUNE } from '../duel.js';
@@ -23,14 +24,15 @@ const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _s = new THREE.Vector
   _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _inv = new THREE.Matrix4(), UPV = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _d = new THREE.Vector3(),
   _fm = new THREE.Matrix4(), _fm2 = new THREE.Matrix4(), _ft = new THREE.Matrix4(), _fr = new THREE.Matrix4(), _hm = new THREE.Matrix4();
 const A3 = () => new Float64Array(3);
-const _white = new THREE.Color(1, 1, 1);
+const _white = new THREE.Color(1, 1, 1), _red = new THREE.Color(0xff1a2e), _cA = new THREE.Color(), _cB = new THREE.Color(), _dbM = new THREE.Matrix4(), _dbQ = new THREE.Quaternion(), _dbQ2 = new THREE.Quaternion(), _dbP = new THREE.Vector3(), _dbS = new THREE.Vector3(), ZV = new THREE.Vector3(0, 0, 1);
+const P2_RIM = new THREE.Color(0xff3048), P1_RIM = new THREE.Color(0x7fdcff), P2_GLOW = new THREE.Color(1.35, 1.12, 1.12), P1_GLOW = new THREE.Color(0.8, 0.8, 0.8), GHOST_RED = new THREE.Color(0xff2a40);
 const TAU = Math.PI * 2;
 const SIDES = ['F', 'B'];
 const SIGN_LIFE = 0.32;   // hand-sign after-image lifetime (s)
 const GHOST_N = 4, GHOST_LIFE = 0.3;   // Assassin after-images (teleports, fast back-steps)
 const _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3(), _gp2 = new THREE.Vector3(), _gq2 = new THREE.Quaternion(), _mp = new THREE.Matrix4();
 // numeric clip ids (no per-frame string building): state × 1e6 + sequence
-const STID = { idle: 1, walk: 2, guard: 3, block: 4, jump: 5, dodge: 6, atk: 7, hit: 8, air: 9, koAir: 10, ko: 11, down: 12, rise: 13, stun: 14, win: 15, intro: 16 };
+const STID = { idle: 1, walk: 2, guard: 3, block: 4, jump: 5, dodge: 6, atk: 7, hit: 8, air: 9, koAir: 10, ko: 11, down: 12, rise: 13, stun: 14, win: 15, intro: 16, phase: 17 };
 
 export class AnimeFighter extends HQFighter {
   constructor(scene) {
@@ -64,7 +66,7 @@ export class AnimeFighter extends HQFighter {
   }
 
   setClass(clsId, color = null, scale = 1) {
-    const C = CLASSES[clsId], cfg = ANIME_CLASSES[clsId]; if (!C || !cfg) return;
+    const C = CLASSES[clsId]; let cfg = animeCfg(clsId); if (!C || !cfg) return;
     const hex = color ?? C.color;
     if (this.cls === clsId && this.colorHex === hex && this.scaleK === scale) return;
     this.disposeParts(); this.cls = clsId; this.C = C; this.cfg = cfg; this.prof = cfg.anim; this.colorHex = hex; this.scaleK = scale; this.scale = 1.2 * RIG_SCALE * scale;
@@ -73,13 +75,22 @@ export class AnimeFighter extends HQFighter {
     // a recoloured fighter (mirror match / ladder foe) also shifts its coat toward the accent so the two read apart
     const pal = { ...cfg.palette, trim: accent, hairTie: accent, rim: accent };
     for (const k of cfg.recolor || ['coat']) if (hex !== C.color) pal[k] = new THREE.Color(cfg.palette[k]).lerp(new THREE.Color(accent).multiplyScalar(0.42), 0.55).getHex();
-    const ch = this.char = buildCharacter({ ...cfg, palette: pal });
+    let ch;
+    try { ch = buildCharacter({ ...cfg, palette: pal }); }
+    catch (e) {   // the boss body failed to build: fall back to the interim look (fight 10 must always render)
+      if (cfg.build !== 'shogun') throw e; console.warn('[anime] shogun build failed, interim look', e);
+      cfg = SHOGUN_INTERIM; this.cfg = cfg; this.prof = cfg.anim; const pi = { ...cfg.palette, trim: accent, hairTie: accent, rim: accent }; ch = buildCharacter({ ...cfg, palette: pi });
+    }
+    this.char = ch;
     for (const b of ch.bones) this.rig.add(b);
     this.rig.add(ch.body, ch.outline, ch.weapon);
     this.parts = [ch.body, ch.outline, ch.weapon, ...ch.bones]; this.blade = ch.weapon;
     if (ch.decal) { this.rig.add(ch.decal); this.parts.push(ch.decal); }
     if (ch.sigil) this.scene.add(ch.sigil);
     if (ch.sign) this.scene.add(ch.sign);
+    if (ch.dblades) { this.scene.add(ch.dblades, ch.dbOutline); this.dbSlots = this.prof.dbSlots(); this.dbOut = Array.from({ length: 6 }, () => ({ x: 0, y: 0, z: 0, a: 0, roll: 0, k: 0 }));
+      this.dbCtx = { phase: 1, st: 'idle', ft: 0, mk: null, x: 0, y: 0, facing: 1, s: 1, T: 0, dt: 0, projs: this.dbProjs || (this.dbProjs = [null, null, null, null, null, null]), cloak: false, flare: 0 }; }
+    this.transKeys = null; this.lookK = -1; this.jit = { px: 0, ch: 0, hd: 0, on: 0 }; this.jitOn = 0;
     this.signT = 9; this.signFire = false;
     this.trail.inner = this.prof.focus ? 0 : 0.42; this.gustK = 0; this.focusSpin = 0;
     this.c = new THREE.Color(hex); this.trail.setColor(this.c.clone().lerp(new THREE.Color(1, 1, 1), 0.2)); this.ring.material.color.copy(this.c);
@@ -104,7 +115,7 @@ export class AnimeFighter extends HQFighter {
   disposeParts() {
     for (const p of this.parts) this.rig.remove(p);
     this.parts = []; this.mesh = {}; this.ribbons = [];
-    if (this.char) { if (this.char.sigil) this.scene.remove(this.char.sigil); if (this.char.sign) this.scene.remove(this.char.sign); this.char.dispose(); this.char = null; }
+    if (this.char) { if (this.char.sigil) this.scene.remove(this.char.sigil); if (this.char.sign) this.scene.remove(this.char.sign); if (this.char.dblades) this.scene.remove(this.char.dblades, this.char.dbOutline); this.char.dispose(); this.char = null; }
     this.blade = null; this.chainSt = null;
     if (this.ghosts) { for (const g of this.ghosts) { this.scene.remove(g.mesh); g.mesh.material.dispose(); g.skel.dispose(); } this.ghosts = null; }
   }
@@ -146,10 +157,19 @@ export class AnimeFighter extends HQFighter {
   /** boss phase look: phase 2 = red outline, wider line, hot red rim (interim; the real body swaps the visor too) */
   setPhaseLook(phase) {
     if (!this.char || this.phaseLook === phase) return; this.phaseLook = phase;
+    if (this.prof.corruptK) { this.lookK = -1; return; }   // the real boss body: derived per frame from the sim (phase + transition time)
     const OU = this.char.OU, U = this.char.U, base = this.cfg.outlinePx ?? 1.9;
     if (phase >= 2) { OU.uColor.value.set(0xff1a2e); OU.uPx.value = base + 0.8; U.uRim.value.set(0xff3048); U.uRimK.value = 0.9; U.uRimW.value = 0.08; }
     else { OU.uColor.value.set(this.cfg.palette.line ?? 0x07060f); OU.uPx.value = base; const r = this.cfg.rimLight || {}; U.uRim.value.set(this.c); U.uRimK.value = r.rimK ?? 0.42; U.uRimW.value = r.rimW ?? 0; }
   }
+  /** boss: this frame's data-blade projectiles (by blade index) from the sim — called by main.js before update (no allocation) */
+  bossSync(projs, simF) {
+    const P = this.dbProjs || (this.dbProjs = [null, null, null, null, null, null]); for (let i = 0; i < 6; i++) P[i] = null;
+    for (let i = 0; i < projs.length; i++) { const p = projs[i]; if (p.key === 'dblade' && p.owner === simF && !p.dead && p.idx >= 0 && p.idx < 6) P[p.idx] = p; }
+  }
+  get hasDataBlades() { return !!(this.char && this.char.dblades); }
+  /** move time as rendered (boss phase 2: the startup stutters; the contact frame stays exact) */
+  atkT(f, t = f.t) { return this.prof.warpT ? this.prof.warpT(t, this.C.moves[f.mk], f.phase, f.seq) : t; }
   stepGhosts(dt) {
     if (!this.ghosts) return;
     for (const g of this.ghosts) { g.t += dt; const k = g.t / g.life; g.mesh.visible = this.vis && k < 1; if (g.mesh.visible) g.mesh.material.opacity = g.a * (1 - k) ** 1.5; }
@@ -187,13 +207,17 @@ export class AnimeFighter extends HQFighter {
     const S = this.snapA, T = this.stT, xf = this.xfB || (this.xfB = (pose, dur, e = 'inOutSine') => lerpA(this.snapA, pose, XE[e](clamp(this.stT / dur, 0, 1)), this._p, true));
     let rrAdd = 0;
     switch (f.st) {
-      case 'atk': { const keys = this.keysFor(f); if (keys) evalChain(keys, f.t, S, out, this.prof.lead, !!this.prof.fist); else xf(st, 0.15); break; }
-      case 'idle': {
+      case 'atk': { const keys = this.keysFor(f); if (keys) evalChain(keys, this.atkT(f), S, out, this.prof.lead, !!this.prof.fist); else xf(st, 0.15); break; }
+      case 'phase': if (this.prof.transitionKeys) { evalA(this.transKeys || (this.transKeys = this.prof.transitionKeys(this.C.phases ? this.C.phases.transT : 1.2)), f.t, S, out); break; } xf(st, 0.15); break;
+      case 'idle': if (this.prof.boss && f.phase === 2) {   // phase 2: jōdan, short fast breaths, glitch jitter
+        lerpA(Pz.jodan, Pz.jodan1, 0.5 - 0.5 * Math.cos(t * TAU / 1.3), this._t1); xf(this._t1, 0.28); this.glitchJit(out, t); break;
+      } else {
         const w = 0.5 - 0.5 * Math.cos(t * TAU / 2.8), ph = t % 6.5;   // breath + an occasional suri-ashi shuffle (in → hold → back)
         const sh = ph < 3.8 ? 0 : ph < 4.15 ? EASE.inOutSine((ph - 3.8) / 0.35) : ph < 5.0 ? 1 : ph < 5.4 ? 1 - EASE.inOutSine((ph - 5.0) / 0.4) : 0;
         lerpA(st, Pz.idle1, w, this._t1); lerpA(this._t1, Pz.shuffle, sh, this._t2); xf(this._t2, 0.22); break;
       }
-      case 'walk': xf(Math.sign(f.vx) === f.facing ? Pz.walk : Pz.walkBack, 0.12); break;
+      case 'walk': if (this.prof.boss && f.phase === 2) { xf(Math.sign(f.vx) === f.facing ? Pz.walk2 : Pz.walkBack2, 0.12); this.glitchJit(out, t); break; }
+        xf(Math.sign(f.vx) === f.facing ? Pz.walk : Pz.walkBack, 0.12); break;
       case 'guard': xf(Pz.guard, 0.09, 'outQuad'); break;
       case 'block': evalA(this.blockKeys || (this.blockKeys = [{ t: 0, p: 'from' }, { t: 0.045, p: Pz.block, e: 'outQuad' }, { t: 0.24, p: Pz.guard, e: 'inOutSine' }]), f.t, S, out); break;
       case 'jump': {
@@ -225,6 +249,12 @@ export class AnimeFighter extends HQFighter {
     this.kp = true; copyA(out, this.kpA);
     return rrAdd;
   }
+  /** boss phase 2 idle / walk: deterministic jitter bursts; a red after-image where each burst starts */
+  glitchJit(out, t) {
+    const j = this.prof.jitter(t, this.jit); out.px += j.px; out.ch += j.ch; out.hd += j.hd;
+    if (j.on && !this.jitOn && this.ghosts) { const g = this.spawnGhost(-j.px * 4 * this.scale, 0.42, 0.22); if (g) g.mesh.material.color.copy(GHOST_RED); }
+    this.jitOn = j.on;
+  }
 
   // ---------------------------------------------------------------- planted feet (suri-ashi: low sliding steps, heel lifts)
   footTargets(f, p, dt, grounded, baseY) {
@@ -233,7 +263,7 @@ export class AnimeFighter extends HQFighter {
     const tol = walk ? 0.12 : atk ? 0.1 : idle ? 0.05 : f.st === 'hit' || f.st === 'block' || f.st === 'stun' ? 0.13 : 0.2;
     const dur = walk ? clamp((stp.durWalk || 0.22) - Math.abs(f.vx) * 0.025, 0.13, 0.22) : atk ? 0.075 : 0.12;
     const lead = walk ? f.vx * dur * 0.6 : atk ? f.vx * 0.04 : f.vx * 0.05;
-    const lift = walk ? (stp.liftWalk || 0.05) : atk ? 0.05 : (stp.lift || 0.04);
+    const lift = walk ? (stp.liftWalk || 0.05) : atk ? (stp.liftAtk || 0.05) : (stp.lift || 0.04);
     const gy = baseY + 0.075 * s, spinning = Math.abs(wrapA(p.sy || 0)) > 0.06;
     const want = this._want || (this._want = { F: false, B: false }), err = this._err || (this._err = { F: 0, B: 0 });
     for (let si = 0; si < 2; si++) { const side = SIDES[si];
@@ -314,6 +344,7 @@ export class AnimeFighter extends HQFighter {
     if (p.sh > 0 && this.char.sheath) { const J0 = solveInto(p, null, null, this.J0); this.sheathAt(J0, p, this._sh); const k = clamp(p.sh / 0.15, 0, 1); p.gx += (this._sh.gx - p.gx) * k; p.gy += (this._sh.gy - p.gy) * k; p.ox += (this._sh.mx - p.ox) * k; p.oy += (this._sh.my - p.oy) * k; }
     const plants = this.footTargets(f, p, rdt, grounded, baseY);
     const J = solveInto(p, plants.F, plants.B, this.Jm);
+    if (this.prof.bladeK) nodachi(J, this.prof.bladeK);
     if (this.prof.focus) this.focusSeg(J, p);
     else if (this.prof.fist) this.segOf(J, p, this.limbOf(f));
     splayKnee(J.hipF, J.kneeF, J.ankleF, p.kF || 0, J.kneeF); splayKnee(J.hipB, J.kneeB, J.ankleB, p.kB || 0, J.kneeB);
@@ -347,9 +378,12 @@ export class AnimeFighter extends HQFighter {
     this.blinkT -= rdt; if (this.blinkT < -0.11) this.blinkT = 2.4 + ((t * 7.3) % 1.6);
     const closed = this.prof.daggers && f.st === 'atk' && p.sh > 0.12 && p.sh < 0.97;   // Assassin 居合: eyes shut while the blades go home, open on the click
     const fr = hurt ? FACE.hurt : closed ? FACE.blink : f.st === 'atk' || f.st === 'dodge' ? FACE.fierce : (this.blinkT < 0 || (f.st === 'win' && p.sh > 0.6)) ? FACE.blink : FACE.neutral;
-    this.char.faceTex.offset.x = fr * 0.25;
+    this.char.faceTex.offset.x = (this.char.mask ? this.prof.maskTile(f.phase || 1, f.st, f.t, this.transT()) : fr) * 0.25;
+    if (this.prof.corruptK && this.char.mask) this.bossLook(f);
     const U = this.char.U, inv = (f.inv > 0 && f.st !== 'dodge' && f.st !== 'down') ? 0.78 + Math.sin(t * 40) * 0.2 : 1;
-    U.uFlash.value = Math.max(this.flashT > 0 ? 0.6 * (this.flashT / 0.11) : 0, zz > 0 ? Math.min(1, zz * 1.15) * 0.92 : 0); U.uDim.value = inv;
+    const crack = this.char.mask && f.st === 'phase' ? Math.max(0, 1 - Math.abs(f.t / this.transT() - 0.24) / 0.05) * 0.7 : 0;   // white flash as the mask cracks
+    U.uFlash.value = Math.max(this.flashT > 0 ? 0.6 * (this.flashT / 0.11) : 0, zz > 0 ? Math.min(1, zz * 1.15) * 0.92 : 0, crack); U.uDim.value = inv;
+    if (this.char.dblades) this.dataBladesUpdate(f, rdt, t, baseY);
     this.gustK *= Math.exp(-rdt * 6);
     // Mage ground sigil (magic circle under the caster on the big casts)
     const sg = this.char.sigil;
@@ -377,6 +411,30 @@ export class AnimeFighter extends HQFighter {
     this.shield.position.set(f.x + f.facing * 0.6 * s, baseY + f.y + 1.15 * s, 0); this.shield.scale.setScalar(s * (f.st === 'block' ? 1.15 : 1)); this.shield.rotation.x += dt * 1.5;
     const ready = f.ult >= 100 && f.st !== 'ko';
     this.ring.visible = ready && this.vis; this.ring.position.set(f.x, baseY + 0.03, 0); this.ring.material.opacity = 0.35 + Math.sin(t * 6) * 0.2; this.ring.scale.setScalar(s * (1 + Math.sin(t * 6) * 0.05));
+  }
+  transT() { return this.C && this.C.phases ? this.C.phases.transT : 1.2; }
+  /** boss look from the sim: corruption k (0 phase 1 → 1 phase 2; ramps through the transition) → outline black → red and wider,
+   *  rim cool cyan → hot red, neon seams dim → hot. Uniform writes only when k changes. */
+  bossLook(f) {
+    const k = this.prof.corruptK(f.phase || 1, f.st, f.t, this.transT()); if (Math.abs(k - this.lookK) < 1e-4) return; this.lookK = k;
+    const OU = this.char.OU, U = this.char.U, base = this.cfg.outlinePx ?? 1.9, r = this.cfg.rimLight || {};
+    OU.uColor.value.copy(_cA.set(this.cfg.palette.line ?? 0x07060f)).lerp(_red, k); OU.uPx.value = base + 0.8 * k;
+    U.uRim.value.copy(P1_RIM).lerp(P2_RIM, k); U.uRimK.value = (r.rimK ?? 0.5) + (0.9 - (r.rimK ?? 0.5)) * k; U.uRimW.value = (r.rimW ?? 0) + (0.08 - (r.rimW ?? 0)) * k;
+    if (U.uGlowTint) U.uGlowTint.value.copy(P1_GLOW).lerp(P2_GLOW, k);
+  }
+  /** the six data blades: one InstancedMesh (+ instanced outline); poses from the profile (fan / unfold / launch / fall / stuck) */
+  dataBladesUpdate(f, dt, t, baseY) {
+    const c = this.dbCtx, ch = this.char; c.phase = f.phase || 1; c.st = f.st; c.ft = f.st === 'atk' ? this.atkT(f) : f.t; c.mk = f.mk; c.x = f.x; c.y = baseY; c.facing = f.facing; c.s = this.scale; c.T = t; c.dt = dt; c.cloak = this.cloaked || !this.vis;
+    const out = this.prof.dataBlades(c, this.dbSlots, this.dbOut), sz = this.scale * 0.95;
+    let any = false;
+    for (let i = 0; i < 6; i++) {
+      const o = out[i], k = o.k > 0.001 ? o.k : 0; any = any || k > 0;
+      _dbQ.setFromAxisAngle(ZV, o.a - Math.PI / 2); if (o.roll) _dbQ.multiply(_dbQ2.setFromAxisAngle(UPV, o.roll));
+      _dbM.compose(_dbP.set(o.x, o.y + (f.y || 0) * (o.z < -0.01 ? 1 : 0), o.z), _dbQ, _dbS.setScalar(Math.max(1e-4, k * sz)));
+      ch.dblades.setMatrixAt(i, _dbM); ch.dbOutline.setMatrixAt(i, _dbM);
+    }
+    ch.dblades.instanceMatrix.needsUpdate = true; ch.dbOutline.instanceMatrix.needsUpdate = true;
+    ch.dblades.visible = ch.dbOutline.visible = any && this.vis;
   }
   /** FX cues authored on form keys (stamp / slide / ring / skid), fired once when the move time crosses the key */
   fxCues(f) {
@@ -614,11 +672,12 @@ export class AnimeFighter extends HQFighter {
       if (keys && t1 > t0) {
         const tp = this._tp;
         const limb = this.prof.fist ? this.limbOf(f) : 0;
-        evalChain(keys, f.t, this.snapA, tp, this.prof.lead, !!this.prof.fist); const now = solveInto(tp, null, null, this.Jt); if (foc) this.focusSeg(now, tp); else if (limb >= 0 && this.prof.fist) this.segOf(now, tp, limb);
+        evalChain(keys, this.atkT(f), this.snapA, tp, this.prof.lead, !!this.prof.fist); const now = solveInto(tp, null, null, this.Jt); if (this.prof.bladeK) nodachi(now, this.prof.bladeK); if (foc) this.focusSeg(now, tp); else if (limb >= 0 && this.prof.fist) this.segOf(now, tp, limb);
         const offB = this.offB, offT = this.offT; for (let i = 0; i < 3; i++) { offB[i] = J.base[i] - now.base[i]; offT[i] = J.tip[i] - now.tip[i]; }
         const n = clamp(Math.ceil((t1 - t0) / (1 / 300)), 1, 24);
         for (let i = 1; i <= n; i++) {
-          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead, !!this.prof.fist); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
+          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, this.atkT(f, tt), this.snapA, tp, this.prof.lead, !!this.prof.fist); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
+          if (this.prof.bladeK) nodachi(q, this.prof.bladeK);
           if (foc) this.focusSeg(q, tp); else if (this.prof.fist) this.segOf(q, tp, limb);
           const dx = (this.prevRoot.x - this.group.position.x) * (1 - k), dy = (this.prevRoot.y - this.group.position.y) * (1 - k), sy = wrapA(tp.sy || 0), pv = tp.pv || 0;
           const smp = this.smpPool[i - 1]; this.toW(q.base, offB, sy, pv, dx, dy, smp.b); this.toW(q.tip, offT, sy, pv, dx, dy, smp.t); samples.push(smp);

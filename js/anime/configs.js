@@ -5,6 +5,7 @@ import { PROFILE as MAGE_ANIM } from './mage.js';
 import { PROFILE as BRAWLER_ANIM } from './brawler.js';
 import { PROFILE as ASSASSIN_ANIM } from './assassin.js';
 import { PROFILE as SHOGUN_INTERIM_ANIM } from './shogun-interim.js';
+import { PROFILE as SHOGUN_ANIM } from './shogun.js';
 
 export const ANIME_CLASSES = {
   sword: {
@@ -72,8 +73,8 @@ export const ANIME_CLASSES = {
 };
 // final boss 機械將軍 KAGE-SHŌGUN — INTERIM (HANDOFF §16 step 1): the anime Swordsman body in black lacquer + crimson, ash hair,
 // red eyes; the fight renders it at the ladder scale (1.34). Phase 2 turns the outline red (AnimeFighter.setPhaseLook).
-// Steps 2–3 replace it with build: 'shogun' (armour plates, kabuto, mask visor, nodachi, data blades).
-ANIME_CLASSES.shogun = {
+// Kept as the FALLBACK: used when the real config below is missing or its build throws (AnimeFighter.setClass).
+export const SHOGUN_INTERIM = {
   ...ANIME_CLASSES.sword, id: 'shogun', recolor: [], interim: true,
   concept: 'INTERIM boss look: anime Swordsman body, black-lacquer coat with crimson lining / obi / trims, ash-white hair, red eyes',
   palette: { ...ANIME_CLASSES.sword.palette, coat: 0x17121a, lining: 0xb0102a, inner: 0x3a2228, pants: 0x1c1720, sash: 0xd01030, sashEdge: 0x2a0a10,
@@ -84,3 +85,21 @@ ANIME_CLASSES.shogun = {
   outlinePx: 2.1,
   anim: SHOGUN_INTERIM_ANIM,
 };
+// final boss 塔主・零 TOWER LORD ZERO / KAGE-SHŌGUN (HANDOFF §16 steps 2–3): a corrupted AI kenjutsu master in cyber-shōgun
+// armour — black-lacquer ō-yoroi shells with red neon seams, horned kabuto, mask visor (calm cyan → cracked red), tattered
+// jinbaori on springs, nodachi (katana × 1.27 in rig space = 1.7× the Swordsman's on screen at the boss scale), six data blades
+// (js/anime/shogun-body.js + js/anime/shogun.js). Not recoloured: the boss always wears its own palette.
+ANIME_CLASSES.shogun = {
+  id: 'shogun', build: 'shogun', recolor: [],
+  concept: 'corrupted AI kenjutsu master: lacquer ō-yoroi plates with red neon seams, kabuto with gold kuwagata, menpō visor, crimson jinbaori, nodachi, six data blades',
+  palette: {
+    lacquer: 0x16131b, lacquerHi: 0x34303d, trim: 0xff2440, gold: 0xc9a24a, robe: 0x5c1020, glove: 0x0e0c12, obi: 0x2c0a14, saya: 0x0b090c,
+    jinbaori: 0x82101f, lining: 0x1c0b12, dblade: 0xff4a62, metal: 0xffe6ea, tsuka: 0x0c0a0e, tsukaWrap: 0x8a1020, skin: 0xd8c0b8, line: 0x050306,
+  },
+  weapon: { type: 'nodachi', sheath: true },
+  rimLight: { rimK: 0.5, rimW: 0.02 },
+  outlinePx: 2.15,
+  anim: SHOGUN_ANIM,
+};
+/** the anime config for a class; fight 10 falls back to the interim boss look when the real config is missing */
+export const animeCfg = (id) => ANIME_CLASSES[id] || (id === 'shogun' ? SHOGUN_INTERIM : undefined);

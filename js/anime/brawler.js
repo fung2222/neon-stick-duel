@@ -15,6 +15,7 @@
 // stance, both hammer fists into the floor (big shockwave). ult 百裂拳: six 日字 chain punches while stepping in → hooking elbow →
 // rising knee → 震腳 stomp + horse-stance cross, HELD (the finishing pose).
 import { form } from './clip.js';
+import { solve } from '../rig/core.js';
 
 const A0 = 0.075, PI = Math.PI, H = PI / 2;
 export const STANCE = {
@@ -120,8 +121,8 @@ const F = {
   s1: {
     A: P({ px: -0.08, py: 0.66, sp: 0.34, ch: 0.1, hd: -0.25, tw: 0.15, ctw: -0.4, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.5, hF: 0, hB: 0, gx: -0.1, gy: 0.86, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
     A2: P({ px: -0.09, py: 0.64, sp: 0.36, ch: 0.1, hd: -0.27, tw: 0.13, ctw: -0.42, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.52, hF: 0, hB: 0, gx: -0.12, gy: 0.85, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
-    S: P({ px: 0.22, py: 0.68, sp: 0.44, ch: 0.12, hd: -0.4, tw: 0.7, ctw: 0.35, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.0, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
-    E: P({ px: 0.23, py: 0.68, sp: 0.45, ch: 0.12, hd: -0.42, tw: 0.72, ctw: 0.36, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.04, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
+    S: P({ px: 0.22, py: 0.7, sp: 0.32, ch: 0.1, hd: -0.3, tw: 0.7, ctw: 0.35, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.0, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
+    E: P({ px: 0.23, py: 0.7, sp: 0.33, ch: 0.1, hd: -0.32, tw: 0.72, ctw: 0.36, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.04, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
     F: P({ px: 0.12, py: 0.7, sp: 0.3, hd: -0.28, tw: 0.5, ctw: 0.1, fFx: 0.64, fBx: -0.55, hF: 0, hB: 0.6, kF: -0.1, kB: 0.3, gx: 0.62, gy: 1.34, ga: 0.6, ox: 0.32, oy: 1.34, oa: H }),
   },
   // 震地拳 Quake slam: 金雞獨立 golden rooster — lead knee high, both fists overhead → drop → 震腳 stomp into a deep horse stance, both
@@ -149,6 +150,25 @@ const ULT = {
   E8: P({ px: 0.13, py: 0.59, sp: 0.21, ch: 0.06, hd: -0.16, tw: 0.04, ctw: -0.58, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: -0.03, gy: 0.83, ga: PI, ox: 1.0, oy: 1.25, oa: 0.0 }),
   Hz: P({ px: 0.12, py: 0.6, sp: 0.2, ch: 0.06, hd: -0.15, tw: 0.05, ctw: -0.57, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: -0.03, gy: 0.83, ga: PI, ox: 0.98, oy: 1.25, oa: 0.02 }),
 };
+// ---------------------------------------------------------------- straight punches and guards placed from the solved body
+// The shoulder and head depend only on the leg / hip / torso channels, so each strike key is solved once at load: a straight punch
+// puts the fist at `d` rig units from its shoulder (0.685 on contact ≈ elbow 0.3–0.5 rad, 0.70 at full extension ≈ locked out) at
+// height y; the off hand sits in front of the chin. Hand targets for the planar IK: lead fist z = shF.z × 0.55, rear (off) hand z = shB.z.
+function punch(p, side, y, d) {
+  const s = solve(p), sh = side === 'F' ? s.shF : s.shB, dz = side === 'F' ? sh[2] * -0.45 : 0, dy = y - sh[1];
+  const x = sh[0] + Math.sqrt(Math.max(0.01, d * d - dy * dy - dz * dz));
+  if (side === 'F') { p.gx = x; p.gy = y; } else { p.ox = x; p.oy = y; }
+}
+function guard(p, side) {
+  const s = solve(p), x = s.head[0] + 0.1, y = s.head[1] - 0.2;
+  if (side === 'F') { p.gx = x; p.gy = y; } else { p.ox = x; p.oy = y; }
+}
+for (const [p, side, y, d] of [[F.a1.S, 'F', 1.4, 0.685], [F.a1.E, 'F', 1.41, 0.7], [F.a2.S, 'B', 1.36, 0.685], [F.a2.E, 'B', 1.37, 0.7],
+  [F.s1.S, 'F', 1.14, 0.685], [F.s1.E, 'F', 1.14, 0.7], [ULT.CF, 'F', 1.32, 0.69], [ULT.CB, 'B', 1.26, 0.69], [ULT.C8, 'B', 1.24, 0.69], [ULT.E8, 'B', 1.25, 0.7],
+  [ULT.Hz, 'B', 1.25, 0.695], [POSES.winB, 'B', 1.22, 0.69]]) punch(p, side, y, d);
+for (const [p, side] of [[F.a1.A, 'B'], [F.a1.S, 'B'], [F.a1.E, 'B'], [F.a2.S, 'F'], [F.a2.E, 'F'], [F.a4.S, 'F'], [F.a4.E, 'F'], [F.a4.F, 'F'], [F.a4.H, 'F'],
+  [F.s1.A, 'B'], [F.s1.A2, 'B'], [F.s1.S, 'B'], [F.s1.E, 'B'], [ULT.CF, 'B'], [ULT.CB, 'F']]) guard(p, side);
+
 /** which limb strikes (AnimeFighter.fistSeg): 0 lead fist · 1 rear fist · 2 lead elbow · 3 rear elbow · 4 lead knee · 5 rear knee · 6 lead
  *  foot · 'auto' = per key (`limb` tags on the ult flurry) */
 export const STRIKE = { a1: 0, a2: 1, a3: 2, a4: 1, air1: 4, air2: 0, s1: 0, s2: 0, ult: 'auto' };

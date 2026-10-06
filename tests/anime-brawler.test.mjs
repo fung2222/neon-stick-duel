@@ -83,7 +83,12 @@ test('chambered fists on the wind-ups (palm up at the hip) and the off hand guar
   }
   for (const [key, off] of [['a1', 'B'], ['a2', 'F'], ['a4', 'F'], ['s1', 'B'], ['ult', 'B']]) {
     const p = key === 'ult' ? FORMS.ult.CF : FORMS[key].S, s = solve(p), h = s['hand' + off], sh = s['sh' + off];
-    assert.ok(h[1] > sh[1] && h[0] > s.pelvis[0] + 0.05, `${key}: off hand up guarding (${h.map((v) => v.toFixed(2))} vs shoulder y ${sh[1].toFixed(2)})`);
+    assert.ok(h[1] > sh[1] && h[1] > s.head[1] - 0.3 && h[0] > s.head[0] - 0.02, `${key}: off hand up in front of the chin (${h.map((v) => v.toFixed(2))} vs head ${s.head.map((v) => v.toFixed(2))})`);
+  }
+  // straight punches really are straight: the striking elbow is nearly locked on contact and locked at full extension
+  for (const [nm, p, e, max] of [['a1.S', FORMS.a1.S, 'eF', 0.55], ['a1.E', FORMS.a1.E, 'eF', 0.4], ['a2.S', FORMS.a2.S, 'eB', 0.55], ['a2.E', FORMS.a2.E, 'eB', 0.4], ['s1.S', FORMS.s1.S, 'eF', 0.55], ['s1.E', FORMS.s1.E, 'eF', 0.4],
+    ['ult.CF', FORMS.ult.CF, 'eF', 0.55], ['ult.CB', FORMS.ult.CB, 'eB', 0.55], ['ult.C8', FORMS.ult.C8, 'eB', 0.55], ['ult.E8', FORMS.ult.E8, 'eB', 0.4]]) {
+    const b = solve(p).bends[e]; report.elbow = report.elbow || {}; report.elbow[nm] = +b.toFixed(2); assert.ok(b <= max, `${nm}: straight punch, elbow bend ${b.toFixed(2)} ≤ ${max}`);
   }
 });
 test('six-link power chain on the grounded strikes: feet → hips → torso → shoulder → elbow → fist (corkscrew roll, on time) peak in order', () => {

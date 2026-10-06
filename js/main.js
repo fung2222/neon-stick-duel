@@ -263,6 +263,37 @@ function hudNames() {
   const bossP = !!CLASSES[f.cls].phases; $('hp-name-b').closest('.fighter-hp').classList.toggle('boss', bossP);   // final boss: smaller name, the phase as the tag
   ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', bossP ? phaseTag() : (L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh) + phaseTag());
   ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
+  fitNames();
+}
+/** HUD name rows: tighten the tracking, then step a long name's font down until it fits its row (never under ~62 % of the
+ *  CSS size). Still too long → the tag beside it gives way (class label hidden; the boss keeps only its phase numeral Ⅰ / Ⅱ) and the font steps again;
+ *  past that floor the name's tail gets the CSS ellipsis. Re-run on every name / tag change and whenever a row's width changes. */
+function fitName(id) {
+  const b = $(id); if (!b) return; const row = b.parentElement, em = row.querySelector('em');
+  if (row.classList.contains('tight')) { if (em.textContent === em.dataset.short) em.textContent = em.dataset.full; row.classList.remove('tight'); }
+  row.classList.remove('compact');
+  b.style.fontSize = ''; b.style.letterSpacing = '';
+  if (!b.offsetParent || b.clientWidth === 0) return;
+  const over = () => {   // sub-pixel exact (scrollWidth rounds, and the shrinkable flex box hugs a name that fits)
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0; b.style.flexShrink = '0'; const need = b.getBoundingClientRect().width; b.style.flexShrink = '';
+    const ew = em.textContent ? em.getBoundingClientRect().width + gap : 0;
+    return need > row.getBoundingClientRect().width - ew + 0.01;
+  };
+  const fs0 = parseFloat(getComputedStyle(b).fontSize); let fs = fs0; const min = Math.max(8, Math.round(fs0 * 0.62 * 2) / 2);
+  const shrink = () => { while (over() && fs > min) { fs -= 0.5; b.style.fontSize = fs + 'px'; } };
+  if (over()) { b.style.letterSpacing = '0px'; row.classList.add('compact'); }   // compact: tighter gap + tag tracking first
+  shrink();
+  if (over() && em.textContent) {
+    const full = em.textContent, short = row.closest('.fighter-hp').classList.contains('boss') ? full.split(' ')[0] : '';
+    em.dataset.full = full; em.dataset.short = short; em.textContent = short; row.classList.add('tight');
+    fs = fs0; b.style.fontSize = ''; shrink();
+  }
+}
+function fitNames() { fitName('hp-name-a'); fitName('hp-name-b'); }
+if (typeof ResizeObserver !== 'undefined') {
+  const rw = new WeakMap();
+  const ro = new ResizeObserver((es) => { let ch = false; for (const e of es) { const w = Math.round(e.contentRect.width); if (rw.get(e.target) !== w) { rw.set(e.target, w); ch = true; } } if (ch) fitNames(); });
+  document.querySelectorAll('.fh-name').forEach((el) => ro.observe(el));
 }
 /** final boss: " · 秩序" / " · ORDER" after the class label, and the 50 % marker on the HP bar while in phase 1 */
 function phaseTag() {

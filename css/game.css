@@ -4,7 +4,13 @@
 .vs-bar { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(980px, calc(100vw - 150px)); display: flex; align-items: flex-start; gap: 14px; }
 .fighter-hp { flex: 1; min-width: 0; }
 .fh-name { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-zh); font-size: 15px; letter-spacing: 3px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
-.fh-name em { font-style: normal; font-family: 'Orbitron', var(--font-zh), sans-serif; font-size: 10px; letter-spacing: 2px; opacity: .75; }
+.fh-name em { font-style: normal; font-family: 'Orbitron', var(--font-zh), sans-serif; font-size: 10px; letter-spacing: 2px; opacity: .75; flex: 0 0 auto; }
+/* long foe names (TOWER LORD ZERO, ZERO-TYPE BLADE-RUNNER KING, …): the name shrinks inside the row instead of spilling out of it
+   (row-reverse used to push the overflow off the LEFT edge → "OWER LORD ZERO"). js/main.js fitNames() steps the font down to fit;
+   past its floor the tail gets an ellipsis. The class / phase tag keeps its size; fitNames() drops it (boss: keeps Ⅰ / Ⅱ) when the name needs the room. */
+.fh-name b { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fh-name.compact { gap: 4px; } .fh-name.compact em { letter-spacing: 0; } .fh-name em:empty { display: none; }
+
 .me .fh-name b { color: color-mix(in srgb, var(--me) 55%, white); text-shadow: 0 0 6px var(--me); }
 .foe .fh-name { flex-direction: row-reverse; }
 .foe .fh-name b { color: color-mix(in srgb, var(--foe) 55%, white); text-shadow: 0 0 6px var(--foe); }
@@ -147,7 +153,8 @@
   .vs-bar { width: calc(100vw - 24px); gap: 8px; top: calc(max(10px, env(safe-area-inset-top)) + 46px); }
   .fh-name { font-size: 12px; letter-spacing: 1px; }
   .fh-name em { font-size: 8px; letter-spacing: 1px; }
-  .vs-mid { min-width: 46px; } .vs-time { font-size: 24px; }
+  .vs-mid { min-width: 46px; max-width: 64px; } .vs-time { font-size: 24px; }
+  .vs-floor { white-space: normal; word-break: keep-all; font-size: 8px; letter-spacing: 1px; line-height: 1.2; margin-bottom: 1px; }   /* "FIGHT 10 · BOSS" wraps inside the middle column instead of running over both names */
   .score-line { top: calc(max(10px, env(safe-area-inset-top)) + 104px); }
   .trial-tag { top: calc(max(10px, env(safe-area-inset-top)) + 126px); }
   .demo-tag { top: calc(max(10px, env(safe-area-inset-top)) + 150px) !important; }

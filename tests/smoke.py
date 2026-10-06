@@ -159,6 +159,20 @@ def run_view(p, w, h, lang, classes):
     check(not errs, f'{tag}: zero console errors {errs[:5]}')
     b.close()
 
+# foe name row: the whole name is inside its row (no clipped first letter, no ellipsis), the tag too, and the row stays
+# clear of the pause / sound buttons and the "FIGHT 10 · BOSS" label
+NAME_FIT = """(()=>{const b=document.getElementById('hp-name-b'), em=document.getElementById('hp-cls-b'), row=b.parentElement;
+  const rr=row.getBoundingClientRect(), br=b.getBoundingClientRect(), er=em.getBoundingClientRect(), fl=document.getElementById('hud-floor').getBoundingClientRect();
+  b.style.flexShrink='0'; const need=b.getBoundingClientRect().width; b.style.flexShrink='';
+  const btn=[...document.querySelectorAll('.hud-buttons .icon-btn')].filter(x=>x.offsetParent).map(x=>x.getBoundingClientRect());
+  const underBtn=btn.some(r=>r.left < rr.right && r.bottom > rr.top && r.top < rr.bottom);
+  const fits = need <= br.width + 0.01 && br.left >= rr.left - 0.5 && (!em.textContent || er.left >= rr.left - 0.5) && em.scrollWidth <= em.clientWidth;
+  const clear = !underBtn && fl.right <= Math.min(br.left, em.textContent ? er.left : 1e9) + 0.5;
+  return {ok: fits && clear, name: b.textContent, tag: em.textContent, fs: getComputedStyle(b).fontSize, need: Math.round(need), box: Math.round(br.width), underBtn}})()"""
+def name_fits(pg, what):
+    pg.wait_for_timeout(200); r = pg.evaluate(NAME_FIT)
+    check(r['ok'], f'{what}: foe name fits the HUD row ({r})')
+
 def run_boss(p, w=412, h=915, lang='zh'):
     """final boss path: jump to ladder fight 10 via the test hook, fight (real-time loop, keyboard) through the 50 % phase change"""
     tag = f"boss {w}x{h}-{lang}"
@@ -169,6 +183,7 @@ def run_boss(p, w=412, h=915, lang='zh'):
     check(info['cls'] == 'shogun' and info['foe'] == 'zero' and info['mark'] and info['time'] >= 85, f'{tag}: 塔主・零 KAGE-SHŌGUN, 50 % marker, 90 s round ({info})')
     want = ('秩序', '塔主・零') if lang == 'zh' else ('ORDER', 'TOWER LORD ZERO')
     check(want[0] in info['tag'] and want[1] in info['name'], f'{tag}: bilingual HUD name / phase tag ({info["name"]} · {info["tag"]})')
+    name_fits(pg, f'{tag} phase 1')
     pg.wait_for_timeout(1500)
     # let the boss AI fight for a few seconds (telegraphs / callouts), then bring it to just above 50 % and hit it
     pg.wait_for_timeout(3000)
@@ -188,6 +203,7 @@ def run_boss(p, w=412, h=915, lang='zh'):
     check(ok and ph['phase'] == 2 and ph['phaseN'] == 1, f'{tag}: transition ends in phase 2, flipped once ({ph})')
     tg = pg.evaluate("document.getElementById('hp-cls-b').textContent")
     check(('崩壞' if lang == 'zh' else 'COLLAPSE') in tg and pg.evaluate("document.getElementById('hp-mark-b').classList.contains('hidden')"), f'{tag}: HUD shows phase 2 ({tg})')
+    name_fits(pg, f'{tag} phase 2')
     # fight on in phase 2 for a while (AI boss: rain / glitch / ult), then KO it for the final result screen
     pg.evaluate("window.__duel.duel.a.hp=window.__duel.duel.a.maxHp*3; window.__duel.duel.a.maxHp*=3")
     seen = set()
@@ -201,6 +217,8 @@ def run_boss(p, w=412, h=915, lang='zh'):
     check(start(pg, 'endless', 'mage', floor=29), f'{tag}: endless 30F starts')
     e = pg.evaluate("(()=>{const S=window.__duel; return {cls: S.duel.b.cls, boss: !!S.foe.boss, name: document.getElementById('hp-name-b').textContent}})()")
     check(e['cls'] == 'shogun' and e['boss'], f'{tag}: 30F = echo of ZERO ({e})')
+    name_fits(pg, f'{tag} 30F')
+    start(pg, 'endless', 'mage', floor=79); name_fits(pg, f'{tag} 80F (longest endless name)')
     pg.wait_for_timeout(2500)
     check(not errs, f'{tag}: zero console errors {errs[:3]}')
     b.close()
@@ -259,7 +277,7 @@ with sync_playwright() as p:
     if ONLY == 'hub': run_hub(p)
     elif ONLY == '412-en': run_view(p, 412, 915, 'en', ['assassin', 'brawler'])
     elif ONLY == '1280-en': run_view(p, 1280, 800, 'en', ['brawler', 'assassin', 'sword', 'mage'])
-    elif ONLY == 'boss': run_boss(p, 412, 915, 'zh'); run_boss(p, 1280, 800, 'en')
+    elif ONLY == 'boss': run_boss(p, 412, 915, 'zh'); run_boss(p, 412, 915, 'en'); run_boss(p, 1280, 800, 'en')
     elif ONLY: print('unknown --only'); sys.exit(2)
     else: run_view(p, 412, 915, 'zh', ['sword', 'mage', 'brawler', 'assassin'])
     if not QUICK and not ONLY:
@@ -268,5 +286,5 @@ with sync_playwright() as p:
         run_view(p, 1280, 800, 'zh', ['mage', 'sword'])
         run_hub(p)
     if not ONLY:
-        run_boss(p, 412, 915, 'zh'); run_boss(p, 1280, 800, 'en')
+        run_boss(p, 412, 915, 'zh'); run_boss(p, 412, 915, 'en'); run_boss(p, 1280, 800, 'en')
 print('\n%d failure(s)' % len(fails)); sys.exit(1 if fails else 0)

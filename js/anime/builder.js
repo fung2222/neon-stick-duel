@@ -199,9 +199,11 @@ export function buildCharacter(cfg) {
     });
     // high standing collar (open at the front), glowing top edge — hides most of the short neck
     if (O.collar) {
-      const cg = shell((u, v) => { const a = 0.6 + u * (Math.PI * 2 - 1.2); return [0.006 + Math.cos(a) * (0.074 + v * 0.014), 1.675 - v * 0.115, Math.sin(a) * (0.084 + v * 0.016)]; },
-        (u) => { const a = 0.6 + u * (Math.PI * 2 - 1.2); return [Math.cos(a), 0, Math.sin(a)]; }, 16, 2, 0.012);
-      acc.add(cg, M4(), { part: 'collar', colorFn: (l) => (l.y > 1.665 ? pal.trim : pal.coat), glowFn: (l) => (l.y > 1.665 ? 0.6 : 0), weights: (v) => { const k = smooth(1.58, 1.67, v.y) * 0.45; return [[B.chest, 1 - k], [B.neck, k]]; } });
+      // rows: a thin first row (8 % of the height) holds the glowing edge, so the trim colour doesn't bleed down the collar
+      const cv = (v) => (v < 0.34 ? v * 0.24 : 0.08 + (v - 1 / 3) * 1.38);
+      const cg = shell((u, v) => { const a = 0.6 + u * (Math.PI * 2 - 1.2), w = cv(v); return [0.006 + Math.cos(a) * (0.074 + w * 0.014), 1.675 - w * 0.115, Math.sin(a) * (0.084 + w * 0.016)]; },
+        (u) => { const a = 0.6 + u * (Math.PI * 2 - 1.2); return [Math.cos(a), 0, Math.sin(a)]; }, 14, 3, 0.012);
+      acc.add(cg, M4(), { part: 'collar', colorFn: (l) => (l.y > 1.67 ? pal.trim : pal.coat), glowFn: (l) => (l.y > 1.67 ? 0.6 : 0), weights: (v) => { const k = smooth(1.58, 1.67, v.y) * 0.45; return [[B.chest, 1 - k], [B.neck, k]]; } });
     }
     // short neck (chin sits just above the collar line)
     acc.add(tube([{ y: 1.54, rx: 0 }, { y: 1.555, rx: 0.043, rz: 0.047, x: 0.004 }, { y: 1.63, rx: 0.04, rz: 0.043, x: 0.008 }, { y: 1.7, rx: 0.036, rz: 0.038, x: 0.008 }, { y: 1.72, rx: 0 }], 10), M4(),

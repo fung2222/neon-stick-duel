@@ -104,14 +104,15 @@ def combo_shot(p, w, h):
     ctx, pg, errs = boot(b, w, h)
     fight(pg)
     pg.evaluate("()=>{const d=window.__duel.duel; d.a.x=-0.7; d.b.x=0.7; window.__duel.cs=null;}")
-    best = None
-    for i in range(70):
+    got = {}
+    for i in range(110):
         pg.evaluate("window.__duel.api.advance(1/60, 1, %s)" % COMBO_JS)
         st = pg.evaluate("(()=>{const a=window.__duel.duel.a; return {st:a.st, mk:a.mk, t:a.t, stop:window.__duel.duel.stop}})()")
-        if st['mk'] == 'a3' and st['stop'] > 0:   # thrust connecting: trail + sparks on screen
-            adv(pg, 1, 1/60); best = st; break
-    path = os.path.join(OUT, f'combo-{w}x{h}.png'); pg.screenshot(path=path); print('wrote', path, best)
-    check(best is not None, f'combo {w}x{h}: captured the thrust contact frame')
+        if st['mk'] in ('a2', 'a3', 'a4', 's2') and st['stop'] > 0 and st['mk'] not in got:   # connecting: trail + sparks on screen
+            adv(pg, 1, 1/60); got[st['mk']] = st
+            path = os.path.join(OUT, f"combo-{st['mk']}-{w}x{h}.png"); pg.screenshot(path=path); print('wrote', path, st)
+            if len(got) == 4: break
+    check(len(got) >= 3, f'combo {w}x{h}: captured contact frames {sorted(got)}')
     check(not errs, f'combo {w}x{h}: zero console errors {errs[:3]}')
     b.close()
 

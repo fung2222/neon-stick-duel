@@ -47,7 +47,7 @@ function neonMat(opts, rim, rimK) {
 // ------------------------------------------------------------------ weapon trail that follows the actual blade arc
 class ArcTrail {
   constructor(scene, max = 72) {
-    this.max = max; this.s = []; this.life = 0.13;
+    this.max = max; this.s = []; this.life = 0.12; this.inner = 0.42;   // trail covers the outer 58 % of the blade
     const g = new THREE.BufferGeometry(); this.pos = new Float32Array(max * 2 * 3); this.al = new Float32Array(max * 2);
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aA', new THREE.BufferAttribute(this.al, 1).setUsage(THREE.DynamicDrawUsage));
@@ -56,7 +56,7 @@ class ArcTrail {
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       uniforms: { uC: { value: new THREE.Color(1, 1, 1) }, uO: { value: 0.85 } },
       vertexShader: 'attribute float aA; varying float vA; void main(){ vA = aA; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform vec3 uC; uniform float uO; varying float vA; void main(){ vec3 c = mix(uC, vec3(1.0), smoothstep(0.75, 1.0, vA) * 0.6); gl_FragColor = vec4(c * vA * uO, 1.0); }',
+      fragmentShader: 'uniform vec3 uC; uniform float uO; varying float vA; void main(){ float e = vA * vA * (0.35 + 0.65 * vA); vec3 c = mix(uC, vec3(1.0), smoothstep(0.82, 1.0, vA) * 0.7); gl_FragColor = vec4(c * e * uO, 1.0); }',
     });
     this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 3; scene.add(this.mesh);
   }
@@ -64,14 +64,14 @@ class ArcTrail {
   /** samples: [{ b, t }] oldest → newest, all from this frame */
   update(dt, samples) {
     for (const s of this.s) s.age += dt;
-    for (let i = 0; i < samples.length; i++) this.s.unshift({ b: samples[i].b.clone(), t: samples[i].t.clone(), age: (samples.length - 1 - i) / Math.max(1, samples.length) * dt });
+    for (let i = 0; i < samples.length; i++) this.s.unshift({ b: samples[i].b.clone().lerp(samples[i].t, this.inner), t: samples[i].t.clone(), age: (samples.length - 1 - i) / Math.max(1, samples.length) * dt });
     while (this.s.length > this.max || (this.s.length && this.s[this.s.length - 1].age > this.life)) this.s.pop();
     const m = this.s.length;
     for (let i = 0; i < this.max; i++) {
       const s = this.s[Math.min(i, m - 1)], k = i * 6;
       if (!s) { this.al[i * 2] = this.al[i * 2 + 1] = 0; continue; }
       this.pos[k] = s.b.x; this.pos[k + 1] = s.b.y; this.pos[k + 2] = s.b.z; this.pos[k + 3] = s.t.x; this.pos[k + 4] = s.t.y; this.pos[k + 5] = s.t.z;
-      const a = i < m ? Math.max(0, 1 - s.age / this.life) ** 1.4 : 0; this.al[i * 2] = a * 0.08; this.al[i * 2 + 1] = a;
+      const a = i < m ? Math.max(0, 1 - s.age / this.life) ** 1.4 : 0; this.al[i * 2] = 0; this.al[i * 2 + 1] = a;
     }
     const g = this.mesh.geometry.attributes; g.position.needsUpdate = true; g.aA.needsUpdate = true;
     this.mesh.visible = m > 1;

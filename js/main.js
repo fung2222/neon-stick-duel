@@ -102,6 +102,20 @@ const starTex = (() => { const cv = document.createElement('canvas'); cv.width =
 const stars = Array.from({ length: 8 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); s.visible = false; scene.add(s); return { s, t: 0, life: 0.16, size: 1 }; });
 let starI = 0;
 function spark(pos, color, size = 1) { const st = stars[starI++ % stars.length]; st.s.position.copy(pos); st.s.material.color.copy(color).lerp(new THREE.Color(1, 1, 1), 0.5); st.s.material.rotation = Math.random() * 3; st.t = 0; st.size = size; st.s.visible = true; }
+// impact slashes: a white-hot streak through the contact point along the blade's motion (cut flash), plus a cross glint
+const slashTex = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 16; const g = c.getContext('2d');
+  const h = g.createLinearGradient(0, 0, 128, 0); h.addColorStop(0, 'rgba(255,255,255,0)'); h.addColorStop(0.5, 'rgba(255,255,255,1)'); h.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = h; g.fillRect(0, 0, 128, 16); const v = g.createLinearGradient(0, 0, 0, 16); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(0.5, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = v; g.fillRect(0, 0, 128, 16); return new THREE.CanvasTexture(c); })();
+const slashes = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: slashTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide })); m.visible = false; m.renderOrder = 4; scene.add(m); return { m, t: 0, life: 0.12, len: 1, w: 0.1 }; });
+let slashI = 0;
+function slash(pos, dir, color, k) {
+  for (const [ang, len, w] of [[0, 1.5 + 1.4 * k, 0.09 + 0.07 * k], [Math.PI / 2 + 0.35, 0.5 + 0.5 * k, 0.05 + 0.03 * k]]) {
+    const sl = slashes[slashI++ % slashes.length]; sl.m.position.copy(pos); sl.m.position.z += 0.35; sl.m.rotation.set(0, 0, Math.atan2(dir.y, dir.x) + ang);
+    sl.m.material.color.copy(color).lerp(new THREE.Color(1, 1, 1), 0.6); sl.t = 0; sl.len = len; sl.w = w; sl.m.visible = true;
+  }
+}
+function updateSlashes(dt) { for (const sl of slashes) { if (!sl.m.visible) continue; sl.t += dt; const k = sl.t / sl.life; if (k >= 1) { sl.m.visible = false; continue; } sl.m.scale.set(sl.len * (0.7 + 0.5 * k), sl.w * (1 - k * 0.7), 1); sl.m.material.opacity = (1 - k) ** 1.5; } }
 function updateStars(dt) { for (const st of stars) { if (!st.s.visible) continue; st.t += dt; const k = st.t / st.life; if (k >= 1) { st.s.visible = false; continue; } st.s.scale.setScalar(st.size * (0.6 + k * 1.1)); st.s.material.opacity = 1 - k; } }
 
 // ------------------------------------------------------------------ duel setup
@@ -265,9 +279,10 @@ function handleEvents() {
         dv.onHit(e); if (dv.rig !== 'hq') dv.flash();
         if (vol) audio.hit(e.heavy, att.cls);
         const k = Math.min(1, (e.stop || 0.05) * 60 / 6), kdir = Math.sign(e.who.x - att.x) || att.facing;
-        spark(pos, col, 1.1 + 0.9 * k);
+        spark(pos, col, 1.3 + 1.2 * k);
         particles.burst(pos, col, Math.round(16 + 34 * k), { speed: 4 + 3.5 * k, up: 1.5, life: 0.4, size: 0.65 + 0.4 * k, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
         const sv = av.tipVel.lengthSq() > 4 && cp ? av.tipVel.clone().normalize() : new THREE.Vector3(kdir, 0.25, 0).normalize();
+        if (cp) slash(pos, sv, col, k);
         for (let i = 0; i < 8 + 10 * k; i++) particles.emit(pos, sv.clone().multiplyScalar(5 + Math.random() * 7 * (0.6 + k)).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.3) * 3, (Math.random() - 0.5) * 2)), i % 3 ? col : new THREE.Color(1, 1, 1), { life: 0.18 + Math.random() * 0.14, size: 0.55, grav: -4, drag: 3, bright: SPARK_BRIGHT });
         if (e.heavy) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: 3, h: 0.5, dur: 0.45, a: 1.4 });
         fx.kick({ trauma: 0.06 + 0.24 * k, aberr: e.heavy ? 0.45 : 0.15, fovKick: e.heavy ? 0.4 : 0 });
@@ -538,7 +553,7 @@ function tick(dt, now) {
     if (!paused && S.state !== 'menu' && S.state !== 'select') for (const [v, f] of [[fa, d.a], [fb, d.b]]) { const m = v.takeSwingCue(f); if (m && m.kind !== 'ult') audio.swing(f.cls, m.kind); }
     syncProjs(paused ? 0 : dt);
   }
-  roof.update(now); particles.update(dt); waves.update(dt); updateStars(dt);
+  roof.update(now); particles.update(dt); waves.update(dt); updateStars(dt); updateSlashes(dt);
   city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); stage.render(dt);
 }
 i18n.bindToggle($('btn-lang')); i18n.bindToggle($('btn-lang2'));

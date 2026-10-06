@@ -77,7 +77,7 @@ def play_to(pg, mk, t_end, dt=1/120):
     n = max(1, int(round(t_end / dt)))
     pg.evaluate("(()=>{const S=window.__duel; for(let i=0;i<%d;i++){S.duel.a.t=Math.min(%f, S.duel.a.t+%f); S.api.advance(%f,1);} })()" % (n, t_end, dt, dt))
 
-VIEWS = {'front': (6.0, 0.0), '3/4': (4.24, 4.24), 'side': (0.0, 6.0), 'back': (0.0, -6.0), 'back 3/4': (-4.24, -4.24)}
+VIEWS = {'front': (6.0, 0.0), '3/4': (4.24, 4.24), 'side': (0.0, 6.0), 'back': (-6.0, 0.0), 'back 3/4': (-4.24, -4.24)}
 def turnaround(p, w=420, h=840):
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
     ctx, pg, errs = boot(b, w, h)
@@ -86,7 +86,7 @@ def turnaround(p, w=420, h=840):
     tiles = []
     for v in ['front', '3/4', 'side', 'back']:
         dx, dz = VIEWS[v]
-        pg.evaluate("window.__duel.api.cam({fov:30,pos:[%f,1.45,%f],look:[-0.9,1.32,0]})" % (-0.9 + dz * 0 + (dx if v != 'back' else 0), (dz if v not in ('front',) else 6.0) if v != '3/4' else 4.24))
+        pg.evaluate("window.__duel.api.cam({fov:30,pos:[%f,1.45,%f],look:[-0.9,1.32,0]})" % (-0.9 + dx, dz + 1e-4))
         pose(pg, {'st': 'win', 't': 3}, 30)
         f = os.path.join(OUT, '_b.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
         d = ImageDraw.Draw(im, 'RGBA'); d.rectangle((0, 0, w, 34), fill=(6, 4, 18, 200)); d.text((10, 8), v, fill=(220, 180, 255), font=font(17))

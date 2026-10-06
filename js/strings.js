@@ -30,7 +30,7 @@ i18n.add({
   evade: ['閃避', 'EVADE'], guardBreak: ['破防！', 'GUARD BREAK!'], armor: ['霸體', 'ARMOR'], block: ['擋', 'BLOCK'], hits: ['{n} 連擊', '{n} HITS'], counter: ['反擊', 'COUNTER'],
   ultReady: ['必殺技準備好！', 'ULTIMATE READY!'],
   rigBtn: ['劍士動畫：{v}', 'SWORDSMAN RIG: {v}'], rigHQ: ['高質 HQ', 'HQ'], rigClassic: ['經典', 'CLASSIC'],
-  styleBtn: ['劍士造型：{v}', 'SWORDSMAN STYLE: {v}'], styleAnime: ['動漫', 'ANIME'], styleNeon: ['霓虹火柴人', 'NEON STICK'],
+  styleBtn: ['角色造型：{v}', 'CHARACTER STYLE: {v}'], styleAnime: ['動漫', 'ANIME'], styleNeon: ['霓虹火柴人', 'NEON STICK'],
   milestone: ['第 {f} 層頭目', 'FLOOR {f} BOSS'], milestoneS: ['無盡里程碑 +5000', 'ENDLESS MILESTONE +5000'],
   // result
   victory: ['勝利！', 'VICTORY!'], defeat: ['戰敗', 'DEFEAT'], draw: ['平手', 'DRAW'], timeOver: ['時間到', 'TIME OVER'],

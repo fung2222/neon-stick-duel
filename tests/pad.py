@@ -8,7 +8,8 @@ Zero console errors required.
 """
 import sys, os, json, math, time
 from playwright.sync_api import sync_playwright
-ARGV = [a for i, a in enumerate(sys.argv) if a != '--views' and (i == 0 or sys.argv[i - 1] != '--views')]
+STYLE = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--style=')), None)   # --style=anime|neon
+ARGV = [a for i, a in enumerate(sys.argv) if a != '--views' and not a.startswith('--style=') and (i == 0 or sys.argv[i - 1] != '--views')]
 BASE = ARGV[1] if len(ARGV) > 1 else 'http://127.0.0.1:8811/'
 OUT = ARGV[2] if len(ARGV) > 2 else '/workspace/shots/duel-pad'
 os.makedirs(OUT, exist_ok=True)
@@ -55,7 +56,7 @@ with sync_playwright() as p:
             pg = ctx.new_page(); errs = []
             pg.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
             pg.on('pageerror', lambda e: errs.append('PAGEERROR ' + str(e)))
-            pg.goto(BASE)
+            pg.goto(BASE + ('?style=' + STYLE if STYLE else ''))
             wait_for(pg, "window.__duel && window.__duel.state==='menu' && window.__duel.duel", 60)
             pg.evaluate("window.__duel.api.startMode('ladder', {cls:'assassin', stage:2})")
             wait_for(pg, "window.__duel.state==='play'", 40)

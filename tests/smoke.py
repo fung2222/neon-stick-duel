@@ -11,8 +11,10 @@ Screenshots (class select, each class mid-combo, ultimate, joystick HUD) go to o
 import sys, os, time, json
 from playwright.sync_api import sync_playwright
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8811/'
-OUT = sys.argv[2] if len(sys.argv) > 2 else 'docs/shots'
+STYLE = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--style=')), None)   # --style=anime|neon adds ?style= to every page
+_pos = [a for a in sys.argv[1:] if not a.startswith('--')]
+BASE = _pos[0] if len(_pos) > 0 else 'http://127.0.0.1:8811/'
+OUT = _pos[1] if len(_pos) > 1 else 'docs/shots'
 QUICK = '--quick' in sys.argv
 os.makedirs(OUT, exist_ok=True)
 ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required']
@@ -35,6 +37,7 @@ def page(b, w, h, lang, init='', query=''):
     pg = ctx.new_page(); errs = []
     pg.on('console', lambda m: errs.append(m.type + ': ' + m.text) if m.type == 'error' else None)
     pg.on('pageerror', lambda e: errs.append('PAGEERROR: ' + str(e)))
+    if STYLE: query = (query + '&' if query else '?') + 'style=' + STYLE
     pg.goto(BASE + query)
     wait_for(pg, "window.__duel && window.__duel.state==='menu' && window.__duel.duel", 60)
     return ctx, pg, errs

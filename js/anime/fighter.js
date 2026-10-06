@@ -50,7 +50,7 @@ export class AnimeFighter extends HQFighter {
   }
   resetAnim() {
     super.resetAnim();
-    this.kp = null; this.fxSeq = -1; this.fxT = 0; this.blockN = 0; this.blinkT = 2; this.hitPoses = null; this.lastPose = null;
+    this.kp = null; this.yawPrev = null; this.rollPrev = null; this.wy = 0; this.wr = 0; this.fxSeq = -1; this.fxT = 0; this.blockN = 0; this.blinkT = 2; this.hitPoses = null; this.lastPose = null;
     if (this.chainSt) for (const c of this.chainSt) c.ok = false;
   }
 
@@ -250,6 +250,12 @@ export class AnimeFighter extends HQFighter {
     this.joints = Jw;
     if (rdt > 0) { if (this.lastTipW) this.tipVel.subVectors(Jw.tip, this.lastTipW).divideScalar(rdt); (this.lastTipW || (this.lastTipW = new THREE.Vector3())).copy(Jw.tip); }
     // springs: coat panels (collide with the legs), sash tails, ponytail, hair spikes
+    if (rdt > 0) {   // whole-body angular velocity → spin fling for the spring chains (coat / hair / sash whip out on spins)
+      const yT = this.yaw + sy, rT = p.rr, dec = Math.exp(-rdt * 9);
+      const wy = this.yawPrev === null ? 0 : wrapA(yT - this.yawPrev) / rdt, wr = this.rollPrev === null ? 0 : wrapA(rT - this.rollPrev) / rdt;
+      this.wy = Math.abs(wy) >= Math.abs(this.wy) * dec ? wy : this.wy * dec; this.wr = Math.abs(wr) >= Math.abs(this.wr) * dec ? wr : this.wr * dec;
+      this.yawPrev = yT; this.rollPrev = rT;
+    }
     this.legCaps(J);
     this.stepChains(frozen ? 0 : dt, t);
     this.group.updateMatrixWorld(true);
@@ -278,6 +284,7 @@ export class AnimeFighter extends HQFighter {
     for (const k of keys) if (k.fx && k.t > this.fxT && k.t <= f.t) {
       const J = this.Jw, base = this.group.position.y - f.y;
       if (k.fx === 'stamp') this.cue('stamp', J.footF.x || f.x, base, 1);
+      else if (k.fx === 'sink') this.cue('stamp', J.hip.x || f.x, base, 0.75);
       else if (k.fx === 'slide' || k.fx === 'skid') this.cue('slide', (k.fx === 'skid' ? J.footF.x : J.footB.x) || f.x, base, k.fx === 'skid' ? 1.2 : 0.7);
       else if (k.fx === 'ring') this.cue('ring', f.x, this.group.position.y + 1.05 * this.scale, 1);
     }
@@ -342,6 +349,10 @@ export class AnimeFighter extends HQFighter {
   stepChains(dt, t) {
     if (!this.chainSt) return;
     const s = this.scale; _inv.copy(this.rig.matrixWorld).invert();
+    // spin fling: while the body spins the rest pull loosens (the chains trail) and a centrifugal push about the pelvis axis
+    // flares them out; both fade with the angular velocity, so the coat and hair whip around and then settle on the spring
+    const om = Math.abs(this.wy) + 0.6 * Math.abs(this.wr), loosen = 1 / (1 + om * 0.16), fling = Math.min(this.wy * this.wy, 1400) * 0.42;
+    const ax = this.Jw.hip.x, az = this.Jw.hip.z;
     for (const st of this.chainSt) {
       const M = st.anchor.matrixWorld, n = st.p.length;
       for (let i = 0; i < n; i++) st.r[i].copy(st.rest[i]).applyMatrix4(M);
@@ -355,7 +366,8 @@ export class AnimeFighter extends HQFighter {
             _v.subVectors(p, o).multiplyScalar(drag); o.copy(p); p.add(_v);
             p.y -= st.grav * h * h * s;
             p.x += Math.sin(t * 5.3 + i * 1.7 + st.ang * 3) * 0.25 * h * h * s;   // light flutter
-            const kq = 1 - Math.pow(1 - st.stiff[i], h * 60); p.lerp(st.r[i], kq);
+            if (fling > 1) { const fk = fling * h * h; p.x += (p.x - ax) * fk; p.z += (p.z - az) * fk; }
+            const kq = (1 - Math.pow(1 - st.stiff[i], h * 60)) * loosen; p.lerp(st.r[i], kq);
           }
           for (let it = 0; it < 2; it++) for (let i = 1; i < n; i++) {
             const a = st.p[i - 1], p = st.p[i], L = st.len[i - 1] * s; _v.subVectors(p, a); const d = _v.length() || 1e-6; p.copy(a).addScaledVector(_v, L / d);

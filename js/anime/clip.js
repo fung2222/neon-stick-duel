@@ -59,17 +59,26 @@ export function evalA(keys, t, from, out = blankA()) {
 }
 export const FEET = ['fFx', 'fFy', 'fBx', 'fBy', 'aF', 'aB', 'hF', 'hB', 'kF', 'kB'];
 export const HIPS = ['px', 'py', 'pt', 'tw', 'pv'];
-export const TORSO = ['sp', 'ch', 'ctw', 'hd'];
-const _f = blankA(), _h = blankA(), _t = blankA();
-const CHAIN = new Function('f', 'h', 't', 'out', [...FEET.map((q) => `out.${q} = f.${q};`), ...HIPS.map((q) => `out.${q} = h.${q};`), ...TORSO.map((q) => `out.${q} = t.${q};`)].join('\n'));
-/** power chain: feet sample `lead`×2 ahead, hips ×1.3, torso ×0.6, arm + blade + spin + roll exactly at t (contact unchanged).
+export const TORSO = ['sp', 'ch', 'hd'];
+export const SHOULDER = ['ctw'];                 // chest counter-twist = the shoulder line
+export const ARM = ['gx', 'gy', 'ox', 'oy'];     // hands (grip + off hand); the blade angle (ga, gw) stays exactly on time
+// lead multipliers per link (× lead seconds): feet → hips → torso → shoulder → arm → blade
+export const CHAIN_LEAD = { feet: 2, hips: 1.4, torso: 0.9, shoulder: 0.5, arm: 0.18 };
+const _f = blankA(), _h = blankA(), _t = blankA(), _s = blankA(), _a = blankA();
+const CHAIN = new Function('f', 'h', 't', 's', 'a', 'out', [...FEET.map((q) => `out.${q} = f.${q};`), ...HIPS.map((q) => `out.${q} = h.${q};`),
+  ...TORSO.map((q) => `out.${q} = t.${q};`), ...SHOULDER.map((q) => `out.${q} = s.${q};`), ...ARM.map((q) => `out.${q} = a.${q};`)].join('\n'));
+/** power chain: every link samples the clip slightly ahead of the next — feet ×2 lead, hips ×1.4, torso ×0.9, shoulder line
+ *  ×0.5, hands ×0.18, blade angle + spin + roll exactly at t — so a strike starts in the feet, the hips open before the
+ *  chest, the shoulder before the arm, and the blade whips through last (the hand leads the blade = wrist snap). The contact
+ *  pose still lands on the first active frame (tests/anime.test.mjs checks the blade against the hitbox with the chain on).
  *  The lead ramps in over the first 2·lead seconds so a clip still starts exactly at the crossfade snapshot. */
 export function evalChain(keys, t, from, out = blankA(), lead = 0.028) {
   evalA(keys, t, from, out);
   if (lead <= 0) return out;
-  const r = clamp(t / (2 * lead), 0, 1);
-  evalA(keys, t + lead * 2 * r, from, _f); evalA(keys, t + lead * 1.3 * r, from, _h); evalA(keys, t + lead * 0.6 * r, from, _t);
-  CHAIN(_f, _h, _t, out);
+  const r = clamp(t / (2 * lead), 0, 1) * lead, L = CHAIN_LEAD;
+  evalA(keys, t + L.feet * r, from, _f); evalA(keys, t + L.hips * r, from, _h); evalA(keys, t + L.torso * r, from, _t);
+  evalA(keys, t + L.shoulder * r, from, _s); evalA(keys, t + L.arm * r, from, _a);
+  CHAIN(_f, _h, _t, _s, _a, out);
   return out;
 }
 /** build a form from frame data: list of [phase, u, pose, ease, fx] with phase s (startup) · a (active) · r (recovery) ·

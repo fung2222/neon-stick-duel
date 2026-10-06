@@ -3,7 +3,7 @@
 // knee splay keeps bone lengths, spins finish on a whole turn.
 import assert from 'node:assert/strict';
 import { solve, SK, POSE_KEYS, RIG_SCALE } from '../js/rig/core.js';
-import { evalChain, evalA, spinPt, splayKnee, AKEYS, XE, normSnap, copyA } from '../js/anime/clip.js';
+import { evalChain, evalA, spinPt, splayKnee, AKEYS, XE, normSnap, copyA, CHAIN_LEAD } from '../js/anime/clip.js';
 import { PROFILE, POSES, STANCE, FORMS, contactPose } from '../js/anime/sword.js';
 import { makeJ, solveInto } from '../js/anime/solve.js';
 import { lerpPose } from '../js/rig/core.js';
@@ -82,6 +82,31 @@ test('allocation-free solveInto / lerpA match core solve / lerpPose exactly (eve
     const x = lerpPose(a, b, k, {}, w), y = lerpA(a, b, k, undefined, w); for (const q of POSE_KEYS) maxE = Math.max(maxE, Math.abs(x[q] - y[q])); }
   report.solveIntoSamples = n; report.solveIntoMaxErr = maxE;
   assert.ok(maxE < 1e-9, 'max deviation ' + maxE);
+});
+test('power chain: feet → hips → torso → shoulder → hands → blade peak in that order on every grounded strike; one-handed follow-throughs guard with the off hand', () => {
+  // strike segment = wind-up key (A) → contact (S, first active frame). Dominant channel of each link = biggest A→S travel;
+  // its peak speed time is measured with the chain on, over that link's own strike segment (the link reaches the wind-up and
+  // the contact pose `lead × CHAIN_LEAD[link]` early, so the blade arrives last on the first active frame).
+  const links = [['feet', ['fFx', 'fBx', 'hB', 'fFy'], 'feet'], ['hips', ['tw', 'px'], 'hips'], ['torso', ['sp', 'ch'], 'torso'], ['shoulder', ['ctw'], 'shoulder'], ['hands', ['gx', 'gy'], 'arm'], ['blade', ['ga', 'gw'], null]];
+  report.chain = {};
+  for (const key of ['a1', 'a2', 'a4', 's1', 's2']) {
+    const m = C.moves[key], keys = PROFILE.moveKeys(key, m), su = m.t[0], dt = 1 / 4000, peak = {}, A = FORMS[key].A2 || FORMS[key].A, S = FORMS[key].S;
+    const kA = keys.find((k) => k.p === A).t;
+    for (const [name, ch, li] of links) {
+      const off = li ? CHAIN_LEAD[li] * PROFILE.lead : 0, t0 = Math.max(0, kA - off), t1 = su - off;
+      let best = null, travel = 0; for (const q of ch) { const tr = Math.abs(S[q] - A[q]); if (tr > travel) { travel = tr; best = q; } }
+      if (travel < 0.06) continue;
+      let pt = 0, pv = -1, prev = evalChain(keys, t0, STANCE, {}, PROFILE.lead)[best];
+      for (let t = t0 + dt; t <= t1 + 1e-9; t += dt) { const v = evalChain(keys, t, STANCE, {}, PROFILE.lead)[best], sp = Math.abs(v - prev) / dt; if (sp > pv) { pv = sp; pt = t; } prev = v; }
+      peak[name] = +(pt * 1000).toFixed(1);
+    }
+    report.chain[key] = peak;
+    const seq = links.map(([n]) => peak[n]).filter((v) => v !== undefined);
+    assert.ok(seq.length >= 4, key + ': at least 4 links move in the strike');
+    for (let i = 1; i < seq.length; i++) assert.ok(seq[i] >= seq[i - 1] - 0.3, `${key}: chain out of order ${JSON.stringify(peak)}`);
+  }
+  for (const [key, q] of [['a1', 'F'], ['a3', 'F'], ['air1', 'F'], ['s1', 'F']]) { const p = FORMS[key][q], s = solve(p);
+    assert.ok(p.oh === 0 && s.handB[1] > s.pelvis[1] + 0.35 && s.handB[0] > s.pelvis[0] - 0.05, `${key}.${q}: off hand up in front guarding (hand ${s.handB.map((v) => v.toFixed(2))})`); }
 });
 console.log(JSON.stringify(report));
 console.log(`\n${passed} passed, ${failed} failed`);

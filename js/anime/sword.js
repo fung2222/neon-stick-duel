@@ -65,7 +65,7 @@ const F = {
     A: P({ ...IAI, fFy: 0.1, py: 0.76 }),
     S: P({ px: 0.1, py: 0.78, sp: 0.14, ch: 0.06, hd: -0.12, tw: 0.56, ctw: 0.05, fFx: 0.52, fBx: -0.4, hB: 0.7, gx: 0.62, gy: 1.2, ga: -0.05, gw: -0.35, oh: 0, ox: -0.12, oy: 0.9 }),
     E: P({ px: 0.12, py: 0.77, sp: 0.15, ch: 0.06, hd: -0.12, tw: 0.62, ctw: 0.3, fFx: 0.52, fBx: -0.4, hB: 0.7, gx: 0.56, gy: 1.16, ga: -0.12, gw: 0.75, oh: 0, ox: -0.16, oy: 0.92 }),
-    F: P({ px: 0.1, py: 0.78, sp: 0.14, hd: -0.1, tw: 0.58, ctw: 0.38, fFx: 0.52, fBx: -0.4, hB: 0.6, gx: 0.46, gy: 1.1, ga: -0.2, gw: 1.05, oh: 0, ox: -0.18, oy: 0.95 }),
+    F: P({ px: 0.1, py: 0.78, sp: 0.14, hd: -0.1, tw: 0.58, ctw: 0.38, fFx: 0.52, fBx: -0.4, hB: 0.6, gx: 0.46, gy: 1.1, ga: -0.2, gw: 1.05, oh: 0, ox: 0.16, oy: 1.34 }),   // off hand up: guarding palm
   },
   // 逆袈裟 Rising cut: drop the blade low behind (left hand joins), back foot slides up (tsugi-ashi), hips reverse → diagonal
   // rising cut, finishing high (jōdan) — flows into the spin
@@ -81,7 +81,7 @@ const F = {
     A: P({ sy: -3.3, pv: 0.42, px: 0.06, py: 0.8, sp: 0.1, ch: 0.02, tw: 0.0, ctw: 0.2, fFx: 0.42, fBx: -0.12, fBy: 0.16, hF: 0.9, hB: 0, gx: 0.2, gy: 1.2, ga: -0.05, gw: -1.3, oh: 0, ox: 0.3, oy: 1.2 }),
     S: P({ sy: -TAU - 0.3, pv: 0.42, px: 0.14, py: 0.74, sp: 0.16, ch: 0.04, hd: -0.1, tw: 0.3, ctw: 0.1, fFx: 0.5, fBx: -0.5, hF: 0, hB: 0.6, gx: 0.62, gy: 1.1, ga: -0.04, gw: -0.3, oh: 0, ox: -0.25, oy: 1.05 }),
     E: P({ sy: -TAU - 0.5, pv: 0.42, px: 0.16, py: 0.74, sp: 0.16, hd: -0.1, tw: 0.4, ctw: 0.25, fFx: 0.5, fBx: -0.5, hB: 0.6, gx: 0.56, gy: 1.08, ga: -0.1, gw: 0.55, oh: 0, ox: -0.3, oy: 1.05 }),
-    F: P({ sy: -TAU - 0.35, pv: 0.42, px: 0.14, py: 0.76, sp: 0.14, tw: 0.42, ctw: 0.3, fFx: 0.5, fBx: -0.5, hB: 0.5, gx: 0.46, gy: 1.08, ga: -0.15, gw: 0.85, oh: 0, ox: -0.3, oy: 1.05 }),
+    F: P({ sy: -TAU - 0.35, pv: 0.42, px: 0.14, py: 0.76, sp: 0.14, tw: 0.42, ctw: 0.3, fFx: 0.5, fBx: -0.5, hB: 0.5, gx: 0.46, gy: 1.08, ga: -0.15, gw: 0.85, oh: 0, ox: 0.14, oy: 1.3 }),   // off hand guards the centre line
     R: SPUN,
   },
   // 昇り突き Rising thrust (launcher): chamber at the right hip, front foot lifts → stamp into a deep bow stance, two-handed
@@ -97,7 +97,7 @@ const F = {
     A: P({ ...AIR, sp: -0.05, tw: -0.1, ctw: -0.3, gx: 0.04, gy: 1.7, ga: 2.5, gw: -0.3, oh: 0, ox: 0.15, oy: 1.25 }),
     S: P({ ...AIR, sp: 0.22, tw: 0.45, ctw: 0.1, gx: 0.58, gy: 1.18, ga: -0.1, gw: 0.1, oh: 0, ox: -0.3, oy: 1.1 }),
     E: P({ ...AIR, sp: 0.3, tw: 0.5, ctw: 0.3, gx: 0.48, gy: 0.84, ga: -0.85, gw: 0.3, oh: 0, ox: -0.32, oy: 1.1 }),
-    F: P({ ...AIR, sp: 0.3, tw: 0.45, ctw: 0.3, gx: 0.34, gy: 0.76, ga: -1.2, gw: 0.35, oh: 0, ox: -0.3, oy: 1.05 }),
+    F: P({ ...AIR, sp: 0.3, tw: 0.45, ctw: 0.3, gx: 0.34, gy: 0.76, ga: -1.2, gw: 0.35, oh: 0, ox: 0.14, oy: 1.44 }),   // off hand guards high
   },
   // 兜割り Falling cleave: two-handed jōdan overhead, the body rolls forward into a vertical chop
   air2: {
@@ -113,7 +113,7 @@ const F = {
     A2: P({ ...IAI, py: 0.64, sp: 0.44, hd: -0.32, tw: -0.42, ctw: -0.32, fFx: 0.42, fBx: -0.5, hB: 0.95 }),
     S: P({ px: 0.22, py: 0.66, sp: 0.5, ch: 0.12, hd: -0.5, tw: 0.6, ctw: 0.15, fFx: 0.72, fBx: -0.7, aB: -0.3, hB: 0.9, gx: 0.8, gy: 1.1, ga: -0.02, gw: 0.1, oh: 0, ox: -0.45, oy: 0.94 }),
     E: P({ px: 0.23, py: 0.66, sp: 0.52, ch: 0.12, hd: -0.52, tw: 0.62, ctw: 0.16, fFx: 0.72, fBx: -0.7, aB: -0.3, hB: 0.9, gx: 0.84, gy: 1.1, ga: -0.02, gw: 0.25, oh: 0, ox: -0.47, oy: 0.94 }),
-    F: P({ px: 0.12, py: 0.7, sp: 0.36, hd: -0.3, tw: 0.5, ctw: 0.1, fFx: 0.64, fBx: -0.55, hB: 0.6, gx: 0.6, gy: 1.02, ga: -0.2, gw: 0.6, oh: 0, ox: -0.36, oy: 0.96 }),
+    F: P({ px: 0.12, py: 0.7, sp: 0.36, hd: -0.3, tw: 0.5, ctw: 0.1, fFx: 0.64, fBx: -0.55, hB: 0.6, gx: 0.6, gy: 1.02, ga: -0.2, gw: 0.6, oh: 0, ox: 0.12, oy: 1.26 }),   // braking skid, guard palm up
   },
   // 昇龍斬 Rising Dragon: horse-stance coil (knees out, blade low behind) → corkscrew rising cut, one full turn in the air
   s2: {
@@ -144,7 +144,7 @@ const ULT = {
 const shift = (p, sy) => ({ ...p, sy: (p.sy || 0) + sy });
 
 /** keys for a move. FX cues ride on keys: stamp (dust + ground ring at the front foot), slide (dust at the back foot),
- *  ring (air ring around the body), skid (braking dust). */
+ *  ring (air ring around the body), skid (braking dust), sink (dropping into horse stance: smaller dust ring under the body). */
 export function moveKeys(key, m) {
   const t = m.t, f = F[key];
   switch (key) {
@@ -155,7 +155,7 @@ export function moveKeys(key, m) {
     case 'air1': return form(t, [['s', 0.5, f.A, 'coil'], ['a', 0, f.S, 'snap'], ['a', 1, f.E, 'whip'], ['r', 0.45, f.F, 'settle'], ['x', 0.05, POSES.fall, 'inOutSine']]);
     case 'air2': return form(t, [['s', 0.5, f.A, 'coil'], ['a', 0, f.S, 'snap'], ['a', 1, f.E, 'whip', 'ring'], ['r', 0.45, f.F, 'settle'], ['x', 0.05, POSES.fall, 'inOutSine']]);
     case 's1': return form(t, [['s', 0.5, f.A, 'coil'], ['s', 0.86, f.A2, 'hold'], ['a', 0, f.S, 'snap', 'stamp'], ['a', 0.12, f.S, 'hold', 'ring'], ['a', 1, f.E, 'hold'], ['r', 0.4, f.F, 'settle', 'skid'], ['r', 0.7, f.F, 'hold'], ['x', 0.05, STANCE, 'inOutSine']]);
-    case 's2': return form(t, [['s', 0.6, f.A, 'coil'], ['a', 0, f.S, 'snap', 'stamp'], ['a', 0.5, f.M, 'lin', 'ring'], ['a', 1, f.E, 'outQuad'], ['r', 0.45, f.F, 'settle'], ['x', 0.05, SPUN, 'inOutSine']]);
+    case 's2': return form(t, [['s', 0.6, f.A, 'coil', 'sink'], ['a', 0, f.S, 'snap', 'stamp'], ['a', 0.5, f.M, 'lin', 'ring'], ['a', 1, f.E, 'outQuad'], ['r', 0.45, f.F, 'settle'], ['x', 0.05, SPUN, 'inOutSine']]);
     case 'ult': return ultKeys(m);
     default: return null;
   }
@@ -171,7 +171,7 @@ function ultKeys(m) {
   push(at(3, -dt * 0.45), ULT.W3, 'inQuad'); push(at(3, 0), a3.S, 'outQuad', 'ring'); push(at(3, dt * 0.55), a3.E, 'whip');
   push(at(4, -dt * 0.35), ULT.W4, 'coil'); push(at(4, 0), shift(a4.S, -K), 'snap', 'stamp'); push(at(4, dt * 0.55), shift(a4.E, -K), 'whip');
   push(at(5, -dt * 0.35), ULT.W5, 'coil'); push(at(5, 0), ULT.C5, 'snap', 'stamp'); push(at(5, dt * 0.55), ULT.E5, 'whip');
-  push(at(6, -dt * 0.4), ULT.W6, 'coil'); push(at(6, 0), ULT.C6, 'snap', 'ring'); push(su + ac, ULT.E6, 'outQuad');
+  push(at(6, -dt * 0.4), ULT.W6, 'coil', 'sink'); push(at(6, 0), ULT.C6, 'snap', 'ring'); push(su + ac, ULT.E6, 'outQuad');
   push(su + ac + rc * 0.3, ULT.Fz, 'settle'); push(su + ac + rc * 0.85, ULT.Fz, 'hold'); push(T + 0.05, SPUN, 'inOutSine');
   k.sort((a, b) => a.t - b.t);
   return k;

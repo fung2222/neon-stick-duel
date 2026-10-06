@@ -1,10 +1,12 @@
 """Anime Swordsman pilot: screenshots, clip, perf numbers (headless Chrome, deterministic frame stepping via window.__duel.api.advance).
-Usage: python tests/anime_shots.py [base_url] [out_dir] [--only compare,fight,card,perf,video]
+Usage: python tests/anime_shots.py [base_url] [out_dir] [--only compare,fight,card,forms,perf,video]
 Writes to out_dir (default /workspace/shots/duel-anime):
   compare-<pose>.png        HQ neon stickman (left) vs anime Swordsman (right), same sim pose: idle, midcombo, ult
   fight-412x915.png / fight-1280x800.png   in-fight frames (HUD on) at a combo contact
   portrait-card.png         character-select style close-up
-  anime-combo.mp4           ~5 s 412x915 combo clip, H.264 yuv420p, fixed 1/30 s per frame clock
+  forms-<move>.png          martial-arts key-frame strips (wind-up → strike → follow-through → held finish) for a1 a2 a3 a4 s1 s2 ult,
+                            played in from the move start at 1/120 s so springs (coat / hair fling) and the trail are live
+  anime-combo.mp4           ~5 s 412x915 combo clip (+1 black row: yuv420p needs an even height → 412x916), H.264 yuv420p, fixed 1/30 s per frame clock
   perf.json                 draw calls / triangles (anime vs neon), per-character tris, JS update cost, heap growth per update
 Zero console errors is asserted on every page.
 """
@@ -143,6 +145,43 @@ def card(p):
     check(not errs, f'card: zero console errors {errs[:3]}')
     b.close()
 
+
+FORMS = {   # move: [(label, phase, u)] — phase s/a/r = fraction of startup / active / recovery (same convention as js/anime/clip.js form())
+    'a1': [('stance', 's', 0.0), ('iai coil', 's', 0.55), ('draw', 's', 0.85), ('contact', 'a', 0.0), ('whip', 'a', 1.0), ('guard + settle', 'r', 0.6)],
+    'a2': [('drop low', 's', 0.55), ('slide in', 's', 0.85), ('contact', 'a', 0.0), ('rising', 'a', 1.0), ('jodan', 'r', 0.45), ('settle', 'r', 0.75)],
+    'a3': [('pivot', 's', 0.3), ('back turned', 's', 0.6), ('whip', 's', 0.85), ('contact', 'a', 0.0), ('through', 'a', 1.0), ('bow stance', 'r', 0.6)],
+    'a4': [('chamber', 's', 0.55), ('stamp', 's', 0.9), ('thrust', 'a', 0.0), ('lift', 'a', 1.0), ('held finish', 'r', 0.5), ('held finish', 'r', 0.8)],
+    's1': [('iai crouch', 's', 0.5), ('held', 's', 0.86), ('draw-thrust', 'a', 0.0), ('extension', 'a', 0.6), ('skid', 'r', 0.4), ('guard', 'r', 0.7)],
+    's2': [('horse stance', 's', 0.6), ('contact', 'a', 0.0), ('corkscrew', 'a', 0.3), ('half turn', 'a', 0.5), ('apex', 'a', 1.0), ('settle', 'r', 0.45)],
+    'ult': [('coil', 's', 0.6), ('cut 1', 'a', 0.0), ('spin cut', 'a', 3 / 7), ('thrust', 'a', 4 / 7), ('horse coil', 'a', 5.6 / 7), ('held finish', 'r', 0.6)],
+}
+def forms_shots(p, w=520, h=640):
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
+    ctx, pg, errs = boot(b, w, h)
+    fight(pg)
+    pg.evaluate("window.__duel.api.cam({fov:34,pos:[-0.75,1.35,6.0],look:[-0.75,1.15,0]}); window.__duel.api.dbg().fb.visible=false")
+    for mk, frames in FORMS.items():
+        T = pg.evaluate("window.__duel.duel.a.C.moves['%s'].t" % mk)
+        at = lambda ph, u: T[0] * u if ph == 's' else T[0] + T[1] * u if ph == 'a' else T[0] + T[1] + T[2] * u
+        pose(pg, {'st': 'idle', 't': 0}, 12)
+        pg.evaluate("window.__duel.api.setPose('a', %s)" % json.dumps({'st': 'atk', 'mk': mk, 't': 0}))
+        tiles, cur = [], 0.0
+        for lab, ph, u in frames:
+            tt = at(ph, u); n = int(round((tt - cur) / (1 / 120)))
+            if n > 0: pg.evaluate("(()=>{const S=window.__duel; for(let i=0;i<%d;i++){S.duel.a.t=Math.min(%f, S.duel.a.t+1/120); S.api.advance(1/120,1);} })()" % (n, tt))
+            else: pg.evaluate("window.__duel.api.advance(1/120,1)")
+            cur = tt
+            f = os.path.join(OUT, '_f.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
+            cw = int(w * 0.62); x0 = (w - cw) // 2; tile = im.crop((x0, int(h * 0.06), x0 + cw, int(h * 0.98)))
+            d = ImageDraw.Draw(tile, 'RGBA'); d.rectangle((0, 0, cw, 30), fill=(6, 4, 18, 190)); d.text((8, 6), f'{lab}  {tt*1000:.0f} ms', fill=(160, 250, 255), font=font(15))
+            tiles.append(tile)
+        W = sum(t.width for t in tiles) + 6 * (len(tiles) - 1); out = Image.new('RGB', (W, tiles[0].height + 40), (8, 6, 20)); x = 0
+        ImageDraw.Draw(out).text((10, 9), f'ANIME SWORDSMAN · {mk} · frame data {T} s (contact on the first active frame)', fill=(255, 255, 255), font=font(18))
+        for t in tiles: out.paste(t, (x, 40)); x += t.width + 6
+        path = os.path.join(OUT, f'forms-{mk}.png'); out.save(path); print('wrote', path)
+    check(not errs, f'forms: zero console errors {errs[:3]}')
+    b.close()
+
 PERF_JS = """() => {
   const S = window.__duel, api = S.api, { fa } = api.dbg(), d = S.duel, f = d.a, out = {};
   const run = (n, st, mk, T) => { for (let i = 0; i < n; i++) { f.st = st; f.mk = mk; f.t = T ? (i / 60) % T : i / 60; fa.update(f, 1 / 60, 100 + i / 60, 3, false, 0); fa.takeFx(); } };
@@ -190,7 +229,7 @@ def video(p, w=412, h=915, seconds=5.2, fps=30):
         pg.evaluate("window.__duel.api.advance(1/60, 2, %s)" % COMBO_JS)
         shot(pg, os.path.join(fd, '%04d.png' % i))
     mp4 = os.path.join(OUT, 'anime-combo.mp4')
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(fps), '-i', os.path.join(fd, '%04d.png'), '-vf', 'scale=412:916,setsar=1', '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart', mp4], check=True)
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(fps), '-i', os.path.join(fd, '%04d.png'), '-vf', 'pad=412:916:0:0:black,setsar=1', '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart', mp4], check=True)
     shutil.rmtree(fd, ignore_errors=True)
     sz = os.path.getsize(mp4); print('wrote', mp4, sz)
     check(50000 < sz < 8 * 1024 * 1024, f'video size {sz} bytes (< 8 MB)')
@@ -201,6 +240,7 @@ with sync_playwright() as p:
     if want('compare'): compare_shots(p)
     if want('fight'): fight_shots(p)
     if want('card'): card(p)
+    if want('forms'): forms_shots(p)
     if want('perf'): perf(p)
     if want('video'): video(p)
 print('\n%d failure(s)' % len(fails)); sys.exit(1 if fails else 0)

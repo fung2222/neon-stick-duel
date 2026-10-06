@@ -13,7 +13,7 @@ const TMP = new THREE.Vector3(), TMP2 = new THREE.Vector3();
 const col = (c, k = 1) => new THREE.Color(c).multiplyScalar(k);
 
 // ------------------------------------------------------------------ cloth ribbon (verlet chain rendered as a strip)
-class Ribbon {
+export class Ribbon {
   constructor(scene, n, seg, width, mat, { taper = 0.6, grav = 9, drag = 0.9 } = {}) {
     this.n = n; this.seg = seg; this.width = width; this.taper = taper; this.grav = grav; this.drag = drag;
     this.p = Array.from({ length: n }, () => new THREE.Vector3()); this.o = Array.from({ length: n }, () => new THREE.Vector3());

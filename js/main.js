@@ -8,7 +8,7 @@ import { STAT_KEYS } from './classes.js';
 import { aiThink } from './ai.js';
 import { TRIAL, LADDER, ladderFoe, endlessFoe, fightScore, migrateSave } from './modes.js';
 import './strings.js';
-import { StickFighter } from './stickman.js';
+import { FighterView, setRigMode, rigFor } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { createControls } from './controls.js';
@@ -46,7 +46,9 @@ const S = {
   preview: null, freezeFoe: false, comboShown: 0, cmdLog: [], interstitials: 0, adBreaks: 0, rewardedAsks: 0, migrated,
 };
 window.__duel = S;  // test hook
-const fa = new StickFighter(scene), fb = new StickFighter(scene);
+setRigMode(flags.get('rig') || store.get('rig'));   // ?rig=hq|classic, else the pause-screen setting, else per-class default
+const fa = new FighterView(scene), fb = new FighterView(scene);
+const viewOf = (f) => (f === S.duel.a ? fa : fb);
 const timers = []; const later = (sec, fn) => timers.push({ t: sec, fn });
 const syncGlitch = () => document.querySelectorAll('.glitch').forEach((e) => { e.dataset.text = e.textContent; });
 const hex = (c) => '#' + new THREE.Color(c).getHexString();
@@ -255,15 +257,21 @@ function handleEvents() {
   for (const e of d.events) {
     const me = e.who === d.a;
     switch (e.type) {
-      case 'move': if (vol && e.kind !== 'ult') audio.swing(e.who.cls, e.kind); break;
+      case 'move': if (vol && e.kind !== 'ult' && viewOf(e.who).rig !== 'hq') audio.swing(e.who.cls, e.kind); break;   // HQ rigs cue the swing when the blade accelerates (tick)
       case 'hit': {
-        const att = e.att, col = new THREE.Color(colorOf(att)), pos = new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3);
-        (e.who === d.a ? fa : fb).flash();
+        const att = e.att, col = new THREE.Color(colorOf(att)), av = viewOf(att), dv = viewOf(e.who);
+        // sparks at the real contact point (where the weapon meets the body), streaks along the weapon's motion
+        const cp = !e.proj ? av.contactPoint(e.who, ROOF_Y) : null, pos = cp || new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3);
+        dv.onHit(e); if (dv.rig !== 'hq') dv.flash();
         if (vol) audio.hit(e.heavy, att.cls);
-        spark(pos, col, e.heavy ? 1.9 : 1.2);
-        particles.burst(pos, col, e.heavy ? 46 : 20, { speed: e.heavy ? 7 : 4.5, up: 1.5, life: 0.4, size: e.heavy ? 1 : 0.7, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
+        const k = Math.min(1, (e.stop || 0.05) * 60 / 6), kdir = Math.sign(e.who.x - att.x) || att.facing;
+        spark(pos, col, 1.1 + 0.9 * k);
+        particles.burst(pos, col, Math.round(16 + 34 * k), { speed: 4 + 3.5 * k, up: 1.5, life: 0.4, size: 0.65 + 0.4 * k, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
+        const sv = av.tipVel.lengthSq() > 4 && cp ? av.tipVel.clone().normalize() : new THREE.Vector3(kdir, 0.25, 0).normalize();
+        for (let i = 0; i < 8 + 10 * k; i++) particles.emit(pos, sv.clone().multiplyScalar(5 + Math.random() * 7 * (0.6 + k)).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.3) * 3, (Math.random() - 0.5) * 2)), i % 3 ? col : new THREE.Color(1, 1, 1), { life: 0.18 + Math.random() * 0.14, size: 0.55, grav: -4, drag: 3, bright: SPARK_BRIGHT });
         if (e.heavy) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: 3, h: 0.5, dur: 0.45, a: 1.4 });
-        fx.kick({ trauma: e.heavy ? 0.28 : 0.1, aberr: e.heavy ? 0.45 : 0.15, fovKick: e.heavy ? 0.4 : 0 });
+        fx.kick({ trauma: 0.06 + 0.24 * k, aberr: e.heavy ? 0.45 : 0.15, fovKick: e.heavy ? 0.4 : 0 });
+        camKick(kdir * (0.05 + 0.13 * k), -(0.02 + 0.06 * k) * (e.spike ? 2 : 1));
         if (!menuish) { const [sx, sy] = xy(e.x, e.y + 0.3); ui.popup(sx, sy, String(e.dmg), '', e.heavy ? 'big' : ''); }
         if (att === d.a && inPlay) { if (!S.demo) S.score += e.dmg * 0.5; if ((e.chain || 0) >= 2) showCombo(e.chain); Platform.haptic(e.heavy ? 'medium' : 'light'); }
         else if (e.who === d.a && inPlay) { ui.flash('rgba(255,43,90,0.14)', 140); Platform.haptic(e.heavy ? 'heavy' : 'medium'); }
@@ -423,7 +431,11 @@ ui.on('btn-class', () => { audio.init(); audio.click(); showSelect(null); });
 ui.on('btn-restart-tower', restartTower);
 ui.on('btn-fight', confirmClass); ui.on('btn-sel-back', () => { audio.back(); showMenu(); });
 ui.on('btn-pause', pause); ui.on('btn-mute', () => { audio.init(); ui.setMuted(audio.toggleMute()); });
-ui.on('btn-resume', resume); ui.on('btn-quit', () => { audio.back(); showMenu(); });
+ui.on('btn-resume', resume);
+function paintRig() { const b = $('btn-rig'); if (b) b.textContent = t('rigBtn', { v: t(rigFor('sword') === 'hq' ? 'rigHQ' : 'rigClassic') }); }
+function setRig(mode, persist = true) { setRigMode(mode); if (persist) store.set('rig', mode); fa.refresh(); fb.refresh(); paintRig(); }
+ui.on('btn-rig', () => { audio.click(); setRig(rigFor('sword') === 'hq' ? 'classic' : 'hq'); });
+i18n.onChange(paintRig); paintRig(); ui.on('btn-quit', () => { audio.back(); showMenu(); });
 ui.on('btn-res-main', resultMain); ui.on('btn-res-menu', resultMenu); ui.on('btn-revive', revive);
 ui.on('btn-hub', () => returnToHub(hub)); ui.on('btn-trial-menu', () => { audio.back(); showMenu(); });
 Platform.onBack(() => {
@@ -440,7 +452,13 @@ S.api = {
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
   pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
-  pickClass: (id) => pickClass(id), dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
+  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword') }), setRig: (m, persist = false) => setRig(m, persist),
+  hold: (on = true) => { S.hold = on; },
+  manual: (on = true) => { S.manual = on; S.mt = S.mt || performance.now() / 1000; },
+  advance: (dt = 1 / 30, n = 1, each = null) => { for (let i = 0; i < n; i++) { if (each) each(S); S.adv = true; S.mt += dt; try { tick(dt, S.mt); } finally { S.adv = false; } } },
+  /** freeze the sim and put a fighter in a given state (screenshots / rig comparisons). spec: { st, mk, t, stunT, hit: event-like } */
+  setPose: (who, spec) => { const f = S.duel[who], o = who === 'a' ? S.duel.b : S.duel.a; Object.assign(f, { vx: 0, vy: 0, y: 0, mk: null, t: 0 }, spec); if (spec.mk) f.seq = (f.seq || 0) + 1;
+    if (spec.st === 'hit') { const e = { who: f, att: o, dmg: 48, kb: 1.6, heavy: false, src: 'a2', back: false, ...(spec.hit || {}) }; viewOf(f).onHit(e); } }, dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
   hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },
 };
@@ -467,6 +485,12 @@ function simStep() {
 }
 
 // ------------------------------------------------------------------ camera
+const camImp = { x: 0, y: 0, vx: 0, vy: 0 };   // camera shake impulse (a damped spring kicked along the knockback)
+function camKick(x, y) { camImp.vx += x * 30; camImp.vy += y * 30; }
+function camImpulse(dt) {
+  const n = Math.max(1, Math.ceil(dt / (1 / 240))), h = dt / n, w = 34, z = 0.32;
+  for (let i = 0; i < n; i++) { camImp.vx += (-w * w * camImp.x - 2 * z * w * camImp.vx) * h; camImp.vy += (-w * w * camImp.y - 2 * z * w * camImp.vy) * h; camImp.x += camImp.vx * h; camImp.y += camImp.vy * h; }
+}
 const camPos = new THREE.Vector3(0, ROOF_Y + 3, 14), camLook = new THREE.Vector3(0, ROOF_Y + 1.2, 0), tP = new THREE.Vector3(), tL = new THREE.Vector3();
 function frameCamera(dt, now, instant = false) {
   const d = S.duel, aspect = stage.width / stage.height, portrait = aspect < 0.9, st = S.state;
@@ -486,17 +510,19 @@ function frameCamera(dt, now, instant = false) {
   tL.set(lx, ly, 0); tP.set(lx + Math.sin(yaw) * dist, ly + Math.sin(pitch) * dist + (portrait ? 0.6 : 0), Math.cos(yaw) * dist);
   if ((st === 'menu' || st === 'select') && !portrait) { const sh = dist * tanH * (st === 'select' ? -0.4 : 0.42); tL.x -= sh * Math.cos(yaw); tP.x -= sh * Math.cos(yaw); tL.z += sh * Math.sin(yaw); tP.z += sh * Math.sin(yaw); }
   const k = instant ? 1 : 1 - Math.exp(-dt * (S.ultCam && S.ultCam.t > 0 ? 7 : 4)); camPos.lerp(tP, k); camLook.lerp(tL, k);
-  camera.position.copy(camPos); camera.lookAt(camLook); fx.shake(camera, now, 0.45);
+  camImpulse(dt); camera.position.copy(camPos); camera.position.x += camImp.x; camera.position.y += camImp.y;
+  camera.lookAt(tL.copy(camLook).add(new THREE.Vector3(camImp.x * 0.6, camImp.y * 0.6, 0))); fx.shake(camera, now, 0.45);
 }
 
 // ------------------------------------------------------------------ frame loop
 function tick(dt, now) {
+  if (S.manual && !S.adv) return;   // test hook: frames advanced by api.advance(dt) (deterministic captures)
   U.uTime.value = now; theme.update(dt); fx.update(dt);
   const d = S.duel;
   if (S.state !== 'paused') {
     for (const tm of timers.slice()) { tm.t -= dt; if (tm.t <= 0) { timers.splice(timers.indexOf(tm), 1); tm.fn(); } }
     if (S.state === 'intro') { S.introT -= dt; if (S.introT <= 0) { setState('play'); if (!S.duel.over) { ui.banner(t('fight'), t('fightS'), ''); audio.bell(2); } } }
-    if (d && S.state !== 'trial') {
+    if (d && S.state !== 'trial' && !S.hold) {
       S.acc += dt * (fx.timeScale ?? 1); let n = 0;
       while (S.acc >= DT && n < 8) { S.acc -= DT; n++; if (S.state === 'intro') { d.a.in.mx = 0; d.b.in.mx = 0; handleEvents(); break; } simStep(); }
       if (S.acc > DT * 2) S.acc = 0;
@@ -509,6 +535,7 @@ function tick(dt, now) {
     const paused = S.state === 'paused', stop = d.stop > 0 || paused, fz = d.freeze > 0;
     fa.update(d.a, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.a), d.stop > 0 && !paused ? 0.05 : 0);
     fb.update(d.b, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.b), d.stop > 0 && !paused ? 0.05 : 0);
+    if (!paused && S.state !== 'menu' && S.state !== 'select') for (const [v, f] of [[fa, d.a], [fb, d.b]]) { const m = v.takeSwingCue(f); if (m && m.kind !== 'ult') audio.swing(f.cls, m.kind); }
     syncProjs(paused ? 0 : dt);
   }
   roof.update(now); particles.update(dt); waves.update(dt); updateStars(dt);

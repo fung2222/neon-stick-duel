@@ -11,7 +11,7 @@ Writes to out_dir (default /workspace/shots/duel-anime):
   mage-perf.json            draw calls / triangles, per-character tris, JS update cost, heap growth per update
 Zero console errors is asserted on every page.
 """
-import sys, os, time, json, subprocess, shutil
+import sys, os, time, json, subprocess, shutil, math
 from playwright.sync_api import sync_playwright
 from PIL import Image, ImageDraw, ImageFont
 
@@ -167,7 +167,7 @@ def forms_shots(p, w=520, h=640):
         if mk.startswith('air'): pg.evaluate("()=>{const a=window.__duel.duel.a; a.y=1.6; a.vy=0;}")
         tiles, cur = [], 0.0
         for lab, ph, u in frames:
-            tt = at(ph, u); n = int(round((tt - cur) / (1 / 120)))
+            tt = at(ph, u); cur = pg.evaluate('window.__duel.duel.a.t'); n = int(math.ceil((tt - cur) * 120 - 1e-6))
             keep = "S.duel.a.y=Math.max(S.duel.a.y,1.6);S.duel.a.vy=0;" if mk.startswith('air') else ""
             if n > 0: pg.evaluate("(()=>{const S=window.__duel; for(let i=0;i<%d;i++){S.duel.a.t=Math.min(%f, S.duel.a.t+1/120); %s S.api.advance(1/120,1);} })()" % (n, tt, keep))
             else: pg.evaluate("window.__duel.api.advance(1/120,1)")

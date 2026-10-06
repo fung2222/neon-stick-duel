@@ -3,3 +3,9 @@ node_modules/
 *.log
 /android/
 /dist/
+# tests/smoke.py writes its screenshots to docs/shots by default; only the curated v1 shots there are tracked
+/docs/shots/combo-*.png
+/docs/shots/joystick-hud-*.png
+/docs/shots/menu-*.png
+/docs/shots/select-*.png
+/docs/shots/ult-*.png

@@ -39,16 +39,17 @@ export function buildBrawler(ctx) {
     part: 'torso',
     colorFn: (l) => (l.y < 1.035 ? pal.pants : l.y < 1.1 ? pal.sash : chest(l) ? pal.skin : edge(l) ? pal.trim : tornHem(l) ? pal.jacketDark : pal.jacket),
     glowFn: (l) => (edge(l) ? 0.55 : 0),
-    aoFn: (l) => (chest(l) ? Math.max(0.55 * smooth(0.02, 0, Math.abs(l.y - 1.345)) * smooth(0.0, 0.03, Math.abs(l.z)), 0.35 * smooth(0.012, 0, Math.abs(l.z)) * smooth(1.18, 1.3, l.y)) : 0),
+    aoFn: (l) => (chest(l) ? Math.max(0.8 * smooth(0.026, 0, Math.abs(l.y - 1.345 - 0.05 * Math.abs(l.z))) * smooth(0.0, 0.035, Math.abs(l.z)), 0.5 * smooth(0.012, 0, Math.abs(l.z)) * smooth(1.12, 1.3, l.y) * smooth(1.36, 1.3, l.y),
+      0.45 * smooth(0.01, 0, Math.min(Math.abs(l.y - 1.25), Math.abs(l.y - 1.19))) * smooth(0.065, 0.02, Math.abs(l.z)), 0.4 * smooth(0.04, 0.075, Math.abs(l.z)) * smooth(1.32, 1.2, l.y)) : 0),   // pecs, sternum, abs, obliques
     weights: (v) => { const k = smooth(1.04, 1.2, v.y); const w = [[B.chest, k], [B.pelvis, 1 - k]];
       if (v.y > 1.38 && Math.abs(v.z) > 0.13) { const s = smooth(0.13, 0.26, Math.abs(v.z)) * smooth(1.38, 1.5, v.y) * 0.55; w[0][1] *= 1 - s; w.push([v.z > 0 ? B.uaF : B.uaB, s]); } return w; },
   });
   // high popped jacket collar (open at the front), glowing top edge, ragged back
   {
     const cv = (v) => (v < 0.34 ? v * 0.24 : 0.08 + (v - 1 / 3) * 1.38);
-    const cg = shell((u, v) => { const a = 0.75 + u * (TAU - 1.5), w = cv(v); return [0.004 + Math.cos(a) * (0.09 + w * 0.03), 1.67 - w * 0.12 + 0.01 * Math.cos(a), Math.sin(a) * (0.105 + w * 0.03)]; },
+    const cg = shell((u, v) => { const a = 0.75 + u * (TAU - 1.5), w = cv(v); return [0.004 + Math.cos(a) * (0.088 + (1 - w) * 0.03), 1.648 - w * 0.085 + 0.008 * Math.cos(a), Math.sin(a) * (0.104 + (1 - w) * 0.036)]; },
       (u) => { const a = 0.75 + u * (TAU - 1.5); return [Math.cos(a), 0.15, Math.sin(a)]; }, 14, 3, 0.014);
-    acc.add(cg, M4(), { part: 'collar', colorFn: (l) => (l.y > 1.662 + 0.01 * Math.cos(Math.atan2(l.z, l.x)) ? pal.trim : pal.jacket), glowFn: (l) => (l.y > 1.662 + 0.01 * Math.cos(Math.atan2(l.z, l.x)) ? 0.6 : 0),
+    acc.add(cg, M4(), { part: 'collar', colorFn: (l) => (l.y > 1.64 + 0.008 * Math.cos(Math.atan2(l.z, l.x)) ? pal.trim : pal.jacket), glowFn: (l) => (l.y > 1.64 + 0.008 * Math.cos(Math.atan2(l.z, l.x)) ? 0.6 : 0),
       weights: (v) => { const k = smooth(1.58, 1.68, v.y) * 0.4; return [[B.chest, 1 - k], [B.neck, k]]; } });
   }
   // torn armholes: ragged fabric shards hanging over the deltoid edge (both sides)
@@ -133,10 +134,10 @@ export function buildBrawler(ctx) {
   }
   // ---------------------------------------------------------------- jacket back skirt on springs: open at the front, torn hem, collides with the legs
   {
-    const gap = 1.05, nCh = 5, L = 0.4, y0 = 1.1, n = 3;
+    const gap = 1.05, nCh = 5, L = 0.36, y0 = 1.1, n = 3;
     const angs = Array.from({ length: nCh }, (_, i) => gap + 0.12 + (TAU - 2 * gap - 0.24) * (i / (nCh - 1)));
     const torn = (a) => 1 - 0.13 * (0.5 + 0.5 * Math.sin(a * 7.3)) - 0.06 * (0.5 + 0.5 * Math.sin(a * 17.1 + 1));   // ragged hem length factor
-    const rad = (a, v) => { const fl = 0.1 * v; return [(0.128 + fl) * Math.cos(a) - 0.01 * v, (0.182 + fl * 1.15) * Math.sin(a)]; };
+    const rad = (a, v) => { const fl = 0.055 * v; return [(0.128 + fl) * Math.cos(a) - 0.01 * v, (0.182 + fl * 1.15) * Math.sin(a)]; };
     const ids = [];
     for (const a of angs) {
       const pts = []; for (let k = 0; k <= n; k++) { const v = k / n, [x, z] = rad(a, v); pts.push([x, y0 - L * torn(a) * v, z]); }
@@ -167,12 +168,15 @@ export function buildBrawler(ctx) {
   const capPt = (dx, dy, dz, grow = 1) => { const p = headPoint(dx, dy, dz, capR); return [(p[0] * 1.05 - 0.008) * grow, (p[1] * 1.05 + 0.01) * grow, p[2] * 1.07 * grow]; };
   {
     const cap = headGeo(capR, 20, 14); cap.scale(1.05, 1.05, 1.07); cap.translate(-0.008, 0.01, 0);
-    acc.add(cap, hm, { part: 'hair', colorFn: (l) => (l.y > 0.055 * hk ? pal.hair : pal.stubble), shine: 0.6, weights: W1(B.head), line: 1,
+    acc.add(cap, hm, { part: 'hair', colorFn: (l) => (l.y > 0.05 * hk ? pal.hair : pal.stubble), shine: 0.3, weights: W1(B.head), line: 1,
       keep: (c) => !(c.x > 0.02 * hk && c.y < 0.06 * hk) && !(c.y < -0.05 * hk && c.x > -0.08 * hk) && c.y > -0.11 * hk });
+    // the long top (undercut): a raised, swept-back mass sitting on the shaved sides with a crisp lower edge
+    const mass = headGeo(capR, 20, 14); mass.scale(1.1, 1.2, 1.0); mass.translate(-0.02, 0.0, 0);
+    acc.add(mass, hm, { part: 'hair', color: pal.hair, shine: 1, weights: W1(B.head), line: 1, keep: (c) => c.y > 0.05 * hk + Math.max(0, -c.x) * 0.25 && c.x > -0.12 * hk });
     const spikes = [];
     // swept-back top: rows of broad spikes from the front hairline up and back over the crown
     const top = [[0.75, 0.62, 0], [0.72, 0.66, 0.35], [0.72, 0.66, -0.35], [0.35, 0.92, 0.18], [0.35, 0.92, -0.2], [0.0, 1, 0.05], [-0.35, 0.92, 0.22], [-0.35, 0.92, -0.2], [-0.7, 0.68, 0.06], [-0.6, 0.62, 0.4], [-0.6, 0.62, -0.4]];
-    for (const [x, y, z] of top) { const l = Math.hypot(x, y, z); spikes.push({ at: [(x / l * 0.088 - 0.01) * hk, (y / l * 0.088 + 0.03) * hk, (z / l * 0.088) * hk], dir: [-1 + x * 0.25, 0.32 + y * 0.18, z * 0.5], L: 0.12 + 0.03 * (x > 0.5 ? 1 : 0), w: 0.042, d: 0.026, s: 0.3 }); }
+    for (const [x, y, z] of top) { const l = Math.hypot(x, y, z); spikes.push({ at: [(x / l * 0.1 - 0.012) * hk, (y / l * 0.1 + 0.04) * hk, (z / l * 0.085) * hk], dir: [-1 + x * 0.2, 0.42 + y * 0.22, z * 0.45], L: 0.13 + 0.04 * (x > 0.5 ? 1 : 0), w: 0.05, d: 0.03, s: 0.3 }); }
     // two loose strands falling over the brow (they bounce on every punch)
     for (const s of [0.35, -0.05]) spikes.push({ at: [0.085 * hk, 0.075 * hk, s * 0.1 * hk], dir: [0.7, -1, s * 0.6 + 0.25], L: 0.1, w: 0.016, d: 0.01, s: 0.22 });
     for (const sp of spikes) {
@@ -183,27 +187,27 @@ export function buildBrawler(ctx) {
   }
   // headband: a band over the cap just above the brows (polar angle band), cyber plate on the forehead, knot at the back + 2 tails
   {
-    const th0 = 1.02, th1 = 1.22, a0 = 0.0;
-    const pt = (u, v) => { const ph = a0 + u * TAU, thv = th0 + (th1 - th0) * v, s = Math.sin(thv); return capPt(s * Math.cos(ph), Math.cos(thv), s * Math.sin(ph), 1.035); };
+    const th0 = 1.15, th1 = 1.32, a0 = 0.0, tilt = (ph) => 0.1 * (1 - Math.cos(ph));   // over the brow ridge, dipping toward the nape
+    const pt = (u, v) => { const ph = a0 + u * TAU, thv = th0 + (th1 - th0) * v + tilt(ph), s = Math.sin(thv); return capPt(s * Math.cos(ph), Math.cos(thv), s * Math.sin(ph), 1.035); };
     const hb = shell((u, v) => pt(u * 0.9999, v), (u, v) => { const p = pt(u * 0.9999, v); const l = Math.hypot(p[0] + 0.008, p[1] - 0.01, p[2]) || 1; return [(p[0] + 0.008) / l, (p[1] - 0.01) / l, p[2] / l]; }, 24, 1, 0.016);
     const plate = (l) => { const a = Math.atan2(l.z, l.x); return Math.abs(a) < 0.55; };
     acc.add(hb, hm, { part: 'headband', colorFn: (l) => (plate(l) ? pal.metal : pal.band), glowFn: (l) => (plate(l) && Math.abs(Math.atan2(l.z, l.x)) < 0.3 ? 0.85 : 0), shine: 0.3, weights: W1(B.head), line: 0.9 });
     // glowing slit on the plate (a thin bar, stands proud)
-    const pp = capPt(Math.sin(1.12), Math.cos(1.12), 0, 1.075); const bar = rb(new THREE.BoxGeometry(0.012, 0.012, 0.07, 1, 1, 2), 0.3, 0.008, 0.008, 0.04);
+    const pp = capPt(Math.sin(1.235), Math.cos(1.235), 0, 1.075); const bar = rb(new THREE.BoxGeometry(0.012, 0.012, 0.07, 1, 1, 2), 0.3, 0.008, 0.008, 0.04);
     bar.rotateZ(-0.35); acc.add(bar, hm.clone().multiply(T(...pp)), { part: 'headband', color: pal.trim, glow: 0.95, weights: W1(B.head), line: 0.5 });
     // knot + two long tails from the back of the head (3-bone spring chains, flat ribbons)
-    const kp = capPt(-Math.sin(1.12), Math.cos(1.12), 0, 1.06);
+    const kp = capPt(-Math.sin(1.47), Math.cos(1.47), 0, 1.06);
     const knot = rb(new THREE.BoxGeometry(0.04, 0.04, 0.05, 1, 1, 1), 0.6, 0.024, 0.024, 0.03);
     acc.add(knot, hm.clone().multiply(T(kp[0] - 0.01, kp[1], kp[2])), { part: 'headband', color: pal.band, weights: W1(B.head) });
     for (let i = 0; i < 2; i++) {
-      const L = 0.42 - i * 0.08, zs = i ? -0.03 : 0.03, n = 3, root = new THREE.Vector3(kp[0] - 0.02, kp[1] - 0.005, kp[2] + zs).add(new THREE.Vector3(...HB));
-      const dir = new THREE.Vector3(-0.75, -0.62, zs * 4).normalize(), pts = [];
-      for (let k = 0; k <= n; k++) pts.push(root.clone().addScaledVector(dir, L * k / n).toArray());
-      const ids = chain('band' + i, B.head, pts, { stiff: [0, 0.1, 0.05, 0.03], drag: 0.9, grav: 4.5, collide: false, tail: true, sh: true });
-      const side = new THREE.Vector3(0, 0, 1);
-      const tg = shell((u, v) => { const p = root.clone().addScaledVector(dir, L * v); const w = 0.034 * (1 - 0.35 * v); return [p.x + (u - 0.5) * w * 0.25, p.y + (u - 0.5) * w, p.z + side.z * 0.002]; }, () => [0, 0, 1], 1, 6, 0.008);
-      acc.add(tg, M4(), { part: 'headband', colorFn: (l) => (root.distanceTo(new THREE.Vector3(l.x, l.y, l.z)) > L * 0.88 ? pal.trim : pal.band), glowFn: (l) => (root.distanceTo(new THREE.Vector3(l.x, l.y, l.z)) > L * 0.88 ? 0.6 : 0),
-        weights: (v) => chainW(ids, Math.max(0, Math.min(1, root.distanceTo(v) / L))), line: 0.8 });
+      const L = 0.44 - i * 0.09, zs = i ? -0.03 : 0.03, n = 3, root = new THREE.Vector3(kp[0] - 0.02, kp[1] - 0.005, kp[2] + zs).add(new THREE.Vector3(...HB));
+      // hanging curve: leaves the knot back-and-down, bends toward vertical (the springs swing it on every step and punch)
+      const at = (v) => new THREE.Vector3(root.x - L * (0.62 * v - 0.18 * v * v), root.y - L * (0.5 * v + 0.38 * v * v), root.z + zs * 3.5 * v);
+      const pts = []; for (let k = 0; k <= n; k++) pts.push(at(k / n).toArray());
+      const ids = chain('band' + i, B.head, pts, { stiff: [0, 0.08, 0.04, 0.025], drag: 0.9, grav: 5, collide: false, tail: true, sh: true });
+      const vOf = (q) => { let best = 0, bd = 1e9; for (let k = 0; k <= 24; k++) { const d = at(k / 24).distanceToSquared(q); if (d < bd) { bd = d; best = k / 24; } } return best; };
+      const tg = shell((u, v) => { const p = at(v), w = 0.046 * (1 - 0.3 * v); return [p.x + (u - 0.5) * w * 0.3, p.y + (u - 0.5) * w * 0.9, p.z + 0.002]; }, () => [0, 0, 1], 1, 8, 0.008);
+      acc.add(tg, M4(), { part: 'headband', colorFn: (l) => (vOf(l) > 0.86 ? pal.trim : pal.band), glowFn: (l) => (vOf(l) > 0.86 ? 0.6 : 0), weights: (v) => chainW(ids, vOf(v)), line: 0.8 });
     }
   }
   return { dispose() {} };

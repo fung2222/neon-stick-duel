@@ -39,7 +39,7 @@ export const ANIME_CLASSES = {
     id: 'brawler', build: 'brawler', recolor: ['jacket', 'sash'],
     concept: 'cyber street martial artist: broad V-torso, torn sleeveless jacket open over a bare chest, cybernetic near arm + glowing knuckle-plate gauntlets, hand wraps, sash belt, baggy kung-fu trousers into ankle wraps, undercut + headband with long spring tails, cyber-eye + scar',
     palette: {
-      skin: 0xe8b08c, hair: 0x241316, stubble: 0x4a3434, jacket: 0x6e1a1c, jacketDark: 0x4a1012, lining: 0x2a0d0e, sash: 0xd2581c, sashEdge: 0xffb347,
+      skin: 0xe8b08c, hair: 0x241316, stubble: 0x7d6660, jacket: 0x6e1a1c, jacketDark: 0x4a1012, lining: 0x2a0d0e, sash: 0xd2581c, sashEdge: 0xffb347,
       pants: 0x221c26, wrap: 0xe2d6c0, wrapDark: 0x9a8b78, shoes: 0x17141a, metal: 0x5b6070, metalDark: 0x34363f, band: 0xb3261e,
       trim: 0xff8a1f, hairTie: 0xff8a1f, line: 0x0d0606,
     },

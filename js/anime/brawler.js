@@ -118,8 +118,8 @@ const F = {
   // 火箭衝拳 Rocket punch: the cyber arm chambers far back at the hip (palm up), shoulder coiled, the guard hand aims; HELD (charge) →
   // a flying bow-stance glide, the fist corkscrews out at head height, extension held through the dash → braking skid
   s1: {
-    A: P({ px: -0.08, py: 0.66, sp: 0.34, ch: 0.1, hd: -0.25, tw: 0.15, ctw: -0.4, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.5, hF: 0, hB: 0, gx: -0.12, gy: 0.98, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
-    A2: P({ px: -0.09, py: 0.64, sp: 0.36, ch: 0.1, hd: -0.27, tw: 0.13, ctw: -0.42, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.52, hF: 0, hB: 0, gx: -0.14, gy: 0.97, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
+    A: P({ px: -0.08, py: 0.66, sp: 0.34, ch: 0.1, hd: -0.25, tw: 0.15, ctw: -0.4, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.5, hF: 0, hB: 0, gx: -0.1, gy: 0.86, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
+    A2: P({ px: -0.09, py: 0.64, sp: 0.36, ch: 0.1, hd: -0.27, tw: 0.13, ctw: -0.42, fFx: 0.44, fBx: -0.52, kF: -0.15, kB: 0.52, hF: 0, hB: 0, gx: -0.12, gy: 0.85, ga: PI, ox: 0.38, oy: 1.28, oa: H }),
     S: P({ px: 0.22, py: 0.68, sp: 0.44, ch: 0.12, hd: -0.4, tw: 0.7, ctw: 0.35, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.0, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
     E: P({ px: 0.23, py: 0.68, sp: 0.45, ch: 0.12, hd: -0.42, tw: 0.72, ctw: 0.36, fFx: 0.74, fBx: -0.7, aB: -0.3, hF: 0, hB: 0.9, kF: 0, kB: 0.1, gx: 1.04, gy: 1.26, ga: 0.0, ox: 0.4, oy: 1.32, oa: H }),
     F: P({ px: 0.12, py: 0.7, sp: 0.3, hd: -0.28, tw: 0.5, ctw: 0.1, fFx: 0.64, fBx: -0.55, hF: 0, hB: 0.6, kF: -0.1, kB: 0.3, gx: 0.62, gy: 1.34, ga: 0.6, ox: 0.32, oy: 1.34, oa: H }),

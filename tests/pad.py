@@ -87,6 +87,7 @@ with sync_playwright() as p:
             fits = pg.evaluate("[...document.querySelectorAll('.cbtn b')].every(b=>b.textContent==='' || b.scrollWidth<=b.clientWidth+1)")
             check(fits, f'{tag}: button labels fit (no ellipsis)')
             if (w, h) in SHOT_VIEWS:
+                pg.evaluate("window.__duel.api.setUlt(65)"); wait_for(pg, "document.getElementById('cd-ult').style.strokeDashoffset !== ''", 10); pg.wait_for_timeout(400)
                 pg.screenshot(path=os.path.join(OUT, f'hud-{tag}.png'))
             report[tag] = {'zone': [round(v) for v in zr], 'btns': {k: [round(v) for v in rect_of(s)] for k, s in shapes.items()}}
             if lang == 'zh' and (w, h) in SHOT_VIEWS:

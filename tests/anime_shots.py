@@ -1,9 +1,11 @@
 """Anime Swordsman pilot: screenshots, clip, perf numbers (headless Chrome, deterministic frame stepping via window.__duel.api.advance).
-Usage: python tests/anime_shots.py [base_url] [out_dir] [--only compare,fight,card,forms,perf,video]
+Usage: python tests/anime_shots.py [base_url] [out_dir] [--only compare,fight,card,forms,proportions,turnaround,perf,video]
 Writes to out_dir (default /workspace/shots/duel-anime):
   compare-<pose>.png        HQ neon stickman (left) vs anime Swordsman (right), same sim pose: idle, midcombo, ult
   fight-412x915.png / fight-1280x800.png   in-fight frames (HUD on) at a combo contact
   portrait-card.png         character-select style close-up
+  proportions-compare.png   v1 pilot body (?abody=v1) vs v2 anime body, same poses (front standing, side seigan, side mid-a3) + measured proportions
+  turnaround.png            v2 full body, standing zanshin pose: front, 3/4, side, back 3/4
   forms-<move>.png          martial-arts key-frame strips (wind-up → strike → follow-through → held finish) for a1 a2 a3 a4 s1 s2 ult,
                             played in from the move start at 1/120 s so springs (coat / hair fling) and the trail are live
   anime-combo.mp4           ~5 s 412x915 combo clip (+1 black row: yuv420p needs an even height → 412x916), H.264 yuv420p, fixed 1/30 s per frame clock
@@ -182,6 +184,66 @@ def forms_shots(p, w=520, h=640):
     check(not errs, f'forms: zero console errors {errs[:3]}')
     b.close()
 
+MEASURE_JS = """async (v) => { const { buildCharacter } = await import('./js/anime/builder.js'); const { ANIME_CLASSES } = await import('./js/anime/configs.js');
+  const c = buildCharacter({ ...ANIME_CLASSES.sword, body: v }); const t = c.tris, yr = t.yr, floor = -0.075, hh = yr.head[1] - yr.head[0], H = yr.head[1] - floor;
+  const top = Math.max(...Object.values(yr).map((q) => q[1])); const pos = c.body.geometry.attributes.position; let sw = 0, ww = 9;
+  for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), z = Math.abs(pos.getZ(i)); if (y > 1.44 && y < 1.56) sw = Math.max(sw, z); }
+  const out = { heads: H / hh, headsHair: (top - floor) / hh, leg: (0.93 - floor) / H, shoulderHalf: sw, unique: t.body + t.weapon + t.face, drawn: 2 * t.body + 2 * t.weapon + t.face, parts: t.parts }; c.dispose(); return out; }"""
+VIEWS = {'front': (6.0, 0.0), '3/4': (4.24, 4.24), 'side': (0.0, 6.0), 'back 3/4': (-4.24, 4.24)}
+def body_tiles(p, abody, shots, w=420, h=840):
+    """shots: list of (label, pose spec, view) → list of PIL tiles + measurement dict"""
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
+    ctx, pg, errs = boot(b, w, h, '?mute=1&style=anime' + ('&abody=v1' if abody == 'v1' else ''))
+    fight(pg); pg.evaluate("window.__duel.api.dbg().fb.visible=false")
+    m = pg.evaluate(MEASURE_JS, abody)
+    tiles = []
+    for lab, spec, view in shots:
+        dx, dz = VIEWS[view]
+        pg.evaluate("window.__duel.api.cam({fov:30,pos:[%f,1.45,%f],look:[-0.9,1.38,0]})" % (-0.9 + dx, dz + 1e-4))
+        if spec.get('st') == 'atk':   # play into the move so springs + trail are live
+            t_end = spec['t']; pose(pg, {'st': 'idle', 't': 0}, 12); pg.evaluate("window.__duel.api.setPose('a', %s)" % json.dumps({**spec, 't': 0}))
+            n = max(1, int(round(t_end / (1 / 120))))
+            pg.evaluate("(()=>{const S=window.__duel; for(let i=0;i<%d;i++){S.duel.a.t=Math.min(%f, S.duel.a.t+1/120); S.api.advance(1/120,1);} })()" % (n, t_end))
+        else: pose(pg, spec, 30)
+        f = os.path.join(OUT, '_b.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
+        d = ImageDraw.Draw(im, 'RGBA'); d.rectangle((0, 0, w, 34), fill=(6, 4, 18, 200)); d.text((10, 8), lab, fill=(160, 250, 255), font=font(17))
+        tiles.append(im)
+    # no stick / joint / rig pieces: every visible mesh in the player's view must belong to the anime character or its FX
+    leak = pg.evaluate("""() => { const { fa } = window.__duel.api.dbg(), bad = []; for (const r of [fa.classic, fa.hq]) if (r && r.group) r.group.traverse((o) => { if (o.isMesh && o.visible && r.group.visible) bad.push(o.name || o.type); }); return { rig: fa.rig, bad }; }""")
+    check(leak['rig'] == 'anime' and not leak['bad'], f"{abody}: no stick / classic / HQ rig pieces visible with style=anime ({leak})")
+    check(not errs, f'{abody} body shots: zero console errors {errs[:3]}')
+    b.close()
+    return tiles, m
+
+def proportions(p):
+    T3 = 0.1 + 0.09 * 0.5
+    shots = [('front · standing', {'st': 'win', 't': 3}, 'front'), ('side · seigan', {'st': 'idle', 't': 0}, 'side'), ('side · a3 spin cut', {'st': 'atk', 'mk': 'a3', 't': T3}, 'side')]
+    rows = []
+    for v in ['v1', 'v2']:
+        tiles, m = body_tiles(p, v, shots); rows.append((v, tiles, m)); print(v, json.dumps(m))
+    tw, th = rows[0][1][0].size; W = tw * 3 + 12; H = (th + 70) * 2
+    out = Image.new('RGB', (W, H), (8, 6, 20)); d = ImageDraw.Draw(out)
+    for r, (v, tiles, m) in enumerate(rows):
+        y0 = r * (th + 70)
+        title = ('OLD · v1 pilot body' if v == 'v1' else 'NEW · v2 anime body') + f"   {m['heads']:.2f} heads ({m['headsHair']:.2f} with hair) · legs {m['leg']*100:.0f} % of height · shoulder half-width {m['shoulderHalf']:.3f} · {m['unique']} tris ({m['drawn']} drawn incl. outline)"
+        d.text((12, y0 + 10), title, fill=(255, 255, 255) if v == 'v2' else (190, 190, 210), font=font(17))
+        if v == 'v2': d.text((12, y0 + 38), 'lofted torso: shoulder line, chest, tapered waist, hips · muscle-tapered limbs, no joint spheres · knee-high boots · high collar · fist + guard mitt', fill=(160, 250, 255), font=font(14))
+        else: d.text((12, y0 + 38), 'elliptical tubes, thin limbs, knee-guard spheres, box boots + hands', fill=(170, 170, 190), font=font(14))
+        for i, t in enumerate(tiles): out.paste(t, (i * (tw + 6), y0 + 64))
+    path = os.path.join(OUT, 'proportions-compare.png'); out.save(path); print('wrote', path)
+    m2 = rows[1][2]
+    check(6.5 <= m2['heads'] <= 7.0, f"v2: {m2['heads']:.2f} heads tall (6.5–7)")
+    check(0.47 <= m2['leg'] <= 0.53, f"v2: legs {m2['leg']*100:.0f} % of height")
+    check(m2['drawn'] < 15000, f"v2: {m2['unique']} unique / {m2['drawn']} drawn triangles (< 15k incl. outline)")
+
+def turnaround(p):
+    shots = [(f'{v}', {'st': 'win', 't': 3}, v) for v in ['front', '3/4', 'side', 'back 3/4']]
+    tiles, m = body_tiles(p, 'v2', shots)
+    tw, th = tiles[0].size; out = Image.new('RGB', (tw * 4 + 18, th + 46), (8, 6, 20)); d = ImageDraw.Draw(out)
+    d.text((12, 12), f"劍士 SWORDSMAN · v2 anime body · turnaround · {m['heads']:.2f} heads, legs {m['leg']*100:.0f} %, {m['unique']} triangles", fill=(255, 255, 255), font=font(18, True))
+    for i, t in enumerate(tiles): out.paste(t, (i * (tw + 6), 46))
+    path = os.path.join(OUT, 'turnaround.png'); out.save(path); print('wrote', path)
+
 PERF_JS = """() => {
   const S = window.__duel, api = S.api, { fa } = api.dbg(), d = S.duel, f = d.a, out = {};
   const run = (n, st, mk, T) => { for (let i = 0; i < n; i++) { f.st = st; f.mk = mk; f.t = T ? (i / 60) % T : i / 60; fa.update(f, 1 / 60, 100 + i / 60, 3, false, 0); fa.takeFx(); } };
@@ -240,6 +302,8 @@ with sync_playwright() as p:
     if want('compare'): compare_shots(p)
     if want('fight'): fight_shots(p)
     if want('card'): card(p)
+    if want('proportions'): proportions(p)
+    if want('turnaround'): turnaround(p)
     if want('forms'): forms_shots(p)
     if want('perf'): perf(p)
     if want('video'): video(p)

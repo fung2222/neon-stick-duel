@@ -342,9 +342,9 @@ export class AnimeFighter extends HQFighter {
 
   // ---------------------------------------------------------------- spring chains (verlet in world space)
   legCaps(J) {
-    const s = this.scale, C = this.caps;
-    this.W(J.hipF, C[0].a); this.W(J.kneeF, C[0].b); C[0].r = 0.1 * s; this.W(J.kneeF, C[1].a); this.W(J.ankleF, C[1].b); C[1].r = 0.075 * s;
-    this.W(J.hipB, C[2].a); this.W(J.kneeB, C[2].b); C[2].r = 0.1 * s; this.W(J.kneeB, C[3].a); this.W(J.ankleB, C[3].b); C[3].r = 0.075 * s;
+    const s = this.scale, C = this.caps, [rT, rS] = this.char.legR || [0.1, 0.075];
+    this.W(J.hipF, C[0].a); this.W(J.kneeF, C[0].b); C[0].r = rT * s; this.W(J.kneeF, C[1].a); this.W(J.ankleF, C[1].b); C[1].r = rS * s;
+    this.W(J.hipB, C[2].a); this.W(J.kneeB, C[2].b); C[2].r = rT * s; this.W(J.kneeB, C[3].a); this.W(J.ankleB, C[3].b); C[3].r = rS * s;
   }
   stepChains(dt, t) {
     if (!this.chainSt) return;

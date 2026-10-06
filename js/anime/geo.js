@@ -7,7 +7,7 @@ const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _l = new THREE.Vector3
 export const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class SkinAcc {
-  constructor() { this.P = []; this.N = []; this.C = []; this.G = []; this.L = []; this.SI = []; this.SW = []; this.I = []; this.H = []; this.n = 0; }
+  constructor() { this.P = []; this.N = []; this.C = []; this.G = []; this.L = []; this.SI = []; this.SW = []; this.I = []; this.H = []; this.n = 0; this.parts = {}; this.yr = {}; }
   /** add a geometry. M: local → bind (rig) space. o.color (hex) | o.colorFn(local, bind) → hex; o.glow | o.glowFn;
    *  o.weights(bind, local) → [[bone, w], …]; o.line (outline width factor); o.keep(centroidLocal) → false drops a triangle */
   add(geo, M, o) {
@@ -17,6 +17,7 @@ export class SkinAcc {
     for (let i = 0; i < cnt; i++) {
       _l.fromBufferAttribute(pos, i); _v.copy(_l).applyMatrix4(M); _n.fromBufferAttribute(nor, i).applyMatrix3(_nm).normalize();
       this.P.push(_v.x, _v.y, _v.z); this.N.push(_n.x, _n.y, _n.z);
+      { const pk = o.part || 'misc', r = this.yr[pk] || (this.yr[pk] = [Infinity, -Infinity]); r[0] = Math.min(r[0], _v.y); r[1] = Math.max(r[1], _v.y); }   // bind-space height range per part (proportion report)
       _c.set(o.colorFn ? o.colorFn(_l, _v) : o.color); this.C.push(_c.r, _c.g, _c.b);
       this.G.push(o.glowFn ? o.glowFn(_l, _v) : (o.glow || 0)); this.L.push(o.lineFn ? o.lineFn(_l, _v) : (o.line ?? 1)); this.H.push(o.shine || 0);
       let w = o.weights(_v, _l).filter((q) => q[1] > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4);
@@ -27,7 +28,7 @@ export class SkinAcc {
     for (let t = 0; t < idx.length; t += 3) {
       const a = idx[t], b = idx[t + 1], c = idx[t + 2];
       if (o.keep) { _l.set(0, 0, 0); for (const q of [a, b, c]) { _v.fromBufferAttribute(pos, q); _l.add(_v); } _l.multiplyScalar(1 / 3); if (!o.keep(_l)) continue; }
-      this.I.push(base + a, base + b, base + c);
+      this.I.push(base + a, base + b, base + c); const pk = o.part || 'misc'; this.parts[pk] = (this.parts[pk] || 0) + 1;
     }
     this.n += cnt;
   }
@@ -94,4 +95,29 @@ export function shell(f, nf, cols, rows, th = 0.012) {
 export function spike(L, w, d, sides = 4, bend = 0) {
   const rings = [{ y: -0.01, rx: 0 }, { y: 0, rx: w, rz: d }, { y: L * 0.45, rx: w * 0.75, rz: d * 0.8, x: bend * 0.3 }, { y: L, rx: 0, x: bend }];
   return tube(rings, sides);
+}
+
+/** closed loft along +Y with shaped cross-sections (anime body volumes): rings [{ y, f, b, w, n?, wb?, x?, z? }]
+ *  f / b = depth toward +X (front) / −X (back), w = half-width along Z (wb = half-width on the −Z side, default w),
+ *  n = superellipse exponent (2 = ellipse, > 2 = squarer shoulders / chest). Ring with f = 0 at either end = pole.
+ *  Same vertex layout as tube(), so skin weights / colour functions work the same way. */
+export function loft(rings, R = 16) {
+  const P = [], I = [];
+  const first = rings[0], last = rings[rings.length - 1];
+  const isPole = (r) => !r.f && !r.b && !r.w;
+  const body = rings.filter((r, i) => !((i === 0 || i === rings.length - 1) && isPole(r)));
+  const topPole = isPole(last), botPole = isPole(first);
+  if (botPole) P.push(first.x || 0, first.y, first.z || 0);
+  const off = P.length / 3, sg = (v, e) => Math.sign(v) * Math.abs(v) ** e;
+  for (const r of body) {
+    const e = 2 / (r.n || 2);
+    for (let j = 0; j < R; j++) { const a = (j / R) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); P.push((r.x || 0) + sg(c, e) * (c >= 0 ? r.f : r.b), r.y, (r.z || 0) + sg(sn, e) * (sn >= 0 ? r.w : (r.wb ?? r.w))); }
+  }
+  if (topPole) P.push(last.x || 0, last.y, last.z || 0);
+  const ringV = (k, j) => off + k * R + (j % R);
+  for (let k = 0; k < body.length - 1; k++) for (let j = 0; j < R; j++) { const a = ringV(k, j), b = ringV(k, j + 1), c = ringV(k + 1, j), d = ringV(k + 1, j + 1); I.push(a, c, b, b, c, d); }
+  if (botPole) for (let j = 0; j < R; j++) I.push(0, ringV(0, j), ringV(0, j + 1));
+  if (topPole) { const p = P.length / 3 - 1, k = body.length - 1; for (let j = 0; j < R; j++) I.push(p, ringV(k, j + 1), ringV(k, j)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals();
+  return g;
 }

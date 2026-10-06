@@ -10,6 +10,7 @@ export const ANIME_CLASSES = {
       sash: 0xc81e57, sashEdge: 0xf0c25a, armor: 0x56617e, boots: 0x15171f, glove: 0x1b1e2b, trim: 0x00e5ff, metal: 0xd4e2ff,
       tsuka: 0x10121a, tsukaWrap: 0x2b7d99, gold: 0xd9b45a, saya: 0x0e1018, line: 0x07060f,
     },
+    paletteV2: { pants: 0x2c3558, boots: 0x1d2030, inner: 0xc6d0e6 },   // v2 body: lighter trousers so the long legs read against the night city
     hair: { style: 'spiky', bangs: 7, ponytail: { len: 0.44, segs: 3 } },
     outfit: { coat: { len: 0.68, flare: 0.11, chains: 7, gap: 0.78 }, collar: true, sash: { tails: 2 }, pauldron: 'F', bracer: 'F' },
     weapon: { type: 'katana', sheath: true },

@@ -13,7 +13,7 @@ i18n.add({
   newRun: ['無盡塔由 1 層重新開始', 'RESTART TOWER FROM 1F'], newRunS: ['RESET TOWER', '重新開始'],
   keysHint: ['<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> 走位　<kbd>W</kbd>/<kbd>Space</kbd> 跳　<kbd>S</kbd>/<kbd>↓</kbd> 防禦　<kbd>Shift</kbd> 閃避　<kbd>J</kbd> 攻擊　<kbd>K</kbd> <kbd>L</kbd> 技能　<kbd>U</kbd> 必殺　<kbd>P</kbd> 暫停',
     '<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> move　<kbd>W</kbd>/<kbd>Space</kbd> jump　<kbd>S</kbd>/<kbd>↓</kbd> guard　<kbd>Shift</kbd> dodge　<kbd>J</kbd> attack　<kbd>K</kbd> <kbd>L</kbd> skills　<kbd>U</kbd> ultimate　<kbd>P</kbd> pause'],
-  touchHint: ['手機：左邊搖桿走位（上＝跳、下＝防禦）· 右邊掣：攻擊（連撳出連段）、技能 1／2、必殺、跳、防禦（加方向＝閃避）', 'Touch: left stick moves (up = jump, down = guard) · right buttons: attack (keep tapping to combo), skill 1 / 2, ultimate, jump, guard (+ direction = dodge)'],
+  touchHint: ['手機：左邊搖桿走位（上＝跳、下＝防禦）· 右邊大掣攻擊（連撳出連段），四周係防禦（加方向＝閃避）、技能 1、技能 2、跳 · 上面獨立嘅長掣係必殺', 'Touch: left stick moves (up = jump, down = guard) · big right button attacks (keep tapping to combo), ringed by guard (+ direction = dodge), skill 1, skill 2 and jump · the separate long button above is the ultimate'],
   bestFloor: ['最高樓層', 'BEST FLOOR'], bestLadder: ['階梯', 'LADDER'], bestScore: ['最高分', 'BEST SCORE'], privacy: ['私隱政策', 'Privacy policy'],
   // class select
   selTitle: ['揀職業', 'CHOOSE CLASS'], selFight: ['開打', 'FIGHT'], selFightS: ['FIGHT · ENTER', '開打'], back: ['返回', 'BACK'], backS: ['BACK · ESC', '返回'],

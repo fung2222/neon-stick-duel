@@ -36,16 +36,18 @@
 .hud-buttons .icon-btn { width: 40px; height: 40px; padding: 9px; }
 .demo-tag { top: calc(max(14px, env(safe-area-inset-top)) + 110px) !important; bottom: auto !important; height: auto !important; }
 .fps { bottom: auto !important; top: calc(max(12px, env(safe-area-inset-top)) + 4px); }
-/* ---------------- controls: joystick (left) + buttons (right) */
-#controls { position: absolute; left: 0; right: 0; bottom: 0; height: min(46vh, 300px); pointer-events: none; }
-#joy-zone { position: absolute; left: 0; bottom: 0; width: 46%; height: 100%; pointer-events: auto; touch-action: none; }
-#joy { position: absolute; left: max(26px, env(safe-area-inset-left)); bottom: max(28px, env(safe-area-inset-bottom)); width: 132px; height: 132px; opacity: .78; transition: opacity .15s; }
-#joy.on { opacity: 1; bottom: auto; }
+/* ---------------- controls (v2.1 pad): joystick zone (left) + face-button arc around a big ATTACK (right) + shoulder ULT.
+   Positions / sizes are set in px by js/controls.js layoutPad() from the viewport + safe-area insets. */
+#controls { position: fixed; inset: 0; pointer-events: none; }
+#joy-zone { position: absolute; left: 0; bottom: 0; width: 40%; height: 45%; pointer-events: auto; touch-action: none; }
+#joy-zone::before { content: ''; position: absolute; left: max(6px, env(safe-area-inset-left)); right: 6px; bottom: max(6px, env(safe-area-inset-bottom)); height: min(78%, 250px); border-radius: 28px; background: radial-gradient(ellipse at 50% 80%, rgba(0,229,255,.07), rgba(0,229,255,0) 70%); border: 1px dashed rgba(0,229,255,.12); pointer-events: none; }
+#joy { position: absolute; left: 20px; top: 0; width: 132px; height: 132px; opacity: .78; transition: opacity .15s; }
+#joy.on { opacity: 1; }
 .joy-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--me) 70%, transparent); background: radial-gradient(circle, rgba(0,229,255,.06) 0 55%, rgba(0,229,255,.14) 70%, rgba(10,4,30,.35) 71%); box-shadow: inset 0 0 18px rgba(0,229,255,.2); }
 .joy-ring::before, .joy-ring::after { content: ''; position: absolute; left: 50%; top: 50%; width: 70%; height: 1px; background: rgba(0,229,255,.25); transform: translate(-50%, -50%); }
 .joy-ring::after { transform: translate(-50%, -50%) rotate(90deg); }
 #joy-knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #dffcff, var(--me) 45%, color-mix(in srgb, var(--me) 40%, #000)); box-shadow: 0 0 10px color-mix(in srgb, var(--me) 70%, transparent); }
-#btns { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); width: 236px; height: 236px; pointer-events: none; }
+#btns { position: absolute; inset: 0; pointer-events: none; }
 .cbtn { position: absolute; width: var(--btn); height: var(--btn); border-radius: 50%; pointer-events: auto; touch-action: none; cursor: pointer; padding: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; user-select: none; -webkit-user-select: none;
   background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.12), rgba(10,4,30,.62) 70%); border: 2px solid color-mix(in srgb, var(--k, var(--me)) 75%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--k, var(--me)) 45%, transparent), inset 0 0 12px color-mix(in srgb, var(--k, var(--me)) 25%, transparent); transition: transform .06s, filter .06s; }
@@ -53,6 +55,7 @@
 .cbtn svg:not(.ring) { width: 42%; height: 42%; fill: none; stroke: var(--k, var(--me)); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .cbtn svg .fl { fill: var(--k, var(--me)); stroke: none; }
 .cbtn b { font-family: var(--font-zh); font-size: 11px; letter-spacing: 1px; line-height: 1.1; margin-top: 1px; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis; }
+.cbtn b.sm { font-size: 9px; letter-spacing: 0; max-width: 100%; }
 .cbtn small { position: absolute; bottom: -15px; font-size: 8px; letter-spacing: 0; color: #cfe; opacity: .7; white-space: nowrap; font-family: var(--font-zh); }
 .cbtn .ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); transform: rotate(-90deg); pointer-events: none; }
 .cbtn .ring circle { fill: none; stroke-width: 4; }
@@ -61,18 +64,23 @@
 .cbtn .cdn { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-style: normal; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 18px; color: #fff; background: rgba(5,1,15,.62); border-radius: 50%; opacity: 0; }
 .cbtn.cooling .cdn { opacity: 1; }
 .cbtn.cooling { filter: saturate(.4); }
-.b-atk { --k: #00e5ff; width: 96px; height: 96px; right: 30px; bottom: 26px; }
-.b-atk b { font-size: 14px; }
-.b-s1 { --k: #3bff9a; right: 140px; bottom: 20px; }
-.b-s2 { --k: #ffb02b; right: 132px; bottom: 102px; }
-.b-ult { --k: #ffd84a; right: 62px; bottom: 140px; width: 70px; height: 70px; }
+.b-atk { --k: #00e5ff; width: 84px; height: 84px; }
+.b-atk svg:not(.ring) { width: 40%; height: 40%; }
+.b-atk b { font-size: 14px; letter-spacing: 2px; }
+.b-s1 { --k: #3bff9a; }
+.b-s2 { --k: #ffb02b; }
+.b-ult { --k: #ffd84a; width: 100px; height: 58px; border-radius: 29px; flex-direction: row; gap: 4px; }
+.b-ult svg:not(.ring) { width: 30%; height: 56%; }
+.b-ult b { font-size: 13px; letter-spacing: 2px; margin: 0; }
+.b-ult .ring { transform: none; }
+.b-ult .ring rect { fill: none; stroke-width: 4; }
 .b-ult .rfg { stroke-dasharray: 182.2; }
 .b-ult.ready { animation: ultBtn .7s ease-in-out infinite; }
 @keyframes ultBtn { 50% { box-shadow: 0 0 22px #ffd84a, inset 0 0 18px rgba(255,216,74,.5); } }
 .b-ult.locked { filter: saturate(.35) brightness(.8); }
-.b-jump { --k: #b2a6ff; width: 52px; height: 52px; right: 2px; bottom: 140px; }
-.b-guard { --k: #9ffcff; width: 52px; height: 52px; right: 194px; bottom: 96px; }
-.b-jump b, .b-guard b { font-size: 10px; }
+.b-jump { --k: #b2a6ff; }
+.b-guard { --k: #9ffcff; }
+.b-guard small { bottom: -14px; }
 /* ---------------- ult cut-in */
 #ult-dim { position: fixed; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at center, rgba(5,1,15,.05), rgba(5,1,15,.7)); animation: dimIn .15s ease-out; }
 @keyframes dimIn { from { opacity: 0; } }
@@ -136,8 +144,6 @@
   .trial-tag { top: calc(max(10px, env(safe-area-inset-top)) + 126px); }
   .demo-tag { top: calc(max(10px, env(safe-area-inset-top)) + 150px) !important; }
   .combo { top: 30%; font-size: 24px; }
-  #controls { height: 42vh; }
-  #btns { transform: scale(.94); transform-origin: right bottom; }
   .screen.hero { align-items: flex-end; padding-bottom: max(24px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(5,1,15,0) 0%, rgba(5,1,15,.35) 30%, rgba(5,1,15,.93) 58%); }
   .title { font-size: 50px; letter-spacing: 4px; }
   .screen.hero .kicker { letter-spacing: 3px; font-size: 10px; }
@@ -156,8 +162,11 @@
   .kit-list li { grid-template-columns: 44px 1fr; padding: 3px 0; }
   .sel-actions .neon-btn { min-width: 0; padding: 10px 12px; }
 }
-@media (max-height: 560px) and (orientation: landscape) {
-  #controls { height: 62vh; }
-  #btns { transform: scale(.86); transform-origin: right bottom; }
-  #joy { transform: scale(.86); transform-origin: left bottom; }
+/* short landscape phones (e.g. 915×412, 740×360): HP bars back at the very top, clear of the pause / mute buttons */
+@media (orientation: landscape) and (max-height: 560px) {
+  .vs-bar { top: max(8px, env(safe-area-inset-top)); width: min(980px, calc(100vw - 240px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+  .score-line { top: calc(max(8px, env(safe-area-inset-top)) + 54px); }
+  .trial-tag { top: calc(max(8px, env(safe-area-inset-top)) + 76px); }
+  .demo-tag { top: calc(max(8px, env(safe-area-inset-top)) + 100px) !important; }
+  .combo { top: 24%; }
 }

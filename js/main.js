@@ -221,7 +221,10 @@ function hudNames() {
   ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh);
   ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
 }
-function setSkillLabels() { const sh = SHORT[S.cls]; ui.setText('lbl-s1', sh[0][L()]); ui.setText('lbl-s2', sh[1][L()]); }
+function setSkillLabels() {
+  const sh = SHORT[S.cls];
+  ['lbl-s1', 'lbl-s2'].forEach((id, i) => { const txt = sh[i][L()]; ui.setText(id, txt); $(id).classList.toggle('sm', txt.length > 5); });   // long EN labels: tighter type, never an ellipsis
+}
 
 // ------------------------------------------------------------------ HUD
 const last = {};
@@ -428,6 +431,7 @@ S.api = {
   cmd: (c) => act(S.duel.a, c), setHp: (who, hp) => { S.duel[who].hp = hp; }, close: (gap = 1.2) => { S.duel.a.x = -gap / 2; S.duel.b.x = gap / 2; S.duel.a.facing = 1; S.duel.b.facing = -1; },
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
+  pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
   pickClass: (id) => pickClass(id), dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
   hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },

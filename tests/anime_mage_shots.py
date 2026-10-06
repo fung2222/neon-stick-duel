@@ -90,7 +90,7 @@ def turnaround(p, w=420, h=840):
     tiles = []
     for v in ['front', '3/4', 'side', 'back']:
         dx, dz = VIEWS[v]
-        pg.evaluate("window.__duel.api.cam({fov:30,pos:[%f,1.45,%f],look:[-0.9,1.32,0]})" % (-0.9 + dx, dz + 1e-4))
+        pg.evaluate("window.__duel.api.cam({fov:33,pos:[%f,1.5,%f],look:[-0.9,1.4,0]})" % (-0.9 + dx, dz + 1e-4))   # framed to keep the raised glyph halo in view
         pose(pg, {'st': 'win', 't': 3}, 30)
         f = os.path.join(OUT, '_b.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
         d = ImageDraw.Draw(im, 'RGBA'); d.rectangle((0, 0, w, 34), fill=(6, 4, 18, 200)); d.text((10, 8), v, fill=(220, 180, 255), font=font(17))

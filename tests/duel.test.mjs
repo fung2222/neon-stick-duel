@@ -1,6 +1,6 @@
 // node tests/duel.test.mjs — pure simulation, AI, modes, balance sanity
 import assert from 'node:assert/strict';
-import { makeDuel, step, act, DT, TUNE, CLASSES, CLASS_IDS, isInv, simulate, moveOf } from '../js/duel.js';
+import { makeDuel, step, act, DT, TUNE, CLASSES, CLASS_IDS, isInv, simulate, moveOf, hitStopOf } from '../js/duel.js';
 import { aiThink, mulberry32 } from '../js/ai.js';
 import { LADDER, ladderFoe, endlessFoe, isBossFloor, fightScore, migrateSave, TRIAL } from '../js/modes.js';
 import { matrix } from './balance.mjs';
@@ -131,12 +131,12 @@ test('endless tower never ends, difficulty capped, boss every 10 floors', () => 
 });
 test('endless floor 60 is winnable by a strong AI', () => {
   let wins = 0;
-  for (let s = 0; s < 10; s++) {
+  for (let s = 0; s < 40; s++) {   // ≈ 15 % win rate for a diff-1 AI vs floor 60 → expect ~6 of 40
     const foe = endlessFoe(60), rng = mulberry32(s + 9); const d = makeDuel('brawler', foe.cls, {}, foe); const ma = {}, mb = {};
     simulate(d, (dd, me, op, dt) => { const c = aiThink(dd, me, op, { diff: 1 }, ma, dt, rng); if (c) act(me, c); }, (dd, me, op, dt) => { const c = aiThink(dd, me, op, foe, mb, dt, rng); if (c) act(me, c); });
     if (d.over && d.over.winner === 'a') wins++;
   }
-  assert.ok(wins >= 2, 'wins ' + wins);
+  assert.ok(wins >= 3, 'wins ' + wins);
 });
 test('harder AI beats easier AI', () => {
   let wins = 0;
@@ -156,6 +156,60 @@ test('v1 save migration (lap → floor, ver 2) keeps progress', () => {
   store.setNum('floor', 3); store.setNum('lap', 1); store.setNum('bestFloor', 11); store.setNum('best', 12345);
   assert.equal(migrateSave(store), true); assert.equal(store.getNum('floor'), 11); assert.equal(store.get('lap'), null); assert.equal(store.getNum('ver'), 2); assert.equal(store.getNum('bestFloor'), 11); assert.equal(store.getNum('best'), 12345);
   assert.equal(migrateSave(store), false);
+});
+test('auto-face after a cross-over: on landing, guard turns within 0.15 s, input remapped, buffered attack faces the foe', () => {
+  for (const id of CLASS_IDS) {
+    const d = makeDuel(id, 'brawler'); d.a.x = -1.2; d.b.x = 0.4; d.b.in.guard = true; run(d, 0.05);
+    d.a.in.mx = 1; act(d.a, 'jump'); let landedAt = -1, bTurnedAt = -1, crossedAt = -1;
+    for (let i = 0; i < 120; i++) {
+      step(d, DT); d.events.length = 0;
+      if (crossedAt < 0 && d.a.x > d.b.x + 0.05) crossedAt = i;
+      if (landedAt < 0 && d.a.y === 0 && i > 3) { landedAt = i; d.a.in.mx = 0; assert.equal(d.a.facing, -1, id + ': faces the foe on the landing frame'); }
+      if (crossedAt >= 0 && bTurnedAt < 0 && d.b.facing === 1) bTurnedAt = i;
+    }
+    assert.ok(crossedAt >= 0 && landedAt > crossedAt, id + ' crossed over ' + crossedAt + '/' + landedAt);
+    assert.ok(d.a.x > d.b.x, id + ' landed on the far side');
+    assert.ok(bTurnedAt >= 0 && (bTurnedAt - Math.max(crossedAt, 0)) * DT <= 0.15 + DT, id + ' guarding foe turned after ' + ((bTurnedAt - crossedAt) * DT).toFixed(3) + ' s');
+    // input remap: pushing toward the foe (now -x) is a forward walk (full speed), away is the slower back-walk
+    d.b.in.guard = false; d.b.x = d.a.x - 3.5; d.a.in.mx = -1; const x0 = d.a.x; run(d, 0.3); const fwd = x0 - d.a.x;
+    assert.ok(Math.abs(fwd - d.a.C.walk * 0.3) < 0.12, id + ' forward walk after the switch ' + fwd.toFixed(2));
+  }
+  // a buffered attack pressed just before landing comes out facing the foe (no back-turned combo)
+  const d = makeDuel('sword', 'brawler'); d.a.x = -1.2; d.b.x = 0.4; d.a.in.mx = 1; act(d.a, 'jump');
+  let started = null;
+  for (let i = 0; i < 120 && !started; i++) { if (d.a.y > 0 && d.a.vy < -9 && d.a.x > d.b.x) act(d.a, 'atk'); step(d, DT); for (const e of d.events) if (e.type === 'move' && e.who === d.a) started = { mk: e.key, facing: d.a.facing, y: d.a.y }; d.events.length = 0; }
+  assert.ok(started, 'attack came out'); if (started.y === 0) assert.equal(started.facing, -1, 'ground attack after landing faces the foe');
+  // attacks never flip mid-move: they turn as soon as the move recovers
+  const d2 = makeDuel('sword', 'brawler'); close(d2, 1.0); act(d2.a, 'atk'); run(d2, 0.03); d2.b.x = d2.a.x - 1.0;
+  assert.equal(d2.a.facing, 1, 'no flip mid-attack'); run(d2, 0.5); assert.equal(d2.a.facing, -1, 'turned after recovering');
+});
+test('double jump: once per airtime, lower than the first, resets on landing; the AI uses it', () => {
+  for (const id of CLASS_IDS) {
+    const d = makeDuel(id, 'brawler'); d.b.x = 6; let peak1 = 0, peak2 = 0, dbl = 0;
+    act(d.a, 'jump'); run(d, 0.02);
+    for (let i = 0; i < 20; i++) { step(d, DT); d.events.length = 0; peak1 = Math.max(peak1, d.a.y); }
+    const y0 = d.a.y; act(d.a, 'jump');
+    for (let i = 0; i < 90; i++) { step(d, DT); for (const e of d.events) if (e.type === 'jump' && e.dbl) dbl++; d.events.length = 0; peak2 = Math.max(peak2, d.a.y - y0); if (i === 20) act(d.a, 'jump'); }
+    assert.equal(dbl, 1, id + ' exactly one double jump');
+    const h1 = TUNE.jumpV ** 2 / (2 * TUNE.gravity), h2 = (TUNE.jumpV * TUNE.djMul) ** 2 / (2 * TUNE.gravity);
+    assert.ok(Math.abs(peak2 - h2) < 0.15 && h2 < h1 && h2 > h1 * 0.7, `${id} second jump ${peak2.toFixed(2)} vs first ${h1.toFixed(2)}`);
+    run(d, 1.5); assert.equal(d.a.y, 0); assert.equal(d.a.dj, false, 'reset on landing');
+    act(d.a, 'jump'); run(d, 0.25); act(d.a, 'jump'); run(d, 0.03); assert.ok(d.a.dj && d.a.vy > 5, id + ' double jump again next airtime');
+  }
+  { const d = makeDuel('sword', 'brawler'); act(d.a, 'jump'); run(d, 0.03); act(d.a, 'jump'); run(d, 0.03); assert.equal(d.a.dj, false, 'not before djMin (no accidental double tap)'); }
+  { const d = makeDuel('sword', 'brawler'); act(d.a, 'jump'); run(d, 0.05); assert.equal(act(d.a, 'jump') && (run(d, 0.3), d.a.dj), true, 'buffered press fires once djMin passes'); }
+  let ai = 0;
+  for (let s = 0; s < 12; s++) { const rng = mulberry32(s + 77), d = makeDuel(CLASS_IDS[s % 4], CLASS_IDS[(s + 1) % 4]); const ma = {}, mb = {};
+    for (let i = 0; i < 60 * 40 && !d.over; i++) { for (const [me, op, m] of [[d.a, d.b, ma], [d.b, d.a, mb]]) { const c = aiThink(d, me, op, { diff: 0.7 }, m, DT, rng); if (c) act(me, c); } step(d, DT); for (const e of d.events) if (e.type === 'jump' && e.dbl) ai++; d.events.length = 0; } }
+  assert.ok(ai >= 3, 'AI double jumps ' + ai);
+});
+test('hit-stop is 2–6 frames by hit strength', () => {
+  const f = (dmg, o = {}) => Math.round(hitStopOf(dmg, o) * 60);
+  assert.equal(f(20), 2); assert.ok(f(44) >= 2 && f(44) <= 3); assert.ok(f(72, { launch: 9.6 }) >= 4); assert.equal(f(150, { launch: 8, kb: 8 }), 6);
+  for (let dmg = 1; dmg < 300; dmg += 7) { const k = f(dmg, { launch: dmg % 2 ? 10 : 0 }); assert.ok(k >= 2 && k <= 6, dmg + ' → ' + k); }
+  const d = makeDuel('sword', 'brawler', {}, { hpMul: 10 }); close(d, 1.0); act(d.a, 'atk'); let stop = 0;
+  for (let i = 0; i < 30; i++) { step(d, DT); for (const e of d.events) if (e.type === 'hit') stop = e.stop; d.events.length = 0; }
+  assert.ok(stop >= 2 / 60 && stop <= 6 / 60, 'slash stop ' + stop);
 });
 test('balance: every matchup 40–60 % at diff 0.7 (400 fights each, deterministic seeds)', () => {
   const res = matrix(400, 0.7);

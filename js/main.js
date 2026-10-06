@@ -274,7 +274,15 @@ function handleEvents() {
       case 'armor': if (!menuish) { const [sx, sy] = xy(e.x, e.y + 0.5); ui.popup(sx, sy, t('armor'), '', ''); } break;
       case 'evade': if (!menuish && me) { const [sx, sy] = xy(e.x, e.y + 0.3); ui.popup(sx, sy, t('evade'), '', ''); if (!S.demo && inPlay) S.score += 30; } break;
       case 'dodge': if (vol) audio.dodge(); break;
-      case 'jump': if (vol && me) audio.jump(); break;
+      case 'jump': {
+        if (e.dbl) {   // double jump: small neon burst under the feet + ring
+          const c = new THREE.Color(colorOf(e.who)), p = new THREE.Vector3(e.who.x, ROOF_Y + e.who.y + 0.15, 0);
+          particles.burst(p, c, 22, { speed: 3.2, up: -0.4, life: 0.32, size: 0.7, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
+          waves.spawn(p, c, { r0: 0.15, r1: 1.3, h: 0.12, dur: 0.3, a: 1.2 });
+          if (vol) audio.djump();
+        } else if (vol && me) audio.jump();
+        break;
+      }
       case 'land': if (e.hard) { particles.burst(new THREE.Vector3(e.who.x, ROOF_Y + 0.1, 0), new THREE.Color(0x8899cc), 14, { speed: 2.5, up: 1, life: 0.35, size: 0.6, bright: 1.2 }); if (vol) audio.land(true); } break;
       case 'blink': {
         const c = new THREE.Color(colorOf(e.who));

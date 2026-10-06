@@ -11,9 +11,9 @@ i18n.add({
   endless: ['無盡天台塔', 'ENDLESS TOWER'], endlessS: ['第 {f} 層', 'FLOOR {f}'],
   changeCls: ['職業：{c}', 'CLASS: {c}'], changeClsS: ['揀職業 · 睇招式', 'CHOOSE CLASS · MOVE LIST'],
   newRun: ['無盡塔由 1 層重新開始', 'RESTART TOWER FROM 1F'], newRunS: ['RESET TOWER', '重新開始'],
-  keysHint: ['<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> 走位　<kbd>W</kbd>/<kbd>Space</kbd> 跳　<kbd>S</kbd>/<kbd>↓</kbd> 防禦　<kbd>Shift</kbd> 閃避　<kbd>J</kbd> 攻擊　<kbd>K</kbd> <kbd>L</kbd> 技能　<kbd>U</kbd> 必殺　<kbd>P</kbd> 暫停',
-    '<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> move　<kbd>W</kbd>/<kbd>Space</kbd> jump　<kbd>S</kbd>/<kbd>↓</kbd> guard　<kbd>Shift</kbd> dodge　<kbd>J</kbd> attack　<kbd>K</kbd> <kbd>L</kbd> skills　<kbd>U</kbd> ultimate　<kbd>P</kbd> pause'],
-  touchHint: ['手機：左邊搖桿走位（上＝跳、下＝防禦）· 右邊大掣攻擊（連撳出連段），四周係防禦（加方向＝閃避）、技能 1、技能 2、跳 · 上面獨立嘅長掣係必殺', 'Touch: left stick moves (up = jump, down = guard) · big right button attacks (keep tapping to combo), ringed by guard (+ direction = dodge), skill 1, skill 2 and jump · the separate long button above is the ultimate'],
+  keysHint: ['<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> 走位　<kbd>W</kbd>/<kbd>Space</kbd> 跳（空中再撳＝二段跳）　<kbd>S</kbd>/<kbd>↓</kbd> 防禦　<kbd>Shift</kbd> 閃避　<kbd>J</kbd> 攻擊　<kbd>K</kbd> <kbd>L</kbd> 技能　<kbd>U</kbd> 必殺　<kbd>P</kbd> 暫停',
+    '<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> move　<kbd>W</kbd>/<kbd>Space</kbd> jump (again in the air = double jump)　<kbd>S</kbd>/<kbd>↓</kbd> guard　<kbd>Shift</kbd> dodge　<kbd>J</kbd> attack　<kbd>K</kbd> <kbd>L</kbd> skills　<kbd>U</kbd> ultimate　<kbd>P</kbd> pause'],
+  touchHint: ['手機：左邊搖桿走位（上＝跳、下＝防禦）· 右邊大掣攻擊（連撳出連段），四周係防禦（加方向＝閃避）、技能 1、技能 2、跳（空中再撳＝二段跳）· 上面獨立嘅長掣係必殺', 'Touch: left stick moves (up = jump, down = guard) · big right button attacks (keep tapping to combo), ringed by guard (+ direction = dodge), skill 1, skill 2 and jump (press again in the air = double jump) · the separate long button above is the ultimate'],
   bestFloor: ['最高樓層', 'BEST FLOOR'], bestLadder: ['階梯', 'LADDER'], bestScore: ['最高分', 'BEST SCORE'], privacy: ['私隱政策', 'Privacy policy'],
   // class select
   selTitle: ['揀職業', 'CHOOSE CLASS'], selFight: ['開打', 'FIGHT'], selFightS: ['FIGHT · ENTER', '開打'], back: ['返回', 'BACK'], backS: ['BACK · ESC', '返回'],
@@ -22,7 +22,7 @@ i18n.add({
   'tag.combo': ['連段', 'COMBO'], 'tag.closer': ['突進技', 'GAP-CLOSER'], 'tag.escape': ['脫離技', 'ESCAPE'], 'tag.antiair': ['對空', 'ANTI-AIR'], 'tag.zone': ['控場', 'ZONING'], 'tag.aoe': ['範圍', 'AREA'], 'tag.ult': ['必殺', 'ULTIMATE'],
   'kit.combo': ['連撳攻擊：{list}', 'Tap attack: {list}'], 'kit.air': ['空中：{list}', 'In the air: {list}'], 'kit.cd': ['冷卻 {s} 秒', '{s}s cooldown'], 'kit.ult': ['打中／被打儲滿能量', 'charged by dealing / taking damage'],
   // HUD buttons
-  'b.atk': ['攻擊', 'ATTACK'], 'b.jump': ['跳', 'JUMP'], 'b.guard': ['防禦', 'GUARD'], 'b.guardS': ['+方向＝閃避', '+dir = dodge'], 'b.ult': ['必殺', 'ULT'],
+  'b.atk': ['攻擊', 'ATTACK'], 'dblJump': ['二段跳', 'DOUBLE JUMP'], 'b.jump': ['跳', 'JUMP'], 'b.guard': ['防禦', 'GUARD'], 'b.guardS': ['+方向＝閃避', '+dir = dodge'], 'b.ult': ['必殺', 'ULT'],
   // fight
   stageTag: ['第 {n} 戰', 'FIGHT {n}'], floorTag: ['{f}F', '{f}F'], endlessTag: ['無盡', 'ENDLESS'], bossTag: ['頭目', 'BOSS'],
   stageBanner: ['第 {n} 戰 · {name}', 'FIGHT {n} · {name}'], floorBanner: ['{f} 樓 · {name}', '{f}F · {name}'],

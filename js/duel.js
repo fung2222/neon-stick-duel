@@ -16,7 +16,16 @@ export const TUNE = {
   ultDeal: 0.1, ultTake: 0.13, ultBlockDeal: 0.03, ultBlockTake: 0.05, ultFreeze: 0.8,
   chip: 0.1, chipUlt: 0.25, guardDrain: 0.3, guardRegen: 22, guardBreakStun: 1.0,
   downT: 0.55, riseT: 0.28, downInv: 0.9, jugCap: 6, prorate: 0.075, prorateMin: 0.42, prorateUlt: 0.6,
+  djMul: 0.9, djMin: 0.1,            // double jump: 0.9 × jump speed (≈ 81 % height), not before 0.1 s of airtime
+  turnDelay: 0.12,                   // grounded fighters stuck facing away (guard / block / hit) turn to the foe after this
+  stopMin: 2 / 60, stopMax: 6 / 60,  // hit-stop 2–6 frames by hit strength
 };
+/** hit-stop (s) from hit strength: 2 frames for chip-light hits → 6 frames for heavy launchers / spikes / finishers */
+export function hitStopOf(dmg, spec) {
+  const heavy = (spec.launch || 0) >= 8 || !!spec.spike || (spec.kb || 0) >= 5;
+  const k = Math.min(1, Math.max(0, (dmg - 25) / 75)) * 0.75 + (heavy ? 0.25 : 0) + (spec.kind === 'skill' ? 0.1 : 0);
+  return Math.round((2 + 4 * Math.min(1, k))) / 60;
+}
 
 let PID = 1;
 export function makeFighter(clsId, x, facing, o = {}) {
@@ -26,7 +35,7 @@ export function makeFighter(clsId, x, facing, o = {}) {
     cls: C.id, C, x, y: 0, vx: 0, vy: 0, facing, hp, maxHp: hp, st: 'idle', t: 0,
     mk: null, ticks: 0, connected: false, fired: 0, selfVyDone: false, seq: 0,
     comboN: 0, comboT: 0, airN: 0, cd: { s1: 0, s2: 0 }, ult: o.ult || 0, ultGain: o.ultGain || 1, gd: 100, gdT: 0,
-    inv: 0, stunT: 0, jug: 0, jugCap: false, chain: 0, dodgeCd: 0, dodgeDir: 0,
+    inv: 0, stunT: 0, jug: 0, jugCap: false, chain: 0, dodgeCd: 0, dodgeDir: 0, dj: false, djT: 9, airT: 0, faceT: 0,
     in: { mx: 0, guard: false }, buf: null, dmgMul: o.dmgMul || 1, scale: o.scale || 1, boss: !!o.boss,
     stats: { hits: 0, dmg: 0, taken: 0, blocks: 0, evades: 0, maxCombo: 0, ults: 0, skills: 0 },
   };
@@ -51,6 +60,9 @@ export function isInv(f) {
 }
 const isArmor = (f) => { const m = moveOf(f); return f.st === 'atk' && !!m && inWin(m.armor, f.t); };
 const clampX = (x) => Math.max(-ARENA_HALF, Math.min(ARENA_HALF, x));
+/** turn to face the opponent (no change when standing on the same spot) */
+export function faceFoe(f, o) { if (Math.abs(o.x - f.x) > 0.02) f.facing = o.x > f.x ? 1 : -1; f.faceT = 0; }
+export const facingAway = (f, o) => Math.abs(o.x - f.x) > 0.05 && Math.sign(o.x - f.x) !== f.facing;
 
 /** queue a command (kept in a short input buffer so slightly early presses still come out) */
 export function act(f, cmd) { if (f.st === 'ko' || f.st === 'win') return false; f.buf = { cmd, t: TUNE.bufferT }; return true; }
@@ -72,6 +84,7 @@ function tryCmd(d, f, o, cmd) {
   switch (cmd) {
     case 'atk': {
       if (act0) {
+        faceFoe(f, o);   // remap after a side switch (e.g. a buffered attack right on landing / out of guard)
         const idx = f.comboT > 0 && f.comboN < C.combo.length ? f.comboN : 0;
         startMove(d, f, C.combo[idx]); f.comboN = idx + 1; return true;
       }
@@ -101,7 +114,15 @@ function tryCmd(d, f, o, cmd) {
       return true;
     }
     case 'jump': {
-      if (!grounded(f)) return false;
+      if (!grounded(f)) {
+        // double jump: once per airtime, from a jump or the recovery of an air attack, slightly lower than the first
+        const airOk = f.st === 'jump' || (inMove && m.kind === 'air' && f.t >= m.t[0] + m.t[1]);
+        if (!airOk || f.dj || f.airT < TUNE.djMin || d.over) return false;
+        f.dj = true; f.djT = 0; f.st = 'jump'; f.t = 0; f.mk = null; f.vy = TUNE.jumpV * TUNE.djMul;
+        f.vx = Math.abs(f.in.mx) > 0.2 ? f.in.mx * f.C.walk * 1.05 : f.vx * 0.6;
+        d.events.push({ type: 'jump', who: f, dbl: true, x: f.x, y: f.y });
+        return true;
+      }
       const jc = inMove && m.kind === 'basic' && m.launch > 0 && f.connected && f.t >= m.t[0] + m.t[1];
       if (!(act0 || jc)) return false;
       f.st = 'jump'; f.t = 0; f.vy = TUNE.jumpV; f.airN = 0; f.mk = null;
@@ -204,7 +225,7 @@ function applyHit(d, att, def, spec, srcX) {
     def.st = 'block'; def.t = 0; def.stunT = Math.min(0.4, (spec.stun || 0.3) * 0.6);
     def.vx = Math.sign(def.x - srcX || -def.facing) * ((spec.kb || 1) * 0.6 + 1.2);
     if (!isUlt) { att.ult = Math.min(100, att.ult + dmg * TUNE.ultBlockDeal * att.ultGain); def.ult = Math.min(100, def.ult + dmg * TUNE.ultBlockTake * def.ultGain); }
-    d.stop = Math.max(d.stop, 0.035);
+    d.stop = Math.max(d.stop, TUNE.stopMin);
     d.events.push({ type: 'block', who: def, att, dmg: chip, x: def.x + def.facing * 0.4, y: def.y + 1.2 });
     if (def.gd <= 0) {
       def.gd = 55; def.st = 'stun'; def.t = 0; def.stunT = TUNE.guardBreakStun; def.vx = 0;
@@ -220,7 +241,7 @@ function applyHit(d, att, def, spec, srcX) {
     dmg = Math.round(dmg * 0.8);
     def.hp -= dmg; def.stats.taken += dmg; att.stats.dmg += dmg; att.stats.hits++;
     att.ult = Math.min(100, att.ult + dmg * TUNE.ultDeal * att.ultGain); def.ult = Math.min(100, def.ult + dmg * TUNE.ultTake * def.ultGain);
-    d.stop = Math.max(d.stop, 0.05); def.chain = 0;
+    d.stop = Math.max(d.stop, 3 / 60); def.chain = 0;
     d.events.push({ type: 'armor', who: def, att, dmg, x: def.x, y: def.y + 1.3 });
     return 'armor';
   }
@@ -246,8 +267,9 @@ function applyHit(d, att, def, spec, srcX) {
   }
   if (att.st === 'atk' && att.y > 0.05 && moveOf(att)?.kind === 'air') att.vy = Math.max(att.vy, 3.4);
   const heavy = dmg >= 70 || (spec.launch || 0) >= 8 || !!spec.spike;
-  d.stop = Math.max(d.stop, spec.stop || (heavy ? 0.09 : 0.05));
-  d.events.push({ type: 'hit', who: def, att, dmg, heavy, kind: spec.kind || (isUlt ? 'ult' : 'proj'), ult: isUlt, launch: spec.launch || 0,
+  const stop = Math.min(TUNE.stopMax, Math.max(TUNE.stopMin, hitStopOf(dmg, spec) + (def.hp <= 0 ? 2 / 60 : 0)));
+  d.stop = Math.max(d.stop, stop);
+  d.events.push({ type: 'hit', who: def, att, dmg, heavy, stop, kb: spec.kb || 1, spike: !!spec.spike, back: (att.x - def.x) * def.facing < 0, kind: spec.kind || (isUlt ? 'ult' : 'proj'), ult: isUlt, launch: spec.launch || 0,
     x: def.x, y: def.y + 1.3, chain: def.chain, ko: def.hp <= 0, proj: spec.key || null, src: spec.key ? 'p:' + spec.key : att.mk });
   if (def.hp <= 0) d.events.push({ type: 'ko', who: def, att, x: def.x, y: def.y + 1.2 });
   return 'hit';
@@ -255,7 +277,7 @@ function applyHit(d, att, def, spec, srcX) {
 
 // -------------------------------------------------------------- fighter step
 function stepFighter(d, f, o, dt, pend) {
-  f.t += dt;
+  f.t += dt; f.djT += dt;
   f.comboT = Math.max(0, f.comboT - dt); f.inv = Math.max(0, f.inv - dt); f.dodgeCd = Math.max(0, f.dodgeCd - dt);
   f.cd.s1 = Math.max(0, f.cd.s1 - dt); f.cd.s2 = Math.max(0, f.cd.s2 - dt);
   f.gdT = Math.max(0, f.gdT - dt); if (f.gdT <= 0 && f.st !== 'guard' && f.st !== 'block') f.gd = Math.min(100, f.gd + TUNE.guardRegen * dt);
@@ -298,14 +320,14 @@ function stepFighter(d, f, o, dt, pend) {
       if (t >= T) {
         const k = m.kind; f.mk = null; f.t = 0;
         if (!grounded(f)) f.st = 'jump';
-        else { f.st = 'idle'; if (k === 'basic' && f.comboN < f.C.combo.length) f.comboT = TUNE.comboWindow; else f.comboN = 0; }
+        else { f.st = 'idle'; faceFoe(f, o); if (k === 'basic' && f.comboN < f.C.combo.length) f.comboT = TUNE.comboWindow; else f.comboN = 0; }
       }
       break;
     }
-    case 'dodge': f.vx = f.dodgeDir * TUNE.dodgeV * (1 - f.t / TUNE.dodgeT * 0.5); if (f.t >= TUNE.dodgeT) { f.st = 'idle'; f.t = 0; f.vx *= 0.2; } break;
+    case 'dodge': f.vx = f.dodgeDir * TUNE.dodgeV * (1 - f.t / TUNE.dodgeT * 0.5); if (f.t >= TUNE.dodgeT) { f.st = 'idle'; f.t = 0; f.vx *= 0.2; faceFoe(f, o); } break;
     case 'hit': case 'stun': f.vx *= Math.max(0, 1 - 7 * dt); if (f.t >= f.stunT && grounded(f)) { f.st = 'idle'; f.t = 0; f.chain = 0; } break;
     case 'air': break;
-    case 'down': f.vx *= Math.max(0, 1 - 8 * dt); if (f.t >= TUNE.downT) { f.st = 'rise'; f.t = 0; } break;
+    case 'down': f.vx *= Math.max(0, 1 - 8 * dt); if (f.t >= TUNE.downT) { f.st = 'rise'; f.t = 0; faceFoe(f, o); } break;
     case 'rise': f.vx = 0; if (f.t >= TUNE.riseT) { f.st = 'idle'; f.t = 0; f.chain = 0; f.inv = Math.max(f.inv, 0.12); } break;
     case 'ko': f.vx *= Math.max(0, 1 - (grounded(f) ? 5 : 0.5) * dt); break;
     case 'win': f.vx = 0; break;
@@ -317,14 +339,21 @@ function stepFighter(d, f, o, dt, pend) {
     if (f.y <= 0) {
       f.y = 0; const vy = f.vy; f.vy = 0;
       if (f.st === 'air') { f.st = 'down'; f.t = 0; f.inv = TUNE.downInv; f.vx *= 0.3; f.jug = 0; f.jugCap = false; d.events.push({ type: 'land', who: f, hard: true, vy }); }
-      else if (f.st === 'jump') { f.st = 'idle'; f.t = 0; f.airN = 0; d.events.push({ type: 'land', who: f }); }
-      else if (f.st === 'atk' && moveOf(f)?.kind === 'air') { f.st = 'idle'; f.t = 0; f.mk = null; f.airN = 0; f.vx *= 0.3; d.events.push({ type: 'land', who: f }); }
+      else if (f.st === 'jump') { f.st = 'idle'; f.t = 0; f.airN = 0; if (!d.over) faceFoe(f, o); d.events.push({ type: 'land', who: f }); }
+      else if (f.st === 'atk' && moveOf(f)?.kind === 'air') { f.st = 'idle'; f.t = 0; f.mk = null; f.airN = 0; f.vx *= 0.3; if (!d.over) faceFoe(f, o); d.events.push({ type: 'land', who: f }); }
       else if (f.st === 'atk') { f.airN = 0; }
       else if (f.st === 'hit' || f.st === 'stun') { f.airN = 0; }
     }
   }
   if (grounded(f) && f.st !== 'jump') f.airN = f.st === 'atk' && moveOf(f)?.kind === 'air' ? f.airN : 0;
   f.x = clampX(f.x + f.vx * dt);
+  // airtime + double-jump reset
+  if (grounded(f)) { f.airT = 0; f.dj = false; } else f.airT += dt;
+  // auto-face: grounded and stuck facing away (guarding / blocking / in hit-stun) → turn after TUNE.turnDelay.
+  // Attacks never turn mid-move (they turn as they recover, above); airborne fighters turn on landing.
+  if (grounded(f) && !d.over && (f.st === 'guard' || f.st === 'block' || f.st === 'hit' || f.st === 'stun') && facingAway(f, o)) {
+    f.faceT += dt; if (f.faceT >= TUNE.turnDelay) faceFoe(f, o);
+  } else if (!facingAway(f, o)) f.faceT = 0;
 }
 
 function stepProjs(d, dt) {

@@ -9,7 +9,7 @@ export function aiParams(diff) {
   return {
     react: lerp(0.4, 0.12, k), think: lerp(0.5, 0.14, k), guardP: lerp(0.08, 0.55, k), dodgeP: lerp(0.03, 0.22, k),
     comboP: lerp(0.4, 0.97, k), jcP: k > 0.45 ? Math.min(0.9, (k - 0.45) * 1.8) : 0, enderP: lerp(0.05, 0.75, k),
-    escP: Math.max(0, k - 0.5) * 1.6, skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k),
+    escP: Math.max(0, k - 0.5) * 1.6, djP: lerp(0.25, 0.7, k), skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k),
   };
 }
 
@@ -42,6 +42,7 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   const opM = moveOf(op), opVuln = op.st === 'stun' || (op.st === 'atk' && phaseOf(op) === 'rc' && opM && opM.kind !== 'basic');
   const hitConfirm = op.st === 'hit' || op.st === 'air' || op.st === 'stun';
   me.in.guard = false;
+  if (grounded(me)) mem.djAsked = false;
 
   // ---- reactive defence (decided once per threat, after a human-like reaction delay)
   const th = threatOf(d, me, op);
@@ -116,6 +117,12 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
   // ---- airborne (own jump): steer and air-attack
   if (me.st === 'jump') {
     me.in.mx = cls === 'mage' ? -dirTo * 0.6 : dirTo;
+    // double jump (once per airtime, near the apex): chase a juggled / jumping foe, clear a cross-up, or (mage) keep away
+    if (!me.dj && !mem.djAsked && me.airT > 0.16 && me.vy < 2.5 && me.vy > -5) {
+      mem.djAsked = true;   // one decision per airtime
+      const chase = op.y > me.y + 0.4 && gap < 2.6, flee = cls === 'mage' && gap < 2.5, over = gap < 1.2 && op.y < 0.3;
+      if (rng() < (chase || flee || over ? P.djP : P.djP * 0.25)) { if (flee) me.in.mx = -dirTo; return 'jump'; }
+    }
     if (cls === 'mage' && me.cd.s1 <= 0 && gap < 1.8 && rng() < dt * 3) return 's1';
     const near = cls === 'mage' ? gap < 6 : gap < 1.9 && Math.abs(op.y - me.y) < 1.8;
     if (near && rng() < dt * (4 + 10 * (prof.diff ?? 0.5))) return 'atk';

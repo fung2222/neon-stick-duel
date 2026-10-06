@@ -13,7 +13,7 @@
 | **攻擊** ATTACK | 連撳出 3–4 下連段；挑空之後跳起可以接空中連段 |
 | **技能 1／2** | 每個職業兩招技能，有冷卻光圈 |
 | **必殺** ULT | 打中或者被打都會儲能量，儲滿放必殺技（有特寫） |
-| **跳** JUMP · **防禦** GUARD | 按住防禦；防禦＋方向＝閃避（短暫無敵） |
+| **跳** JUMP · **防禦** GUARD | 喺空中再撳跳＝**二段跳**（每次離地一次，翻筋斗，略矮）；按住防禦；防禦＋方向＝閃避（短暫無敵） |
 
 | 職業 | 武器／造型 | 技能 1 | 技能 2 | 必殺 |
 |---|---|---|---|---|
@@ -31,7 +31,7 @@
 **NEON STICK DUEL** is a 3D cyberpunk stick-figure fighter with four classes — **Swordsman** (blade, coat), **Mage** (staff, robe, hood), **Brawler** (gauntlets, headband) and **Assassin** (twin daggers, mask, scarf). Move freely with the on-screen joystick, tap ATTACK to chain 3–4 hit combos, launch into air combos, use two cooldown skills (melee classes get a gap-closer, ranged classes an escape) and unleash an ultimate charged by dealing and taking damage. Fight through a 10-fight **stage ladder** with two bosses, then climb the **endless tower**.
 
 ## 鍵盤 Keyboard
-`A` `D` / `←` `→` 走位 · `W` / `↑` / `Space` 跳 · `S` / `↓` 防禦 · `Shift` 閃避 · `J` 攻擊 · `K` `L` 技能 · `U` 必殺 · `P` / `Esc` 暫停 · `M` 靜音
+`A` `D` / `←` `→` 走位 · `W` / `↑` / `Space` 跳（空中再撳＝二段跳）· `S` / `↓` 防禦 · `Shift` 閃避 · `J` 攻擊 · `K` `L` 技能 · `U` 必殺 · `P` / `Esc` 暫停 · `M` 靜音
 
 ## 網址參數 URL flags
 `?demo=1` AI 對打示範（`&cls=mage&floor=12`）· `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4`

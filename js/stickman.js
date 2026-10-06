@@ -219,7 +219,9 @@ export class StickFighter {
       case 'walk': key = 'walk'; w = 16; break;
       case 'guard': key = 'guard'; w = 26; break;
       case 'block': key = 'block'; w = 40; break;
-      case 'jump': key = f.vy > 0 ? 'jump' : 'fall'; w = 12; break;
+      case 'jump': key = f.vy > 0 ? 'jump' : 'fall'; w = 12;
+        if (f.djT < 0.42) { key = 'tuck'; w = 30; const k = f.djT / 0.42; roll = -Math.PI * 2 * (k * k * (3 - 2 * k)); }   // double-jump somersault
+        break;
       case 'dodge': key = 'dodge'; w = 30; roll = -Math.sign(f.dodgeDir * f.facing || 1) * Math.PI * 2 * Math.min(1, f.t / 0.3); break;
       case 'hit': key = this.hitAlt ? 'hit2' : 'hit'; w = 36; break;
       case 'air': key = 'air'; w = 14; break;
@@ -262,7 +264,7 @@ export class StickFighter {
       this.pose.spin += (spinT - this.pose.spin) * Math.min(1, dt * (key === 'asSpin' ? 60 : 18));
       if (key !== 'asSpin' && Math.abs(this.pose.spin) > Math.PI) this.pose.spin = Math.atan2(Math.sin(this.pose.spin), Math.cos(this.pose.spin));
       if (roll != null) this.pose.roll = roll;
-      else { const tr = f.st === 'air' ? -0.5 + Math.max(-1, Math.min(1, f.vy * 0.06)) : 0; this.pose.roll += (tr - this.pose.roll) * Math.min(1, dt * 10); }
+      else { this.pose.roll = Math.atan2(Math.sin(this.pose.roll), Math.cos(this.pose.roll)); const tr = f.st === 'air' ? -0.5 + Math.max(-1, Math.min(1, f.vy * 0.06)) : 0; this.pose.roll += (tr - this.pose.roll) * Math.min(1, dt * 10); }
     }
     // facing: smooth yaw turn (π when facing left)
     const yawT = f.facing > 0 ? 0 : Math.PI;

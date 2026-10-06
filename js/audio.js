@@ -23,6 +23,7 @@ export class DuelAudio extends SynthAudio {
   dodge() { this.noiseHit({ dur: 0.15, vol: 0.05, type: 'highpass', f: 3000, f2: 6000, a: 0.01 }); }
   blink() { this.osc({ type: 'sine', f: 1800, f2: 300, dur: 0.18, vol: 0.05, send: 0.4 }); this.noiseHit({ dur: 0.12, vol: 0.04, type: 'bandpass', f: 3000, f2: 8000, q: 3 }); }
   jump() { this.osc({ type: 'sine', f: 300, f2: 600, dur: 0.1, vol: 0.04 }); }
+  djump() { this.osc({ type: 'triangle', f: 520, f2: 1250, dur: 0.14, vol: 0.045, send: 0.3 }); this.noiseHit({ dur: 0.16, vol: 0.035, type: 'bandpass', f: 1800, f2: 5200, q: 2, a: 0.01 }); }
   land(hard = false) { this.osc({ type: 'sine', f: hard ? 110 : 160, f2: 50, dur: hard ? 0.2 : 0.08, vol: hard ? 0.14 : 0.05 }); }
   thunder() { this.noiseHit({ dur: 0.45, vol: 0.14, type: 'bandpass', f: 2400, f2: 300, q: 0.8, a: 0.003 }); this.osc({ type: 'sawtooth', f: 70, f2: 35, dur: 0.4, vol: 0.08, lp: 700 }); }
   boom() { this.noiseHit({ dur: 0.35, vol: 0.14, type: 'lowpass', f: 1800, f2: 90, a: 0.003 }); this.osc({ type: 'sine', f: 90, f2: 35, dur: 0.35, vol: 0.2 }); }

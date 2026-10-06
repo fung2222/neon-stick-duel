@@ -2,6 +2,8 @@
 //   const ctl = createControls({ onCmd(cmd) {}, onAction(name) {}, active: () => bool });
 //   ctl.read() → { mx: -1..1, guard: bool }  (call every sim step)
 // Joystick: horizontal = move, push up = jump (edge), push down = guard (hold). Generous radial dead-zone (DEAD).
+// Double jump: every NEW jump press (W / ↑ / Space keydown without auto-repeat, the JUMP button, or a fresh stick flick up)
+// fires 'jump' again; the sim turns a jump press in the air into the double jump (once per airtime).
 // Guard button: hold = guard; pressed while the stick / arrow keys point sideways = dodge.
 // Attack: tap repeatedly to continue the combo (holding also re-taps every 130 ms).
 // Touch layout (v2.1, "pad"): layoutPad() places everything in viewport px from the screen size + safe-area insets:
@@ -12,6 +14,7 @@
 const DEAD = 0.3;          // joystick dead-zone (fraction of the knob travel) — no drift from a resting thumb
 const ARC = [['guard', -6], ['s1', 34], ['s2', 74], ['jump', 114]];   // degrees: 0 = left of ATTACK, 90 = straight above
 const KEYMAP = {
+  // up = jump; pressing it again in the air = double jump (key auto-repeat is ignored, so holding W does not double jump)
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'up', ArrowDown: 'down', KeyS: 'down',
   KeyJ: 'atk', KeyK: 's1', KeyL: 's2', KeyU: 'ult', KeyI: 'ult', ShiftLeft: 'dodge', ShiftRight: 'dodge', KeyO: 'dodge',
   KeyP: 'pause', Escape: 'pause', KeyM: 'mute', Enter: 'primary', KeyF: 'fps',

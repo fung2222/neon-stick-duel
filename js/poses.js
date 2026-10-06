@@ -19,6 +19,7 @@ export const POSES = {
   guard: { hipY: 0.78, lean: 0.04, uaF: 1.15, faF: 2.25, uaB: 1.05, faB: 2.35, thF: 0.6, shF: -0.9, thB: -0.45, shB: -0.7, wF: 1.2 },
   block: { hipY: 0.76, lean: -0.14, head: 0.15, uaF: 1.2, faF: 2.3, uaB: 1.1, faB: 2.4, thF: 0.5, shF: -0.9, thB: -0.65, shB: -0.5, wF: 1.2 },
   jump: { thF: 1.25, shF: -1.9, thB: 0.5, shB: -1.6, lean: 0.05, uaB: 1.6, faB: 1.0 },
+  tuck: { hipY: 0.95, lean: 0.55, head: -0.3, thF: 2.1, shF: -2.5, thB: 1.9, shB: -2.4, uaF: 1.3, faF: 1.6, uaB: 1.2, faB: 1.9 },
   fall: { thF: 0.75, shF: -0.9, thB: -0.1, shB: -0.7, lean: 0.1, uaB: 1.2, faB: 0.9 },
   dodge: { hipY: 0.6, lean: 0.95, head: -0.4, thF: 1.6, shF: -2.2, thB: 1.4, shB: -2.1, uaF: 1.0, faF: 1.9, uaB: 1.0, faB: 1.9 },
   hit: { hipY: 0.86, hipX: -0.1, lean: -0.5, head: 0.5, uaF: -0.4, faF: 0.6, uaB: -0.9, faB: 0.5, thF: 0.5, shF: -0.2, thB: -0.35, shB: -0.5 },

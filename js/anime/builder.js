@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { SkinAcc, tube, shell, spike, smooth, loft } from './geo.js';
 import { toonUniforms, toonMat, outlineUniforms, outlineMat, hookOutline, faceAtlas } from './toon.js';
+import { buildMage } from './mage-body.js';
 
 export const BODY = ['pelvis', 'chest', 'neck', 'head', 'uaF', 'faF', 'handF', 'uaB', 'faB', 'handB', 'thF', 'shinF', 'footF', 'thB', 'shinB', 'footB'];
 const B = Object.fromEntries(BODY.map((n, i) => [n, i]));
@@ -95,6 +96,14 @@ function katanaGeo(pal, L = 1.18) {
   const g = acc.build(); g.deleteAttribute('skinIndex'); g.deleteAttribute('skinWeight'); return g;
 }
 
+/** Mage focus crystal (local +Y = cast direction, origin = focus centre): elongated octahedron with a glowing core band */
+function crystalGeo(pal) {
+  const acc = new SkinAcc(), W = () => [[0, 1]];
+  const g = new THREE.OctahedronGeometry(0.034, 0); g.scale(0.85, 1.5, 0.85);
+  acc.add(g, M4(), { colorFn: (l) => (Math.abs(l.y) < 0.012 ? pal.trim : pal.crystal), glowFn: (l) => (Math.abs(l.y) < 0.012 ? 0.9 : 0.45), weights: W, line: 0.6, shine: 0.8 });
+  const out = acc.build(); out.deleteAttribute('skinIndex'); out.deleteAttribute('skinWeight'); return out;
+}
+
 /**
  * build a character. Returns { body, outline, face, faceTex, weapon, weaponOutline, bones, bind (Matrix4 per bone),
  * chains, U (toon uniforms), OU (outline uniforms), tris, dispose() }.
@@ -120,6 +129,10 @@ export function buildCharacter(cfg) {
   const yBlend = (bTop, bBot, y0, y1) => (v) => { const k = smooth(y0, y1, v.y); return [[bTop, k], [bBot, 1 - k]]; };
 
   const hm = T(...HB);
+  const MAGE = cfg.build === 'mage';
+  let mage = null, sheath = null;
+  if (MAGE) mage = buildMage({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr, headGeo, M4, T, W1, addBone });
+  else {   // ---------------------------------------------------------------- Swordsman body (v1 pilot / v2 anime)
   const roundBox = (g, k) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const r = Math.hypot(x, y, z) || 1; p.setXYZ(i, x * (1 - k) + x / r * 0.05 * k, y * (1 - k) + y / r * 0.055 * k, z * (1 - k) + z / r * 0.048 * k); } g.computeVertexNormals(); return g; };
   if (!V2) {
     // ---------------------------------------------------------------- torso (coat top over the inner kimono), elliptical rings
@@ -277,7 +290,6 @@ export function buildCharacter(cfg) {
     }
   }
   // ---------------------------------------------------------------- saya (sheath) on the off-side hip, bound to the pelvis
-  let sheath = null;
   if (cfg.weapon.sheath) {
     const mouth = [0.11, 0.985, -0.08], dir = [-Math.cos(0.62), -Math.sin(0.62), -0.14], L = 0.96;
     const dl = Math.hypot(...dir); dir[0] /= dl; dir[1] /= dl; dir[2] /= dl;
@@ -348,6 +360,7 @@ export function buildCharacter(cfg) {
     }
   }
 
+  }   // end Swordsman body
   // ---------------------------------------------------------------- assemble
   for (let i = 0; i < names.length; i++) { const b = new THREE.Bone(); b.name = names[i]; bind[i].decompose(b.position, b.quaternion, b.scale); bones.push(b); }
   const skeleton = new THREE.Skeleton(bones, bind.map((m) => m.clone().invert()));
@@ -361,13 +374,20 @@ export function buildCharacter(cfg) {
   const faceTex = faceAtlas(cfg.face);
   const face = new THREE.Mesh(faceGeo(hr), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, alphaTest: 0.35, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   face.renderOrder = 2; face.position.set(HB[0] - BIND.head[0], HB[1] - BIND.head[1], 0); bones[B.head].add(face);
-  // katana (+ outline), placed by the renderer at the weapon hand
-  const kg = katanaGeo(pal), wmat = toonMat(U), weapon = new THREE.Mesh(kg, wmat), wo = new THREE.Mesh(kg, outlineMat(OU));
+  // weapon (+ outline), placed by the renderer: katana at the weapon hand, or the Mage's focus crystal ahead of the casting palm
+  const kg = MAGE ? crystalGeo(pal) : katanaGeo(pal), wmat = toonMat(U), weapon = new THREE.Mesh(kg, wmat), wo = new THREE.Mesh(kg, outlineMat(OU));
   hookOutline(wo, OU); weapon.add(wo); weapon.frustumCulled = false; wo.frustumCulled = false;
-  const tris = { parts: acc.parts, yr: acc.yr, body: geo.index.count / 3, weapon: kg.index.count / 3, face: face.geometry.index.count / 3 };
+  let decal = null, focus = null, sigil = null;
+  if (MAGE) {
+    decal = new THREE.SkinnedMesh(mage.decal.geo, mage.decal.mat); decal.bind(skeleton, new THREE.Matrix4()); decal.frustumCulled = false; decal.renderOrder = 1;
+    focus = mage.focus; weapon.add(focus); sigil = mage.sigil;
+  }
+  const extraTris = MAGE ? mage.decal.geo.index.count / 3 + focus.userData.holo.geometry.index.count / 3 : 0;
+  const tris = { parts: acc.parts, yr: acc.yr, body: geo.index.count / 3, weapon: kg.index.count / 3, face: face.geometry.index.count / 3, extra: extraTris };
   return {
-    body, outline, face, faceTex, weapon, bones, bind, skeleton, chains, sheath, U, OU, tris, B, ver: V2 ? 'v2' : 'v1', legR: V2 ? [0.11, 0.082] : [0.1, 0.075],
-    dispose() { geo.dispose(); kg.dispose(); face.geometry.dispose(); faceTex.dispose(); for (const m of [mat, outline.material, wmat, wo.material, face.material]) m.dispose(); skeleton.dispose(); },
+    body, outline, face, faceTex, weapon, bones, bind, skeleton, chains, sheath, U, OU, tris, B, ver: V2 ? 'v2' : 'v1', legR: MAGE ? [0.1, 0.075] : V2 ? [0.11, 0.082] : [0.1, 0.075],
+    build: MAGE ? 'mage' : 'sword', fingers: MAGE ? mage.fingers : null, decal, focus, sigil, calls: MAGE ? 7 : 5,
+    dispose() { geo.dispose(); kg.dispose(); face.geometry.dispose(); faceTex.dispose(); for (const m of [mat, outline.material, wmat, wo.material, face.material]) m.dispose(); skeleton.dispose(); if (mage) mage.dispose(); },
   };
 }
 /** weights along a chain of rigid bones: tent functions centred on each segment (0.5/0.5 at the joints) */

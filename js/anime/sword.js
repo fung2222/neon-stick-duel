@@ -14,6 +14,7 @@ export const STANCE = {
   fFx: 0.36, fFy: A0, fBx: -0.38, fBy: A0, aF: 0, aB: 0,
   gx: 0.34, gy: 1.06, ga: 0.42, gw: 0.1, ox: 0.2, oy: 1.0, oh: 1,
   sy: 0, pv: 0, hF: 0, hB: 0.4, kF: 0, kB: 0, sh: 0,
+  cF1: 0, cF2: 0, cB1: 0, cB2: 0, oa: 0, fr: 0, fs: 0, gs: 0, zz: 0,   // Mage-only channels (finger curls, focus, sigil, blink) stay 0
 };
 const P = (o) => ({ ...STANCE, ...o });
 const AIR = { py: 0.95, fFx: 0.22, fFy: 0.42, fBx: -0.12, fBy: 0.3, aF: 0.3, aB: -0.4, hB: 0 };

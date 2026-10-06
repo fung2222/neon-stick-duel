@@ -132,7 +132,7 @@ export function faceAtlas(cfg = {}) {
       else { g.moveTo(-w * 0.5, -h * 0.25); g.lineTo(w * 0.15, h * 0.05); g.lineTo(-w * 0.45, h * 0.3); }
       g.stroke(); g.restore(); return;
     }
-    const sq = mode === 'fierce' ? 0.72 : 1;   // fierce: lids narrowed
+    const sq = mode === 'fierce' ? (cfg.lash === 'long' ? 0.8 : 0.72) : 1;   // fierce: lids narrowed
     // sclera
     g.fillStyle = '#fbfbff'; g.beginPath(); g.ellipse(0, h * 0.05, w * 0.5, h * 0.5 * sq, 0, 0, Math.PI * 2); g.fill();
     // iris (tall ellipse, gradient) + pupil + highlights
@@ -149,6 +149,11 @@ export function faceAtlas(cfg = {}) {
     g.moveTo(-w * 0.62, top + h * 0.22); g.quadraticCurveTo(-w * 0.1, top - h * 0.16, w * 0.58, top + h * 0.06); g.lineTo(w * 0.7, top - h * 0.02);
     g.quadraticCurveTo(w * 0.1, top - h * 0.3, -w * 0.66, top + h * 0.12); g.closePath(); g.fill();
     g.strokeStyle = line; g.lineWidth = 3; g.beginPath(); g.moveTo(-w * 0.3, h * 0.55 * sq + h * 0.04); g.lineTo(w * 0.32, h * 0.5 * sq + h * 0.04); g.stroke();
+    if (cfg.lash === 'long') {   // Mage: winged outer lashes + a lower lash tick (softer, more feminine read)
+      g.lineWidth = 4.5; g.lineCap = 'round';
+      for (const [a, l] of [[-0.35, 0.3], [-0.05, 0.36], [0.28, 0.26]]) { g.beginPath(); g.moveTo(w * 0.6, top + h * 0.02); g.lineTo(w * 0.6 + Math.cos(a) * w * l, top + h * 0.02 - Math.sin(a + 0.5) * w * l); g.stroke(); }
+      g.lineWidth = 2.5; g.beginPath(); g.moveTo(w * 0.36, h * 0.5 * sq + h * 0.05); g.lineTo(w * 0.52, h * 0.44 * sq + h * 0.06); g.stroke();
+    }
     g.restore();
   };
   const browL = (cx, cy, w, ang, mirror) => { g.save(); g.translate(cx, cy); if (mirror) g.scale(-1, 1); g.rotate(ang); g.fillStyle = brow; g.beginPath(); g.moveTo(-w * 0.5, 4); g.quadraticCurveTo(0, -6, w * 0.5, -2); g.lineTo(w * 0.48, 3); g.quadraticCurveTo(0, -1, -w * 0.5, 8); g.closePath(); g.fill(); g.restore(); };
@@ -157,14 +162,21 @@ export function faceAtlas(cfg = {}) {
     const ox = i * S; g.save(); g.translate(ox, 0);
     // layout: u = 0 → near side (camera), eyes centred around u = 0.5; v grows downward
     const ey = S * 0.52, ew = S * 0.2, eh = S * 0.28, dx = S * 0.155;
-    const bAng = mode === 'fierce' ? 0.32 : mode === 'hurt' ? -0.3 : 0.12;
+    const bAng = (mode === 'fierce' ? 0.32 : mode === 'hurt' ? -0.3 : 0.12) * (cfg.lash === 'long' ? 0.7 : 1);
     browL(S / 2 - dx, ey - eh * 0.85, ew * 1.1, bAng, false); browL(S / 2 + dx, ey - eh * 0.85, ew * 1.1, bAng, true);
     eye(S / 2 - dx, ey, ew, eh, mode, false); eye(S / 2 + dx, ey, ew, eh, mode, true);
     g.fillStyle = blush; g.beginPath(); g.ellipse(S / 2 - dx - 6, ey + eh * 0.72, 14, 5, 0, 0, Math.PI * 2); g.ellipse(S / 2 + dx + 6, ey + eh * 0.72, 14, 5, 0, 0, Math.PI * 2); g.fill();
+    if (cfg.tattoo) {   // glowing circuit trace on the camera-side cheek (Mage)
+      g.strokeStyle = cfg.tattoo; g.fillStyle = cfg.tattoo; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round';
+      const tx = S / 2 - dx - ew * 0.25, ty = ey + eh * 0.62;
+      g.beginPath(); g.moveTo(tx + 14, ty); g.lineTo(tx, ty); g.lineTo(tx - 10, ty + 10); g.lineTo(tx - 10, ty + 24); g.stroke();
+      g.beginPath(); g.arc(tx + 16, ty, 3.4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(tx - 10, ty + 27, 3.4, 0, Math.PI * 2); g.fill();
+    }
     // mouth
     g.strokeStyle = line; g.fillStyle = '#5a1020'; g.lineWidth = 3.2; g.lineCap = 'round'; const my = S * 0.86;
     g.beginPath();
-    if (mode === 'hurt') { g.ellipse(S / 2, my, 9, 7, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
+    if (cfg.mouth === 'small' && mode !== 'hurt' && mode !== 'fierce') { g.moveTo(S / 2 - 6, my - 1); g.quadraticCurveTo(S / 2 - 2, my + 3, S / 2, my); g.quadraticCurveTo(S / 2 + 2, my + 3, S / 2 + 6, my - 1); g.stroke(); }
+    else if (mode === 'hurt') { g.ellipse(S / 2, my, 9, 7, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
     else if (mode === 'fierce') { g.moveTo(S / 2 - 12, my); g.lineTo(S / 2 + 12, my - 1); g.stroke(); g.beginPath(); g.moveTo(S / 2 - 6, my + 3); g.lineTo(S / 2 + 6, my + 3); g.stroke(); }
     else { g.moveTo(S / 2 - 9, my); g.quadraticCurveTo(S / 2, my + 2.5, S / 2 + 9, my - 1); g.stroke(); }
     g.restore();

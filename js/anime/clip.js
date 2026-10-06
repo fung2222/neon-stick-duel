@@ -4,12 +4,16 @@
 //                                 hF hB  heel lift 0..1 (ball-of-foot pivots, kendo back heel)
 //                                 kF kB  knee splay (rad) — rotates the knee about the hip→ankle axis (horse stance: knees out)
 //                                 sh  sheath 0..1 (win flourish: the renderer slides the blade into the saya)
+//                                 cF1 cF2 cB1 cB2  finger curl 0..1 per hand (1 = index + middle, 2 = ring + pinky): mudra hand forms
+//                                     (open palm 0/0 · sword fingers 劍指 0/1 · fist 1/1); only bodies with finger bones (Mage) use them
+//                                 oa  off-hand palm direction (rad, like ga) · fr / fs  casting-focus reach (rig units ahead of the
+//                                     palm) / scale · gs  ground sigil 0..1 · zz  blink stretch (1 = vanished into a line, < 0 = squash)
 // Clips ("forms") are key lists timed from the move's frame data, so the contact key always lands on the first active
 // frame and balance never changes. The POWER CHAIN: feet lead the hips, the hips lead the torso, the torso leads the arm
 // and blade — evalChain() samples each channel group slightly ahead in time, so every strike starts in the feet.
 import { POSE_KEYS, EASE } from '../rig/core.js';
 
-export const XKEYS = ['sy', 'pv', 'hF', 'hB', 'kF', 'kB', 'sh'];
+export const XKEYS = ['sy', 'pv', 'hF', 'hB', 'kF', 'kB', 'sh', 'cF1', 'cF2', 'cB1', 'cB2', 'oa', 'fr', 'fs', 'gs', 'zz'];
 export const AKEYS = [...POSE_KEYS, ...XKEYS];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -26,7 +30,8 @@ export const XE = {
  *  writing poses every frame does not allocate) */
 export function blankA() {
   return { px: 0.5, py: 0.5, pt: 0.5, sp: 0.5, ch: 0.5, tw: 0.5, ctw: 0.5, hd: 0.5, rr: 0.5, fFx: 0.5, fFy: 0.5, fBx: 0.5, fBy: 0.5, aF: 0.5, aB: 0.5,
-    gx: 0.5, gy: 0.5, ga: 0.5, gw: 0.5, ox: 0.5, oy: 0.5, oh: 0.5, sy: 0.5, pv: 0.5, hF: 0.5, hB: 0.5, kF: 0.5, kB: 0.5, sh: 0.5 };
+    gx: 0.5, gy: 0.5, ga: 0.5, gw: 0.5, ox: 0.5, oy: 0.5, oh: 0.5, sy: 0.5, pv: 0.5, hF: 0.5, hB: 0.5, kF: 0.5, kB: 0.5, sh: 0.5,
+    cF1: 0.5, cF2: 0.5, cB1: 0.5, cB2: 0.5, oa: 0.5, fr: 0.5, fs: 0.5, gs: 0.5, zz: 0.5 };
 }
 // copy / lerp are generated with every channel unrolled as a named property access: the call sites stay monomorphic,
 // V8 keeps the doubles unboxed, and the per-frame pose maths allocates nothing (keyed loops over AKEYS boxed every value).
@@ -61,7 +66,7 @@ export const FEET = ['fFx', 'fFy', 'fBx', 'fBy', 'aF', 'aB', 'hF', 'hB', 'kF', '
 export const HIPS = ['px', 'py', 'pt', 'tw', 'pv'];
 export const TORSO = ['sp', 'ch', 'hd'];
 export const SHOULDER = ['ctw'];                 // chest counter-twist = the shoulder line
-export const ARM = ['gx', 'gy', 'ox', 'oy'];     // hands (grip + off hand); the blade angle (ga, gw) stays exactly on time
+export const ARM = ['gx', 'gy', 'ox', 'oy', 'oa', 'cF1', 'cF2', 'cB1', 'cB2'];   // hands (grip + off hand + mudra fingers); the blade / cast angle (ga, gw) stays exactly on time
 // lead multipliers per link (× lead seconds): feet → hips → torso → shoulder → arm → blade
 export const CHAIN_LEAD = { feet: 2, hips: 1.4, torso: 0.9, shoulder: 0.5, arm: 0.18 };
 const _f = blankA(), _h = blankA(), _t = blankA(), _s = blankA(), _a = blankA();

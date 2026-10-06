@@ -1,6 +1,7 @@
 // Anime class configs: outfit, hair, palette, weapon, face + the animation profile. Phase 1 ships the Swordsman; phase 2 adds
 // Mage / Brawler / Assassin / final boss by writing one config + one animation profile each (see docs/HANDOFF.md §12).
 import { PROFILE as SWORD_ANIM } from './sword.js';
+import { PROFILE as MAGE_ANIM } from './mage.js';
 
 export const ANIME_CLASSES = {
   sword: {
@@ -17,5 +18,19 @@ export const ANIME_CLASSES = {
     face: { iris: '#25d8ff', irisDark: '#0a2f6e' },
     outlinePx: 1.9,
     anim: SWORD_ANIM,
+  },
+  mage: {
+    id: 'mage', build: 'mage', recolor: ['cape', 'skirt'],
+    concept: 'netrunner techno-sorceress: asymmetric bob + long near lock, bun with glowing hair-sticks, hood worn down, asymmetric short cape, sleeveless bodysuit, circuit tattoos, mudra hands, short skirt, thigh-high boots, floating holo-glyph focus',
+    palette: {
+      skin: 0xffe1d4, hair: 0x2d2550, suit: 0x1f1c38, cape: 0x3d2c7e, lining: 0x7c1f66, skirt: 0x2e2660, tights: 0x2b2546, boots: 0x1a1730, wrap: 0x342c5e,
+      gold: 0xf2c766, trim: 0xc58bff, nail: 0xd9a8ff, crystal: 0xe9dcff, metalDark: 0x26223a, hairTie: 0xc58bff, line: 0x0a0614,
+    },
+    hair: { style: 'bob' },
+    outfit: {},
+    weapon: { type: 'focus' },
+    face: { iris: '#c27bff', irisDark: '#3b1170', brow: '#2d2550', lash: 'long', mouth: 'small', tattoo: '#d7a6ff', blush: 'rgba(255,120,170,0.3)' },
+    outlinePx: 1.9,
+    anim: MAGE_ANIM,
   },
 };

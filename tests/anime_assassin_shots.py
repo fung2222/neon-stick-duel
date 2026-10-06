@@ -119,7 +119,7 @@ def vs_old(p, w=1280, h=800):
             if mk: play_to(pg, mk, tt)
             else: pose(pg, {'st': 'idle', 't': 0}, 30)
             f = os.path.join(OUT, f'_tmp-{style}.png'); shot(pg, f)
-            im = Image.open(f).convert('RGB'); cw, ch = int(w * 0.42), int(h * 0.86); x0 = int(w * 0.25); y0 = int(h * 0.06)
+            im = Image.open(f).convert('RGB'); cw, ch = int(w * 0.42), int(h * 0.86); x0 = int(w * 0.25) + (int(w * 0.12) if mk == 'ult' else 0); y0 = int(h * 0.06)   # ult: the cut-through ends past the foe
             tiles.append(im.crop((x0, y0, x0 + cw, y0 + ch)).resize((int(cw * 0.75), int(ch * 0.75)))); os.remove(f)
         if name == 'idle': rig_new = pg.evaluate("window.__duel.api.rig().a")
         rows.append((name, tiles))
@@ -165,6 +165,7 @@ def forms_shots(p, w=520, h=640):
     for mk, frames in FORMS.items():
         T = pg.evaluate("window.__duel.duel.a.C.moves['%s'].t" % mk)
         at = lambda ph, u: T[0] * u if ph == 's' else T[0] + T[1] * u if ph == 'a' else T[0] + T[1] + T[2] * u
+        pg.evaluate("window.__duel.api.cam({fov:36,pos:[-0.35,%f,6.0],look:[-0.35,%f,0]})" % ((2.6, 2.4) if mk.startswith('air') else (1.3, 1.1)))
         if mk.startswith('air'):
             pose(pg, {'st': 'idle', 't': 0}, 12); pg.evaluate("()=>{const a=window.__duel.duel.a; a.y=1.6; a.vy=0;}")
         else: pose(pg, {'st': 'idle', 't': 0}, 12)

@@ -77,7 +77,7 @@ const F = {
   // heel pivots, hips + shoulders turn through, the fist sweeps diagonally down across the body with the blade trailing along the
   // forearm (edge out); the lead blade pulls back to guard the face (the hands alternate)
   a2: {
-    A: P({ px: -0.02, py: 0.72, sp: 0.2, tw: 0.7, ctw: 0.12, fFx: 0.44, fBx: -0.44, hF: 0.2, hB: 0.5, kB: 0.36, gx: 0.6, gy: 1.3, ga: -1.3, ox: 0.06, oy: 1.6, oa: 2.6 }),
+    A: P({ px: -0.02, py: 0.72, sp: 0.2, tw: 0.7, ctw: 0.12, fFx: 0.44, fBx: -0.44, hF: 0.2, hB: 0.5, kB: 0.36, gx: 0.6, gy: 1.3, ga: -1.3, ox: 0.06, oy: 1.6, oa: -1.24 }),
     S: P({ px: 0.14, py: 0.68, sp: 0.32, ch: 0.08, hd: -0.28, tw: -0.05, ctw: -0.42, fFx: 0.58, fBx: -0.48, hF: 0.15, hB: 0.85, kF: -0.08, kB: 0.1, gx: 0.34, gy: 1.42, ga: -1.7, ox: 0.6, oy: 1.12, oa: 2.3 }),
     E: P({ px: 0.16, py: 0.67, sp: 0.34, ch: 0.08, hd: -0.28, tw: -0.1, ctw: -0.45, fFx: 0.58, fBx: -0.48, hF: 0.15, hB: 0.88, kF: -0.08, kB: 0.1, gx: 0.33, gy: 1.42, ga: -1.7, ox: 0.62, oy: 0.98, oa: 2.5 }),
     F: P({ px: 0.1, py: 0.7, sp: 0.28, hd: -0.26, tw: 0.2, ctw: -0.25, fFx: 0.56, fBx: -0.46, hF: 0.2, hB: 0.7, kB: 0.2, gx: 0.4, gy: 1.36, ga: -2.0, ox: 0.5, oy: 1.18, oa: 2.9 }),

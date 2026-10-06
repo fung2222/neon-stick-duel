@@ -159,6 +159,47 @@ def run_view(p, w, h, lang, classes):
     check(not errs, f'{tag}: zero console errors {errs[:5]}')
     b.close()
 
+def run_boss(p, w=412, h=915, lang='zh'):
+    """final boss path: jump to ladder fight 10 via the test hook, fight (real-time loop, keyboard) through the 50 % phase change"""
+    tag = f"boss {w}x{h}-{lang}"
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
+    ctx, pg, errs = page(b, w, h, lang)
+    check(start(pg, 'ladder', 'sword', stage=9), f'{tag}: fight 10 starts')
+    info = pg.evaluate("(()=>{const S=window.__duel; return {cls: S.duel.b.cls, foe: S.foe.id, rig: S.api.rig().b, name: document.getElementById('hp-name-b').textContent, tag: document.getElementById('hp-cls-b').textContent, mark: !document.getElementById('hp-mark-b').classList.contains('hidden'), time: Math.round(S.duel.time)}})()")
+    check(info['cls'] == 'shogun' and info['foe'] == 'zero' and info['mark'] and info['time'] >= 85, f'{tag}: 塔主・零 KAGE-SHŌGUN, 50 % marker, 90 s round ({info})')
+    want = ('秩序', '塔主・零') if lang == 'zh' else ('ORDER', 'TOWER LORD ZERO')
+    check(want[0] in info['tag'] and want[1] in info['name'], f'{tag}: bilingual HUD name / phase tag ({info["name"]} · {info["tag"]})')
+    pg.wait_for_timeout(1500)
+    # let the boss AI fight for a few seconds (telegraphs / callouts), then bring it to just above 50 % and hit it
+    pg.wait_for_timeout(3000)
+    pg.evaluate("(()=>{const d=window.__duel.duel; d.a.hp=d.a.maxHp; d.b.hp=Math.round(d.b.maxHp*0.5)+30;})()")
+    flipped = False
+    for i in range(80):
+        if pg.evaluate("window.__duel.duel.b.phaseN >= 1"): flipped = True; break
+        if i % 4 == 0: pg.evaluate("(()=>{const S=window.__duel; S.api.freezeFoe(true); S.api.close(1.3); S.duel.b.inv=0;})()")
+        pg.keyboard.press('KeyJ'); pg.wait_for_timeout(150)
+    check(flipped, f'{tag}: phase flips at 50 %')
+    pg.evaluate("window.__duel.api.freezeFoe(false)")
+    ban = pg.evaluate("document.querySelector('#banner') ? document.querySelector('#banner').textContent : ''")
+    want2 = '第二型態・崩壞' if lang == 'zh' else 'PHASE 2 · COLLAPSE'
+    check(want2 in ban and ('PHASE 2' in ban if lang == 'zh' else '第二型態' in ban), f'{tag}: phase banner {ban!r}')
+    ok = wait_for(pg, "window.__duel.duel.b.st !== 'phase'", 30)
+    ph = pg.evaluate("window.__duel.api.bossPhase()")
+    check(ok and ph['phase'] == 2 and ph['phaseN'] == 1, f'{tag}: transition ends in phase 2, flipped once ({ph})')
+    tg = pg.evaluate("document.getElementById('hp-cls-b').textContent")
+    check(('崩壞' if lang == 'zh' else 'COLLAPSE') in tg and pg.evaluate("document.getElementById('hp-mark-b').classList.contains('hidden')"), f'{tag}: HUD shows phase 2 ({tg})')
+    # fight on in phase 2 for a while (AI boss: rain / glitch / ult), then KO it for the final result screen
+    pg.evaluate("window.__duel.duel.a.hp=window.__duel.duel.a.maxHp*3; window.__duel.duel.a.maxHp*=3")
+    seen = set()
+    for i in range(30):
+        mk = pg.evaluate("window.__duel.duel.b.mk"); seen.add(mk)
+        pg.keyboard.press('KeyJ' if i % 3 else 'KeyS'); pg.wait_for_timeout(250)
+    print('   phase-2 boss moves seen:', sorted(x for x in seen if x))
+    shot(pg, f'boss-phase2-{w}x{h}-{lang}')
+    check(force_win(pg), f'{tag}: boss KO → result')
+    check(not errs, f'{tag}: zero console errors {errs[:3]}')
+    b.close()
+
 def run_hub(p):
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
     # trial caps: ladder 1-3
@@ -213,6 +254,7 @@ with sync_playwright() as p:
     if ONLY == 'hub': run_hub(p)
     elif ONLY == '412-en': run_view(p, 412, 915, 'en', ['assassin', 'brawler'])
     elif ONLY == '1280-en': run_view(p, 1280, 800, 'en', ['brawler', 'assassin', 'sword', 'mage'])
+    elif ONLY == 'boss': run_boss(p, 412, 915, 'zh'); run_boss(p, 1280, 800, 'en')
     elif ONLY: print('unknown --only'); sys.exit(2)
     else: run_view(p, 412, 915, 'zh', ['sword', 'mage', 'brawler', 'assassin'])
     if not QUICK and not ONLY:
@@ -220,4 +262,6 @@ with sync_playwright() as p:
         run_view(p, 412, 915, 'en', ['assassin', 'brawler'])
         run_view(p, 1280, 800, 'zh', ['mage', 'sword'])
         run_hub(p)
+    if not ONLY:
+        run_boss(p, 412, 915, 'zh'); run_boss(p, 1280, 800, 'en')
 print('\n%d failure(s)' % len(fails)); sys.exit(1 if fails else 0)

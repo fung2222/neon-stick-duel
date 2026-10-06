@@ -148,7 +148,7 @@ const _zA = new THREE.Vector3(), _zB = new THREE.Vector3();
 function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color : (S.foe?.color ?? 0xff2bd6); }
 function setupDuel(clsA, foe, { oa = {}, preview = false } = {}) {
   S.foe = foe; clearProjMeshes();
-  S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss });
+  S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss, time: foe.time || 0 });
   S.memA = {}; S.memB = {}; S.acc = 0; S.comboShown = 0; bossFx.reset();
   fa.setClass(clsA, oa.color ?? null, 1); fb.setClass(foe.cls, foe.color, foe.scale || 1); fb.setPhaseLook(1); fb.setCloak(false);
   fa.visible = true; fb.visible = true;
@@ -260,13 +260,14 @@ function startFight() {
 function hudNames() {
   const f = S.foe, C = CLASSES[S.cls];
   ui.setText('hp-name-a', t('you')); ui.setText('hp-cls-a', L() ? C.en : C.zh);
-  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', (L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh) + phaseTag());
+  const bossP = !!CLASSES[f.cls].phases; $('hp-name-b').closest('.fighter-hp').classList.toggle('boss', bossP);   // final boss: smaller name, the phase as the tag
+  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', bossP ? phaseTag() : (L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh) + phaseTag());
   ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
 }
 /** final boss: " · 秩序" / " · ORDER" after the class label, and the 50 % marker on the HP bar while in phase 1 */
 function phaseTag() {
   const b = S.duel && S.duel.b, P = b && b.C.phases; $('hp-mark-b').classList.toggle('hidden', !P || b.phase !== 1);
-  return P ? ' · ' + P.names[b.phase - 1][L()] : '';
+  return P ? ['Ⅰ', 'Ⅱ'][b.phase - 1] + ' ' + P.names[b.phase - 1][L()] : '';
 }
 function setSkillLabels() {
   const sh = SHORT[S.cls];
@@ -305,7 +306,7 @@ function handleEvents() {
       case 'move': {
         if (vol && e.kind !== 'ult' && viewOf(e.who).rig === 'classic') audio.swing(e.who.cls, e.kind);   // HQ / anime rigs cue the swing when the blade accelerates (tick)
         const bm = e.who.C.phases && e.who.C.moves[e.key || e.who.mk];   // final boss: move-name callout over the head (not for the ult: it has the cut-in)
-        if (bm && bm.callout && (bm.kind !== 'ult' || bm.sub) && !menuish) { const [sx, sy] = xy(e.who.x, 3.1 * (e.who.scale || 1)); ui.popup(sx, sy, bm.name[L()], bm.name[1 - L()], 'boss-call'); }
+        if (bm && bm.callout && (bm.kind !== 'ult' || bm.sub) && !menuish) bossCall(e.who, bm);
         break;
       }   // HQ / anime rigs cue the swing when the blade accelerates (tick)
       case 'hit': {
@@ -363,7 +364,7 @@ function handleEvents() {
       case 'phase': {
         bossFx.onEvent(e, d, viewOf(e.who)); viewOf(e.who).setPhaseLook(2); hudNames();
         if (vol) { audio.ko(); audio.ult(); } fx.kick({ trauma: 0.45, aberr: 0.8, slowmo: 0.5 });
-        if (!menuish) { ui.flash('rgba(255,30,60,0.35)', 260); ui.banner(t('boss.phase2'), t('boss.phase2S'), ''); Platform.haptic('heavy'); }
+        if (!menuish) { ui.flash('rgba(255,30,60,0.35)', 260); ui.banner(t('boss.phase2'), t('boss.phase2S'), t('boss.phase2N')); Platform.haptic('heavy'); }
         S.ultCam = { who: e.who, t: 1.1 };
         break;
       }
@@ -380,6 +381,20 @@ function handleEvents() {
     }
   }
   d.events.length = 0;
+}
+// final boss move-name callout over its head (game-time driven, so it also shows in deterministic captures)
+function bossCall(f, m) {
+  const el = $('boss-call'); el.querySelector('b').textContent = m.name[L()]; el.querySelector('small').textContent = m.name[1 - L()];
+  S.call = { f, t: 0 }; el.classList.remove('hidden');
+}
+function stepBossCall(dt) {
+  const c = S.call, el = $('boss-call'); if (!c) return;
+  c.t += dt; const T = 1.15;
+  if (c.t >= T || !S.duel || c.f !== S.duel.b || S.state === 'menu' || S.state === 'select') { S.call = null; el.classList.add('hidden'); return; }
+  const [sx, sy] = xy(c.f.x, c.f.y + 3.05 * (c.f.scale || 1)), k = c.t / T;
+  const op = c.t < 0.08 ? c.t / 0.08 : k > 0.75 ? (1 - k) / 0.25 : 1, sc = c.t < 0.08 ? 1.25 - 0.25 * (c.t / 0.08) : 1;
+  const hw = el.offsetWidth / 2 + 8, vw = window.innerWidth;   // keep the whole callout on screen (portrait: the boss is often near an edge)
+  el.style.left = Math.max(hw, Math.min(vw - hw, sx)).toFixed(1) + 'px'; el.style.top = (sy - 18 * k).toFixed(1) + 'px'; el.style.opacity = op.toFixed(3); el.style.transform = `translate(-50%, -100%) scale(${sc.toFixed(3)})`;
 }
 function ultCinematic(f, quiet) {
   const C = CLASSES[f.cls], m = C.moves.ult, col = hex(colorOf(f));
@@ -535,7 +550,7 @@ S.api = {
   setPose: (who, spec) => { const f = S.duel[who], o = who === 'a' ? S.duel.b : S.duel.a; Object.assign(f, { vx: 0, vy: 0, y: 0, mk: null, t: 0 }, spec); if (spec.mk) f.seq = (f.seq || 0) + 1;
     if (spec.st === 'hit') { const e = { who: f, att: o, dmg: 48, kb: 1.6, heavy: false, src: 'a2', back: false, ...(spec.hit || {}) }; viewOf(f).onHit(e); } }, dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
   hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
-  foeCmd: (c) => act(S.duel.b, c), bossPhase: () => ({ phase: S.duel.b.phase, phaseN: S.duel.b.phaseN, st: S.duel.b.st, mk: S.duel.b.mk }),
+  foeCmd: (c) => act(S.duel.b, c), input: (mx = 0, guard = false) => { S.padOv = mx === null ? null : { mx, guard }; }, bossPhase: () => ({ phase: S.duel.b.phase, phaseN: S.duel.b.phaseN, st: S.duel.b.st, mk: S.duel.b.mk }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },
 };
 
@@ -547,7 +562,7 @@ function simStep() {
   else if (st === 'menu' || ((st === 'play') && S.demo)) {
     const pa = st === 'menu' ? { diff: S.attract.diffA } : { diff: 0.7 };
     const ca = aiThink(d, d.a, d.b, pa, S.memA, DT); if (ca) act(d.a, ca);
-  } else if (st === 'play') { const r = ctl.read(); d.a.in.mx = r.mx; d.a.in.guard = r.guard; }
+  } else if (st === 'play') { const r = S.padOv || ctl.read(); d.a.in.mx = r.mx; d.a.in.guard = r.guard; }   // padOv: test hook (scripted stick / guard)
   else { d.a.in.mx = 0; d.a.in.guard = false; }
   if ((st === 'play' || st === 'menu') && !S.freezeFoe) { const cb = aiThink(d, d.b, d.a, S.foe, S.memB, DT); if (cb) act(d.b, cb); }
   else if (st !== 'select') { d.b.in.mx = 0; d.b.in.guard = false; }
@@ -582,7 +597,8 @@ function frameCamera(dt, now, instant = false) {
   if (st === 'select') { dist = portrait ? 8.2 : 7.6; yaw = 0.28 + Math.sin(now * 0.3) * 0.05; pitch = 0.06; ly = portrait ? ROOF_Y - 0.9 : ROOF_Y + 1.25; mid = d ? (d.a.x + d.b.x) / 2 : 0; }
   if (S.ultCam && S.ultCam.t > 0 && d) { const f = S.ultCam.who; mid = THREE.MathUtils.lerp(mid, f.x, 0.75); dist *= portrait ? 0.74 : 0.64; ly = ROOF_Y + (portrait ? 0.7 : 1.3) + f.y; yaw = f.facing * 0.32; }
   const ko = d && d.over && d.over.by === 'ko' && st === 'play'; if (ko) dist *= 0.85;
-  const lx = THREE.MathUtils.clamp(mid, -4.5, 4.5);
+  const lim = portrait ? Math.max(4.5, ARENA_HALF + 0.6 - span / 2) : 4.5;   // portrait: the narrow view must still reach a fighter pinned at the wall
+  const lx = THREE.MathUtils.clamp(mid, -lim, lim);
   tL.set(lx, ly, 0); tP.set(lx + Math.sin(yaw) * dist, ly + Math.sin(pitch) * dist + (portrait ? 0.6 : 0), Math.cos(yaw) * dist);
   if ((st === 'menu' || st === 'select') && !portrait) { const sh = dist * tanH * (st === 'select' ? -0.4 : 0.42); tL.x -= sh * Math.cos(yaw); tP.x -= sh * Math.cos(yaw); tL.z += sh * Math.sin(yaw); tP.z += sh * Math.sin(yaw); }
   const k = instant ? 1 : 1 - Math.exp(-dt * (S.ultCam && S.ultCam.t > 0 ? 7 : 4)); camPos.lerp(tP, k); camLook.lerp(tL, k);
@@ -604,6 +620,7 @@ function tick(dt, now) {
       while (S.acc >= DT && n < 8) { S.acc -= DT; n++; if (S.state === 'intro') { d.a.in.mx = 0; d.b.in.mx = 0; handleEvents(); break; } simStep(); }
       if (S.acc > DT * 2) S.acc = 0;
     }
+    stepBossCall(dt);
     if (S.comboShown > 0) { S.comboShown -= dt; if (S.comboShown <= 0) $('combo').classList.add('hidden'); }
     if (S.ultCam) { S.ultCam.t -= dt; if (S.ultCam.t <= 0 && !(d && d.freeze > 0)) S.ultCam = null; }
     if (S.state === 'play' || S.state === 'result' || S.state === 'intro') updateHud();

@@ -84,7 +84,7 @@ export const CLASSES = {
   },
   assassin: {
     id: 'assassin', zh: '刺客', en: 'ASSASSIN', color: 0x3bff9a, trim: 0xff2b6a, cloth: 0x0c1a16,
-    role: 'hybrid', hp: 980, walk: 3.45, weight: 0.85, reach: 1.35, prefer: 1.3,
+    role: 'hybrid', hp: 1000, walk: 3.45, weight: 0.85, reach: 1.35, prefer: 1.3,
     stats: { atk: 3, def: 2, spd: 5, rng: 3 },
     outfit: { weapon: 'daggers', head: 'mask', neck: 'scarf' },
     desc: ['高速雙匕 · 影步飛刀、瞬殺繞背', 'Fast twin daggers · shadow-step throws, teleport strikes'],

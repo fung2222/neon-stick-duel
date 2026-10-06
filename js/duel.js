@@ -16,7 +16,7 @@ export const TUNE = {
   ultDeal: 0.1, ultTake: 0.13, ultBlockDeal: 0.03, ultBlockTake: 0.05, ultFreeze: 0.8,
   chip: 0.1, chipUlt: 0.25, guardDrain: 0.3, guardRegen: 22, guardBreakStun: 1.0,
   downT: 0.55, riseT: 0.28, downInv: 0.9, jugCap: 6, prorate: 0.075, prorateMin: 0.42, prorateUlt: 0.6,
-  djMul: 0.9, djMin: 0.1,            // double jump: 0.9 × jump speed (≈ 81 % height), not before 0.1 s of airtime
+  djMul: 0.9, djMin: 0.1, djAir: true,            // double jump: 0.9 × jump speed (≈ 81 % height), not before 0.1 s of airtime; djAir = also out of an air attack's recovery
   turnDelay: 0.12,                   // grounded fighters stuck facing away (guard / block / hit) turn to the foe after this
   stopMin: 2 / 60, stopMax: 6 / 60,  // hit-stop 2–6 frames by hit strength
 };
@@ -116,7 +116,7 @@ function tryCmd(d, f, o, cmd) {
     case 'jump': {
       if (!grounded(f)) {
         // double jump: once per airtime, from a jump or the recovery of an air attack, slightly lower than the first
-        const airOk = f.st === 'jump' || (inMove && m.kind === 'air' && f.t >= m.t[0] + m.t[1]);
+        const airOk = f.st === 'jump' || (TUNE.djAir && inMove && m.kind === 'air' && f.t >= m.t[0] + m.t[1]);
         if (!airOk || f.dj || f.airT < TUNE.djMin || d.over) return false;
         f.dj = true; f.djT = 0; f.st = 'jump'; f.t = 0; f.mk = null; f.vy = TUNE.jumpV * TUNE.djMul;
         f.vx = Math.abs(f.in.mx) > 0.2 ? f.in.mx * f.C.walk * 1.05 : f.vx * 0.6;

@@ -9,7 +9,7 @@ export function aiParams(diff) {
   return {
     react: lerp(0.4, 0.12, k), think: lerp(0.5, 0.14, k), guardP: lerp(0.08, 0.55, k), dodgeP: lerp(0.03, 0.22, k),
     comboP: lerp(0.4, 0.97, k), jcP: k > 0.45 ? Math.min(0.9, (k - 0.45) * 1.8) : 0, enderP: lerp(0.05, 0.75, k),
-    escP: Math.max(0, k - 0.5) * 1.6, djP: lerp(0.25, 0.7, k), skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k),
+    escP: Math.max(0, k - 0.62) * 2.2, djP: lerp(0.25, 0.7, k), skillRate: lerp(0.35, 1.6, k), ultRate: lerp(0.4, 3, k), aggr: lerp(0.45, 0.8, k), antiAir: lerp(0.1, 0.8, k), jumpIn: Math.max(0, k - 0.6),
   };
 }
 
@@ -90,8 +90,8 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
     const T = m.t[0] + m.t[1] + m.t[2];
     if (m.kind === 'ult') return null;
     if ((m.kind === 'basic' || m.kind === 'air') && m.chain != null && me.t >= m.chain * T) {
-      // launcher → jump cancel → air combo
-      if (m.launch > 0 && me.connected && op.st === 'air' && mem.jcSeq !== me.seq) { mem.jcSeq = me.seq; if (rng() < P.jcP && cls !== 'mage') return 'jump'; }
+      // launcher → jump cancel → air combo (out of an air hit = double-jump extension, used sparingly)
+      if (m.launch > 0 && me.connected && op.st === 'air' && mem.jcSeq !== me.seq) { mem.jcSeq = me.seq; if (rng() < P.jcP * (m.kind === 'air' ? 0.3 : 1) && cls !== 'mage') return 'jump'; }
       if (hitConfirm && me.ult >= 100 && grounded(me) && mem.ultSeq !== me.seq) { mem.ultSeq = me.seq; if (rng() < 0.4 + 0.5 * (prof.diff ?? 0.5)) return 'ult'; }
       const list = m.kind === 'air' ? C.airCombo : C.combo, n = m.kind === 'air' ? me.airN : me.comboN;
       if (mem.decSeq !== me.seq) {
@@ -121,7 +121,8 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
     if (!me.dj && !mem.djAsked && me.airT > 0.16 && me.vy < 2.5 && me.vy > -5) {
       mem.djAsked = true;   // one decision per airtime
       const chase = op.y > me.y + 0.4 && gap < 2.6, flee = cls === 'mage' && gap < 2.5, over = gap < 1.2 && op.y < 0.3;
-      if (rng() < (chase || flee || over ? P.djP : P.djP * 0.25)) { if (flee) me.in.mx = -dirTo; return 'jump'; }
+      const closeIn = C.role !== 'ranged' && op.C.role === 'ranged' && gap > 2 && gap < 6;   // melee vs a kiting mage: carry the jump in
+      if (rng() < (chase || flee || over || closeIn ? P.djP : P.djP * 0.25)) { if (flee) me.in.mx = -dirTo; return 'jump'; }
     }
     if (cls === 'mage' && me.cd.s1 <= 0 && gap < 1.8 && rng() < dt * 3) return 's1';
     const near = cls === 'mage' ? gap < 6 : gap < 1.9 && Math.abs(op.y - me.y) < 1.8;
@@ -173,7 +174,7 @@ export function aiThink(d, me, op, prof, mem, dt, rng = Math.random) {
       if (gap > 3.0 && gap < 6 && skill('s1', 0.3)) return 's1';   // throw from range (backs off further)
     } else if (gap > 2.2 && gap < (cls === 'brawler' ? 5 : 4.8) && skill('s1', op.C.role === 'ranged' ? 1.6 : 0.8)) return 's1';
     if (cls === 'sword' && op.y > 1 && gap < 2.4 && me.cd.s2 <= 0 && rng() < dt * 6 * P.antiAir) return 's2';
-    if ((mem.walkT || 0) <= 0) { me.in.mx = dirTo; if (gap > 2.4 && gap < 4.5 && rng() < dt * 0.35) return 'jump'; }
+    if ((mem.walkT || 0) <= 0) { me.in.mx = dirTo; if (gap > 2.4 && gap < 4.5 && rng() < dt * (op.C.role === 'ranged' ? P.jumpIn : 0.35)) return 'jump'; }   // vs a mage: jump-ins eat anti-airs — only skilled AI (which double-jumps through) commits
     return null;
   }
   // in range

@@ -13,7 +13,7 @@ import { ANIME_CLASSES } from './anime/configs.js';
 
 // Look per class: 'anime' (cel-shaded character, js/anime/) or 'neon' (the v2.2 HQ / classic stick look).
 //   ?style=anime | ?style=neon   (pause screen STYLE button stores `style`); classes without an anime config are always neon.
-export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime' };   // v2.3: anime Swordsman · v2.4: anime Mage · v2.6: anime Brawler (perf in docs/HANDOFF.md §12–14)
+export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime' };   // v2.3: anime Swordsman · v2.4: anime Mage · v2.6: anime Brawler · v2.7: anime Assassin (perf in docs/HANDOFF.md §12–15)
 let styleOv = null;
 export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
 export const styleMode = () => styleOv;

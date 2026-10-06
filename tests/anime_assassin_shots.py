@@ -97,7 +97,7 @@ def turnaround(p, w=420, h=840):
     leak = pg.evaluate("""() => { const { fa } = window.__duel.api.dbg(), bad = []; for (const r of [fa.classic, fa.hq]) if (r && r.group) r.group.traverse((o) => { if (o.isMesh && o.visible && r.group.visible) bad.push(o.name || o.type); }); return { rig: fa.rig, bad }; }""")
     check(leak['rig'] == 'anime' and not leak['bad'], f"turnaround: no stick / classic rig pieces visible ({leak})")
     tw, th = tiles[0].size; out = Image.new('RGB', (tw * 4 + 18, th + 46), (8, 6, 20)); d = ImageDraw.Draw(out)
-    d.text((12, 12), f"影刃 ASSASSIN · anime cyber kunoichi · turnaround · {st['unique']} unique tris, {st['drawn']} drawn incl. outline, {st['calls']} calls", fill=(255, 255, 255), font=font(18, True))
+    d.text((12, 12), f"刺客 ASSASSIN · anime cyber kunoichi · turnaround · {st['unique']} unique tris, {st['drawn']} drawn incl. outline, {st['calls']} calls", fill=(255, 255, 255), font=font(18, True))
     for i, t in enumerate(tiles): out.paste(t, (i * (tw + 6), 46))
     path = os.path.join(OUT, 'assassin-turnaround.png'); out.save(path); print('wrote', path, st)
     check(st['drawn'] < 15000, f"assassin: {st['unique']} unique / {st['drawn']} drawn triangles (< 15k incl. outline)")
@@ -269,7 +269,7 @@ def video(p, w=412, h=915, seconds=5.3, fps=30):
     check(not errs, f'video: zero console errors {errs[:3]}')
     b.close()
 
-ROSTER = [('sword', 3, '剣士 SWORDSMAN'), ('mage', 2, '魔導士 MAGE'), ('brawler', 1, '拳師 BRAWLER'), ('assassin', 0, '影刃 ASSASSIN')]
+ROSTER = [('sword', 3, '劍士 SWORDSMAN'), ('mage', 2, '魔法師 MAGE'), ('brawler', 1, '拳師 BRAWLER'), ('assassin', 0, '刺客 ASSASSIN')]   # labels = the in-game names (CLASSES zh / en), checked below
 def roster(p, w=420, h=840):
     tiles = []
     for cls, stage, lab in ROSTER:
@@ -281,6 +281,8 @@ def roster(p, w=420, h=840):
         pose(pg, {'st': 'idle', 't': 0}, 40)
         f = os.path.join(OUT, '_r.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
         st = pg.evaluate("window.__duel.api.charStats().a"); r = pg.evaluate("window.__duel.api.rig()")
+        game = pg.evaluate("(()=>{const C=window.__duel.duel.a.C; return C.zh + ' ' + C.en})()")
+        check(game == lab, f'roster: label {lab!r} is the in-game name ({game!r})'); lab = game
         d = ImageDraw.Draw(im, 'RGBA'); d.rectangle((0, 0, w, 36), fill=(6, 4, 18, 200)); d.text((10, 7), lab, fill=(255, 255, 255), font=font(18, True))
         d.text((10, h - 26), f"{st['drawn']} tris drawn · {st['calls']} calls", fill=(200, 200, 220), font=font(13))
         tiles.append(im)

@@ -1,8 +1,8 @@
 // NEON STICK DUEL v2 sounds — all synthesised on cyber-kit SynthAudio ('drive' music).
-// Loudness lives in the kit (master volume / compressor); per-sound levels below stay relative and modest.
+// Loudness lives in the kit v0.3.0 chain (music ≈ -20 LUFS, SFX/BGM ≈ 0 dB via sfxTrimDb); per-sound levels below stay relative.
 import { SynthAudio, mtof } from 'cyber-kit/audio/synth.js';
 export class DuelAudio extends SynthAudio {
-  constructor(store) { super({ store, music: 'drive' }); }
+  constructor(store) { super({ store, music: 'drive', sfxTrimDb: 0 }); }   // measured: SFX/BGM +0.1 dB at trim 0 (kit v0.3.0 meter)
   /** swing / cast sound for a move of class cls */
   swing(cls, kind = 'basic') {
     const big = kind !== 'basic' && kind !== 'air';

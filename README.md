@@ -37,7 +37,7 @@
 `?demo=1` AI 對打示範（`&cls=mage&floor=12`）· `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4`
 
 ## 技術 Tech
-Three.js + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.2.1（`vendor/cyber-kit/`），冇 build step。純模擬（`js/duel.js`，固定 1/60 s）有單元測試同 AI 對 AI 平衡模擬；火柴人用正向運動學 + 彈簧姿勢混合即時生成。所有角色、圖示、音效都係原創／程式生成。
+Three.js + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.3.0（`vendor/cyber-kit/`），冇 build step。純模擬（`js/duel.js`，固定 1/60 s）有單元測試同 AI 對 AI 平衡模擬；火柴人用正向運動學 + 彈簧姿勢混合即時生成。所有角色、圖示、音效都係原創／程式生成。
 
 ## 開發 Development
 ```bash

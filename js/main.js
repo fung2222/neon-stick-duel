@@ -24,6 +24,7 @@ const migrated = migrateSave(store);
 const hub = readHub();
 const ui = new CyberUI({ screens: ['start', 'select', 'pause', 'result', 'trial'] });
 const stage = createStage({ canvas: $('scene'), ...POST, onFatal: (m) => ui.fatal(m) });
+ui.glowToggle(stage);   // cyber-kit v0.3.0: GLOW LOW/HIGH button in the pause screen (shared preference, LOW = crisp default)
 const { scene, camera } = stage;
 const theme = new ThemeController(); theme.set(1, true);
 const city = new NeonCity(stage, { floor: 'reflect', innerRadius: 16, buildings: 260, billboard: { zh: '天台決鬥', en: 'R O O F T O P   D U E L', pos: [-18, 20, -44], width: 26 }, dustArea: 26, dustHeight: 12 });

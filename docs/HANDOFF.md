@@ -94,9 +94,9 @@ Commands are buffered 0.2 s (`TUNE.bufferT`) so slightly early presses still cha
 | `revive` | rewarded | `revive()` | opt-in, once per fight, K.O. loss only |
 
 ## 6. Look / audio settings (keep tidy for the series-wide pass)
-- **Bloom / exposure in one place**: `js/config.js` `POST = { bloom 0.45, bloomRadius 0.3, bloomThreshold 0.88, exposure 1.0 }` → `createStage({...POST})`. `?bloom=` still overrides (kit). `FxState.applyPost` adds a small aberration-driven bloom kick only. Roy wants crisp fighters: keep bloom moderate; fighters use lit materials with emissive ≤ 0.6 and the rooftop neon is ×1.3 (was ×2 in v1). Fog/haze comes from the kit theme unchanged.
+- **Bloom / exposure in one place**: `js/config.js` `POST = { bloom 0.45, bloomRadius 0.3, bloomThreshold 0.88, exposure 1.0 }` → `createStage({...POST})`. Since cyber-kit v0.3.0 these are the **Glow HIGH** look; the default is **Glow LOW** (kit scales bloom ×0.45, radius ×0.55, threshold +0.12, aberration 0.0006, grain 0.01). Shared pref `localStorage cyber.glow`, `?glow=low|high`; the pause screen has a **GLOW: LOW/HIGH** button (`ui.glowToggle(stage)`). `?bloom=` still overrides (kit). `FxState.applyPost` adds a small aberration-driven bloom kick only. Roy wants crisp fighters: keep bloom moderate; fighters use lit materials with emissive ≤ 0.6 and the rooftop neon is ×1.3 (was ×2 in v1). Fog/haze comes from the kit theme (v0.3.0 default density 0.012, was 0.017 — lighter).
 - Particles use `SPARK_BRIGHT = 1.7` (kit default 3) and shockwaves `a: 1.4`.
-- **Audio**: `js/audio.js` `DuelAudio extends SynthAudio` ('drive' music). Per-class swing/cast sounds, hit (metal tick for blades), block, guard break, dodge, blink, jump/land, thunder (pillar), boom (meteor), ult riser, KO, bells, victory, defeat. No master-volume code here — loudness belongs to cyber-kit. Attract/preview fights are silent.
+- **Audio**: `js/audio.js` `DuelAudio extends SynthAudio` ('drive' music, `sfxTrimDb: 0`). Kit v0.3.0 loudness chain (glue comp → limiter → soft clip → volume/mute). Measured 2026-10-06 with `python3 cyber-kit/tests/loudness.py http://127.0.0.1:PORT nsd-pad:DuelAudio` (served from the folder holding both checkouts): music −19.9 LUFS, SFX median −19.8 → **SFX/BGM +0.1 dB** (target −20 ± 1 LUFS, 0 ± 2 dB), so no trim is needed; re-measure after changing sounds. Per-class swing/cast sounds, hit (metal tick for blades), block, guard break, dodge, blink, jump/land, thunder (pillar), boom (meteor), ult riser, KO, bells, victory, defeat. No master-volume code here — loudness belongs to cyber-kit. Attract/preview fights are silent.
 
 ## 7. File map
 ```
@@ -116,7 +116,7 @@ js/controls.js    virtual joystick + buttons + keyboard → { mx, guard } + comm
 js/main.js        shell: states (menu/select/intro/play/paused/result/trial), fixed-step loop, class-select preview vs a dummy,
                   events → FX/audio, projectile meshes, ult cinematic + camera, HUD, saves, hub/trial/ads, test hook
 js/audio.js       DuelAudio · js/config.js look settings · js/strings.js zh/en table · js/hub.js hub contract
-vendor/cyber-kit  cyber-kit v0.2.1
+vendor/cyber-kit  cyber-kit v0.3.0
 tests/            duel.test.mjs (26), balance.mjs, dps.mjs, smoke.py (headless Chrome)
 ```
 Test hook `window.__duel`: state, mode, cls, stage, floor, score, duel, foe, cmdLog, adBreaks, interstitials, rewardedAsks, and `api.cmd / setHp / close / freezeFoe / tank / setUlt / startMode(mode,{cls,stage,floor}) / pickClass / fighter(who) / store() / hub() / screenOf`.

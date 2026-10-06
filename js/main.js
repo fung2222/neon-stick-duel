@@ -133,11 +133,14 @@ function stepFx(c) {
     _fxP.y = c.y + 0.03; waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.7), { r0: 0.15, r1: 1.6 * c.k, h: 0.06, dur: 0.22, a: 1.1 });
     waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.4), { r0: 0.3, r1: 2.6 * c.k, h: 0.12, dur: 0.42, a: 0.7 });
     camKick(0, -0.04 * c.k); fx.kick({ trauma: 0.05 * c.k });
+  } else if (c.type === 'click') {   // Assassin: the kodachi seat in the scabbards (small bright spark burst at the lower back)
+    _fxP.set(c.x - c.k * 0.12, c.y, 0.2); particles.burst(_fxP, _fxC.copy(c.c), 10, { speed: 1.8, up: 0.4, life: 0.22, size: 0.4, grav: 0, bright: 1.4 });
   } else if (c.type === 'breath') {   // Brawler kiai: exhale puff in front of the mouth on the impact frame (c.k = facing)
     _fxP.set(c.x, c.y, 0.2); particles.burst(_fxP, BREATH, 5, { speed: 1.1, up: 0.15, life: 0.22, size: 0.3, grav: 0, bright: 0.7 });
   }
 }
 const BREATH = new THREE.Color(0xdfe6ff);
+const _zA = new THREE.Vector3(), _zB = new THREE.Vector3();
 
 // ------------------------------------------------------------------ duel setup
 function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color : (S.foe?.color ?? 0xff2bd6); }
@@ -296,7 +299,8 @@ function handleEvents() {
       case 'hit': {
         const att = e.att, col = new THREE.Color(colorOf(att)), av = viewOf(att), dv = viewOf(e.who);
         // sparks at the real contact point (where the weapon meets the body), streaks along the weapon's motion
-        const cp = !e.proj ? av.contactPoint(e.who, ROOF_Y) : null, pos = cp || new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3);
+        const zan = !e.proj && av.zan();   // Assassin 居合: the blades are already going home — X cuts flash on the foe's body
+        const cp = !e.proj && !zan ? av.contactPoint(e.who, ROOF_Y) : null, pos = cp || (zan ? new THREE.Vector3(e.who.x, ROOF_Y + e.who.y + 1.15, 0.3) : new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3));
         dv.onHit(e); if (dv.rig === 'classic') dv.flash();
         if (vol) audio.hit(e.heavy, att.cls);
         const k = Math.min(1, (e.stop || 0.05) * 60 / 6), kdir = Math.sign(e.who.x - att.x) || att.facing;
@@ -304,6 +308,7 @@ function handleEvents() {
         particles.burst(pos, col, Math.round(16 + 34 * k), { speed: 4 + 3.5 * k, up: 1.5, life: 0.4, size: 0.65 + 0.4 * k, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
         const sv = av.tipVel.lengthSq() > 4 && cp ? av.tipVel.clone().normalize() : new THREE.Vector3(kdir, 0.25, 0).normalize();
         if (cp) slash(pos, sv, col, k);
+        if (zan) { slash(pos, _zA.set(1, 0.9, 0).normalize(), col, k); slash(pos, _zB.set(1, -0.9, 0).normalize(), col, k); }
         for (let i = 0; i < 8 + 10 * k; i++) particles.emit(pos, sv.clone().multiplyScalar(5 + Math.random() * 7 * (0.6 + k)).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.3) * 3, (Math.random() - 0.5) * 2)), i % 3 ? col : new THREE.Color(1, 1, 1), { life: 0.18 + Math.random() * 0.14, size: 0.55, grav: -4, drag: 3, bright: SPARK_BRIGHT });
         if (e.heavy) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: 3, h: 0.5, dur: 0.45, a: 1.4 });
         fx.kick({ trauma: 0.06 + 0.24 * k, aberr: e.heavy ? 0.45 : 0.15, fovKick: e.heavy ? 0.4 : 0 });

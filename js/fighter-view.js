@@ -63,6 +63,8 @@ export class FighterView {
   flash() { this.cur.flash(); }
   onHit(e) { if (this.cur.onHit) this.cur.onHit(e); }
   get joints() { return this.cur.joints; }
+  /** Assassin 居合: the ult's delayed hits land while the blades go home (main.js draws X cuts on the foe instead of contact sparks) */
+  zan() { return !!(this.cur.zanNow && this.cur.zanNow()); }
   /** swing-sound cue: HQ fires when the blade starts accelerating; classic fires on the move start (handled by main) */
   takeSwingCue(f) { return this.cur.takeSwingCue ? this.cur.takeSwingCue(f) : null; }
   /** world point where this fighter's weapon meets the defender's body (sparks go here). null = no weapon segment */

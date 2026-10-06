@@ -10,6 +10,8 @@ import { makeJ, solveInto } from './solve.js';
 import { evalChain, evalA, lerpA, copyA, blankA, normSnap, spinPt, splayKnee, XE, wrapA } from './clip.js';
 import { buildCharacter, frameMat, BODY } from './builder.js';
 import { FINGER, HOLO_K } from './mage-body.js';
+import { SHEATH } from './assassin-body.js';
+import { DAGGER } from './assassin.js';
 import { ANIME_CLASSES } from './configs.js';
 import { FACE } from './toon.js';
 import { CLASSES } from '../classes.js';
@@ -24,6 +26,8 @@ const A3 = () => new Float64Array(3);
 const TAU = Math.PI * 2;
 const SIDES = ['F', 'B'];
 const SIGN_LIFE = 0.32;   // hand-sign after-image lifetime (s)
+const GHOST_N = 4, GHOST_LIFE = 0.3;   // Assassin after-images (teleports, fast back-steps)
+const _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3(), _gp2 = new THREE.Vector3(), _gq2 = new THREE.Quaternion(), _mp = new THREE.Matrix4();
 // numeric clip ids (no per-frame string building): state × 1e6 + sequence
 const STID = { idle: 1, walk: 2, guard: 3, block: 4, jump: 5, dodge: 6, atk: 7, hit: 8, air: 9, koAir: 10, ko: 11, down: 12, rise: 13, stun: 14, win: 15, intro: 16 };
 
@@ -91,6 +95,7 @@ export class AnimeFighter extends HQFighter {
       };
     });
     this.rolled = { ...this.prof.stance, rr: -TAU };
+    if (this.prof.ghosts) this.makeGhosts(ch);
     this.resetAnim();
     this.visible = this.vis;
   }
@@ -99,13 +104,39 @@ export class AnimeFighter extends HQFighter {
     this.parts = []; this.mesh = {}; this.ribbons = [];
     if (this.char) { if (this.char.sigil) this.scene.remove(this.char.sigil); if (this.char.sign) this.scene.remove(this.char.sign); this.char.dispose(); this.char = null; }
     this.blade = null; this.chainSt = null;
+    if (this.ghosts) { for (const g of this.ghosts) { this.scene.remove(g.mesh); g.mesh.material.dispose(); g.skel.dispose(); } this.ghosts = null; }
   }
+  /** Assassin after-images: skinned silhouettes sharing the body geometry, each with its own frozen copy of the bone matrices
+   *  (snapshot of the last rendered pose), additive emerald, fading in GHOST_LIFE. One draw call each while visible. */
+  makeGhosts(ch) {
+    this.ghosts = Array.from({ length: GHOST_N }, () => {
+      const skel = new THREE.Skeleton(ch.bones, ch.skeleton.boneInverses); skel.update = () => {};   // frozen: never re-read the live bones
+      const mat = new THREE.MeshBasicMaterial({ color: this.c.clone().lerp(new THREE.Color(1, 1, 1), 0.15), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+      const mesh = new THREE.SkinnedMesh(ch.body.geometry, mat); mesh.bindMode = 'detached'; mesh.bind(skel, new THREE.Matrix4()); mesh.frustumCulled = false; mesh.visible = false; mesh.renderOrder = 1;
+      this.scene.add(mesh); return { mesh, skel, t: 9, life: GHOST_LIFE, a: 0.5 };
+    });
+    this.ghostI = 0; this.ghostT = 0;
+  }
+  /** freeze the last rendered pose into the next ghost, shifted by dx (world) */
+  spawnGhost(dx, a = 0.5, life = GHOST_LIFE) {
+    const src = this.char.skeleton; if (!this.ghosts || !src.boneMatrices) return;
+    const g = this.ghosts[this.ghostI++ % GHOST_N];
+    if (!g.skel.boneTexture) g.skel.computeBoneTexture();
+    g.skel.boneMatrices.set(src.boneMatrices.subarray(0, Math.min(src.boneMatrices.length, g.skel.boneMatrices.length))); g.skel.boneTexture.needsUpdate = true;
+    g.mesh.position.set(dx, 0, -0.02); g.t = 0; g.life = life; g.a = a;
+  }
+  stepGhosts(dt) {
+    if (!this.ghosts) return;
+    for (const g of this.ghosts) { g.t += dt; const k = g.t / g.life; g.mesh.visible = this.vis && k < 1; if (g.mesh.visible) g.mesh.material.opacity = g.a * (1 - k) ** 1.5; }
+  }
+  /** Assassin 居合: true while the ult's blades are going home (the delayed hits flash as X cuts on the foe) */
+  zanNow() { return !!this.prof.daggers && this.lastSt === 'atk' && this.lastMk === 'ult' && this.lastSh > 0.3; }
   /** triangle / draw-call budget of this fighter (for the perf report) */
   stats() {
     const t = this.char ? this.char.tris : { body: 0, weapon: 0, face: 0, extra: 0 };
     return { unique: t.body + t.weapon + t.face + (t.extra || 0), drawn: 2 * t.body + 2 * t.weapon + t.face + (t.extra || 0), calls: this.char ? this.char.calls : 5, bones: this.char ? this.char.bones.length : 0 };
   }
-  set visible(v) { super.visible = v; if (!v && this.char) { if (this.char.sigil) this.char.sigil.visible = false; if (this.char.sign) this.char.sign.visible = false; } }
+  set visible(v) { super.visible = v; if (!v && this.char) { if (this.char.sigil) this.char.sigil.visible = false; if (this.char.sign) this.char.sign.visible = false; } if (!v && this.ghosts) for (const g of this.ghosts) g.mesh.visible = false; }
   get visible() { return this.vis; }
   takeFx() { const o = this.cueOut; o.length = 0; for (let i = 0; i < this.cueN; i++) o.push(this.cuePool[i]); this.cueN = 0; return o; }
   cue(type, x, y, k = 1) { if (this.cueN >= 8) return; const c = this.cuePool[this.cueN++]; c.type = type; c.x = x; c.y = y; c.k = k; c.c = this.c; }
@@ -216,7 +247,14 @@ export class AnimeFighter extends HQFighter {
     this.tNow = t; if (this.char.focus) this.focusSpin = (this.focusSpin + rdt * (f.st === 'atk' ? 7 : f.st === 'guard' || f.st === 'block' ? 4 : 1.6)) % TAU;
     const yawT = f.facing > 0 ? 0 : Math.PI;
     if (this.lastFacing === 0) { this.yaw = yawT; this.lastFacing = f.facing; this.turnT = 1; }
-    if (f.facing !== this.lastFacing) { this.lastFacing = f.facing; this.turnT = 0; this.yaw0 = this.yaw; }
+    if (f.facing !== this.lastFacing) { this.lastFacing = f.facing; this.turnT = this.prof.snapTurn && f.st === 'atk' ? 1 : 0; this.yaw0 = this.yaw; }   // teleports snap the facing
+    if (this.prof.ghosts && !frozen) {
+      if (f.st === 'atk' && this.lastX !== undefined && Math.abs(f.x - this.lastX) > 1.2) {   // teleport: after-images along the path, feet re-plant
+        const d = this.lastX - f.x; for (const [k, a] of [[0, 0.32], [0.38, 0.42], [0.72, 0.55]]) this.spawnGhost(-d * k, a, GHOST_LIFE + 0.1 * k);
+        for (const sd of SIDES) { this.feet[sd].planted = false; this.feet[sd].step = null; }
+      } else if (f.st === 'atk' && Math.abs(f.vx) > 9) { this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = 0.05; this.spawnGhost(0, 0.4, 0.24); } }
+      this.lastX = f.x; this.stepGhosts(dt);
+    }
     if (this.turnT < 1) { this.turnT = Math.min(1, this.turnT + rdt / 0.14); let d = yawT - this.yaw0; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw = this.yaw0 + d * EASE.inOutSine(this.turnT); }
     else this.yaw = yawT;
     this.group.position.set(f.x + (shake ? (Math.random() - 0.5) * shake : 0), baseY + f.y, 0);
@@ -252,9 +290,10 @@ export class AnimeFighter extends HQFighter {
     const plants = this.footTargets(f, p, rdt, grounded, baseY);
     const J = solveInto(p, plants.F, plants.B, this.Jm);
     if (this.prof.focus) this.focusSeg(J, p);
-    else if (this.prof.fist) this.fistSeg(J, p, this.limbOf(f));
+    else if (this.prof.fist) this.segOf(J, p, this.limbOf(f));
     splayKnee(J.hipF, J.kneeF, J.ankleF, p.kF || 0, J.kneeF); splayKnee(J.hipB, J.kneeB, J.ankleB, p.kB || 0, J.kneeB);
-    if (this.prof.fist && this.limbOf(f) >= 4) this.fistSeg(J, p, this.limbOf(f));   // knee / foot strikes: use the splayed knee
+    if (this.prof.fist && this.limbOf(f) >= 4) this.segOf(J, p, this.limbOf(f));   // knee / foot strikes: use the splayed knee
+    this.lastSt = f.st; this.lastMk = f.mk; this.lastSh = p.sh || 0;
     let lift = 0;
     if (grounded) { const lo = Math.min(J.head[1] - 0.15, J.kneeF[1] - 0.06, J.kneeB[1] - 0.06, J.ankleF[1] - 0.075, J.ankleB[1] - 0.075, J.pelvis[1] - 0.1, J.handF[1] - 0.05, J.handB[1] - 0.05); if (lo < 0) lift = -lo; }
     this.rig.position.y = lift * s;
@@ -281,7 +320,8 @@ export class AnimeFighter extends HQFighter {
     this.flashT = Math.max(0, this.flashT - dt);
     const hurt = f.st === 'hit' || f.st === 'air' || f.st === 'koAir' || f.st === 'ko' || f.st === 'down' || f.st === 'stun' || this.flashT > 0;
     this.blinkT -= rdt; if (this.blinkT < -0.11) this.blinkT = 2.4 + ((t * 7.3) % 1.6);
-    const fr = hurt ? FACE.hurt : f.st === 'atk' || f.st === 'dodge' ? FACE.fierce : (this.blinkT < 0 || (f.st === 'win' && p.sh > 0.6)) ? FACE.blink : FACE.neutral;
+    const closed = this.prof.daggers && f.st === 'atk' && p.sh > 0.12 && p.sh < 0.97;   // Assassin 居合: eyes shut while the blades go home, open on the click
+    const fr = hurt ? FACE.hurt : closed ? FACE.blink : f.st === 'atk' || f.st === 'dodge' ? FACE.fierce : (this.blinkT < 0 || (f.st === 'win' && p.sh > 0.6)) ? FACE.blink : FACE.neutral;
     this.char.faceTex.offset.x = fr * 0.25;
     const U = this.char.U, inv = (f.inv > 0 && f.st !== 'dodge' && f.st !== 'down') ? 0.78 + Math.sin(t * 40) * 0.2 : 1;
     U.uFlash.value = Math.max(this.flashT > 0 ? 0.6 * (this.flashT / 0.11) : 0, zz > 0 ? Math.min(1, zz * 1.15) * 0.92 : 0); U.uDim.value = inv;
@@ -328,6 +368,7 @@ export class AnimeFighter extends HQFighter {
       if (fx === 'gust') { this.gustK = 1; this.gustDir = -f.facing; this.signFire = true; }
       // Brawler: 震腳 heavy stomp (big dust + double shockwave), exhale snap (kiai: breath puff at the mouth + a chest squash kick)
       if (fx.includes('quake')) { this.cue('quake', (fx.includes('quakeH') ? J.hip.x : J.footF.x) || f.x, base, fx.includes('quakeX') ? 1.5 : 1); this.sp.sq.v -= 0.9; }
+      if (fx.includes('click')) this.cue('click', J.hip.x || f.x, J.hip.y || base + 1, f.facing);
       if (fx.includes('exhale')) { this.cue('breath', J.head.x + f.facing * 0.14 * this.scale, J.head.y - 0.05 * this.scale, f.facing); this.sp.sq.v -= 0.45; this.sp.rc.v += 1.2; }
     }
     this.fxT = f.t;
@@ -356,7 +397,14 @@ export class AnimeFighter extends HQFighter {
     this.setBone(B.head, J.head, b.h, -0.62 * Math.cos(this.yaw + sy) + twC * 0.3);   // 3/4 view: the face turns toward the camera
     this.setBone(B.uaF, J.shF, J.elbowF, 0); this.setBone(B.faF, J.elbowF, J.handF, 0);
     const bd = J.bladeDir, fing = this.char.fingers;
-    if (this.char.fists) {   // Brawler: fists along the forearm; ga / oa = fist roll (0 = palm down, π = chambered palm up, π/2 = vertical fist)
+    if (this.char.daggers) {   // Assassin: gloved fists along the forearm; the kodachi bones follow the relative blade angles (or the scabbards)
+      b.hd[0] = J.handF[0] * 2 - J.elbowF[0]; b.hd[1] = J.handF[1] * 2 - J.elbowF[1]; b.hd[2] = J.handF[2] * 2 - J.elbowF[2];
+      this.setBone(B.handF, J.handF, b.hd, 0);
+      this.setBone(B.uaB, J.shB, J.elbowB, 0); this.setBone(B.faB, J.elbowB, J.handB, 0);
+      b.hb[0] = J.handB[0] * 2 - J.elbowB[0]; b.hb[1] = J.handB[1] * 2 - J.elbowB[1]; b.hb[2] = J.handB[2] * 2 - J.elbowB[2];
+      this.setBone(B.handB, J.handB, b.hb, 0);
+      this.placeDagger(0, J, p); this.placeDagger(1, J, p);
+    } else if (this.char.fists) {   // Brawler: fists along the forearm; ga / oa = fist roll (0 = palm down, π = chambered palm up, π/2 = vertical fist)
       b.hd[0] = J.handF[0] * 2 - J.elbowF[0]; b.hd[1] = J.handF[1] * 2 - J.elbowF[1]; b.hd[2] = J.handF[2] * 2 - J.elbowF[2];
       this.setBone(B.handF, J.handF, b.hd, p.ga);
       this.setBone(B.uaB, J.shB, J.elbowB, 0); this.setBone(B.faB, J.elbowB, J.handB, 0);
@@ -384,7 +432,7 @@ export class AnimeFighter extends HQFighter {
     }
     // katana at the weapon hand (or sliding into the saya during the win flourish) · Mage: focus crystal + holo rings at the glyph point
     const w = this.char.weapon;
-    if (this.char.fists) return;   // Brawler: no weapon mesh
+    if (this.char.fists || this.char.daggers) return;   // Brawler / Assassin: no separate weapon mesh
     if (this.char.focus) {
       const fa = this._fa || (this._fa = A3()), fb = this._fb || (this._fb = A3()), fr = p.fr || 0.14, bob = 0.012 * Math.sin(this.tNow * 2.4);
       for (let i = 0; i < 3; i++) fa[i] = J.handF[i] + bd[i] * fr; fa[1] += bob; for (let i = 0; i < 3; i++) fb[i] = fa[i] + bd[i];
@@ -408,6 +456,25 @@ export class AnimeFighter extends HQFighter {
     } else frameMat(J.handF, b.hd, 0, _m);
     _m.decompose(w.position, w.quaternion, _s);
   }
+
+  /** Assassin kodachi bone: grip = wrist + forearm · DAGGER.grip, +Y = forearm angle + relative blade angle (reverse grip); on `sh` the
+   *  blade slides into its scabbard (pelvis frame, SHEATH): position lerp + rotation slerp toward the seated frame */
+  placeDagger(si, J, p) {
+    const h = si ? J.handB : J.handF, e = si ? J.elbowB : J.elbowF, rel = si ? p.oa : p.ga, bone = this.char.bones[this.char.daggers[si ? 'B' : 'F']];
+    let fx = h[0] - e[0], fy = h[1] - e[1]; const fl = Math.sqrt(fx * fx + fy * fy) || 1; fx /= fl; fy /= fl;
+    const a = Math.atan2(fy, fx) + rel, ga = this._ga || (this._ga = A3()), gb = this._gb || (this._gb = A3());
+    ga[0] = h[0] + fx * DAGGER.grip; ga[1] = h[1] + fy * DAGGER.grip; ga[2] = h[2]; gb[0] = ga[0] + Math.cos(a); gb[1] = ga[1] + Math.sin(a); gb[2] = ga[2];
+    frameMat(ga, gb, 0, _m); _m.decompose(bone.position, bone.quaternion, _s);
+    const sh = p.sh || 0; if (sh <= 0) return;
+    const S = SHEATH[si ? 'B' : 'F'], k = EASE.inOutSine(clamp(sh, 0, 1));
+    frameMat(J.pelvis, J.lumbar, p.tw, _mp);
+    _v.set(S.dir[0], S.dir[1], S.dir[2]).transformDirection(_mp); _w.set(S.mouth[0], S.mouth[1], S.mouth[2]).applyMatrix4(_mp).addScaledVector(_v, -0.07);
+    ga[0] = _w.x; ga[1] = _w.y; ga[2] = _w.z; gb[0] = _w.x + _v.x; gb[1] = _w.y + _v.y; gb[2] = _w.z + _v.z;
+    frameMat(ga, gb, 0, _m2); _m2.decompose(_gp2, _gq2, _gs);
+    bone.position.lerp(_gp2, k); bone.quaternion.slerp(_gq2, k);
+  }
+  /** striking segment (trail / contact): the class's own segment function (Assassin blades) or the Brawler limb table */
+  segOf(J, p, limb) { if (this.prof.seg) this.prof.seg(J, p, limb); else this.fistSeg(J, p, limb); }
 
   /** open hand: bone +Y = fingers, +X = palm normal. (cx, cy) = in-plane direction ⟂ to the palm normal (fingers), blended 35 %
    *  toward the forearm so the wrist never breaks; then the two finger groups curl about the knuckle line (mudra forms) */
@@ -522,12 +589,12 @@ export class AnimeFighter extends HQFighter {
       if (keys && t1 > t0) {
         const tp = this._tp;
         const limb = this.prof.fist ? this.limbOf(f) : 0;
-        evalChain(keys, f.t, this.snapA, tp, this.prof.lead, !!this.prof.fist); const now = solveInto(tp, null, null, this.Jt); if (foc) this.focusSeg(now, tp); else if (limb >= 0 && this.prof.fist) this.fistSeg(now, tp, limb);
+        evalChain(keys, f.t, this.snapA, tp, this.prof.lead, !!this.prof.fist); const now = solveInto(tp, null, null, this.Jt); if (foc) this.focusSeg(now, tp); else if (limb >= 0 && this.prof.fist) this.segOf(now, tp, limb);
         const offB = this.offB, offT = this.offT; for (let i = 0; i < 3; i++) { offB[i] = J.base[i] - now.base[i]; offT[i] = J.tip[i] - now.tip[i]; }
         const n = clamp(Math.ceil((t1 - t0) / (1 / 300)), 1, 24);
         for (let i = 1; i <= n; i++) {
           const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead, !!this.prof.fist); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
-          if (foc) this.focusSeg(q, tp); else if (this.prof.fist) this.fistSeg(q, tp, limb);
+          if (foc) this.focusSeg(q, tp); else if (this.prof.fist) this.segOf(q, tp, limb);
           const dx = (this.prevRoot.x - this.group.position.x) * (1 - k), dy = (this.prevRoot.y - this.group.position.y) * (1 - k), sy = wrapA(tp.sy || 0), pv = tp.pv || 0;
           const smp = this.smpPool[i - 1]; this.toW(q.base, offB, sy, pv, dx, dy, smp.b); this.toW(q.tip, offT, sy, pv, dx, dy, smp.t); samples.push(smp);
         }

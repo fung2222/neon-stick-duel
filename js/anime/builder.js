@@ -9,6 +9,7 @@ import { SkinAcc, tube, shell, spike, smooth, loft } from './geo.js';
 import { toonUniforms, toonMat, outlineUniforms, outlineMat, hookOutline, faceAtlas } from './toon.js';
 import { buildMage } from './mage-body.js';
 import { buildBrawler, BRAWLER_HR } from './brawler-body.js';
+import { buildAssassin, ASSASSIN_HR } from './assassin-body.js';
 
 export const BODY = ['pelvis', 'chest', 'neck', 'head', 'uaF', 'faF', 'handF', 'uaB', 'faB', 'handB', 'thF', 'shinF', 'footF', 'thB', 'shinB', 'footB'];
 const B = Object.fromEntries(BODY.map((n, i) => [n, i]));
@@ -152,10 +153,11 @@ export function buildCharacter(cfg) {
   const yBlend = (bTop, bBot, y0, y1) => (v) => { const k = smooth(y0, y1, v.y); return [[bTop, k], [bBot, 1 - k]]; };
 
   const hm = T(...HB);
-  const MAGE = cfg.build === 'mage', BRAWL = cfg.build === 'brawler';
-  let mage = null, brawl = null, sheath = null;
+  const MAGE = cfg.build === 'mage', BRAWL = cfg.build === 'brawler', ASSN = cfg.build === 'assassin';
+  let mage = null, brawl = null, assn = null, sheath = null;
   if (MAGE) mage = buildMage({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr, headGeo, M4, T, W1, addBone, neckAO });
   else if (BRAWL) brawl = buildBrawler({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr: BRAWLER_HR, headGeo, headPoint, M4, T, W1, addBone, neckAO });
+  else if (ASSN) assn = buildAssassin({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr: ASSASSIN_HR, headGeo, headPoint, M4, T, W1, addBone, neckAO });
   else {   // ---------------------------------------------------------------- Swordsman body (v1 pilot / v2 anime)
   const roundBox = (g, k) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const r = Math.hypot(x, y, z) || 1; p.setXYZ(i, x * (1 - k) + x / r * 0.05 * k, y * (1 - k) + y / r * 0.055 * k, z * (1 - k) + z / r * 0.048 * k); } g.computeVertexNormals(); return g; };
   if (!V2) {
@@ -396,12 +398,12 @@ export function buildCharacter(cfg) {
   hookOutline(outline, OU); outline.renderOrder = -1;
   // face decal (child of the head bone)
   const faceTex = faceAtlas({ ...cfg.face, skin: pal.skin });   // the painted shade (bangs / cheek / jaw) is skin × the toon skin shadow
-  const face = new THREE.Mesh(faceGeo(BRAWL ? BRAWLER_HR : hr), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, alphaTest: 0.02, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const face = new THREE.Mesh(faceGeo(BRAWL ? BRAWLER_HR : ASSN ? ASSASSIN_HR : hr), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, alphaTest: 0.02, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   face.renderOrder = 2; face.position.set(HB[0] - BIND.head[0], HB[1] - BIND.head[1], 0); bones[B.head].add(face);
   // weapon (+ outline), placed by the renderer: katana at the weapon hand, or the Mage's focus crystal ahead of the casting palm
   // (Brawler: no weapon mesh — the fists are part of the skinned body; an empty group keeps the renderer's weapon slot)
   let kg = null, wmat = null, wo = null, weapon;
-  if (BRAWL) weapon = new THREE.Group();
+  if (BRAWL || ASSN) weapon = new THREE.Group();   // Assassin: the kodachi are skinned body parts on their own bones
   else { kg = MAGE ? crystalGeo(pal) : katanaGeo(pal); wmat = toonMat(U); weapon = new THREE.Mesh(kg, wmat); wo = new THREE.Mesh(kg, outlineMat(OU)); hookOutline(wo, OU); weapon.add(wo); weapon.frustumCulled = false; wo.frustumCulled = false; }
   let decal = null, focus = null, sigil = null, sign = null;
   if (MAGE) {
@@ -411,9 +413,9 @@ export function buildCharacter(cfg) {
   const extraTris = MAGE ? mage.decal.geo.index.count / 3 + focus.userData.holo.geometry.index.count / 3 : 0;
   const tris = { parts: acc.parts, yr: acc.yr, body: geo.index.count / 3, weapon: kg ? kg.index.count / 3 : 0, face: face.geometry.index.count / 3, extra: extraTris };
   return {
-    body, outline, face, faceTex, weapon, bones, bind, skeleton, chains, sheath, U, OU, tris, B, ver: V2 ? 'v2' : 'v1', legR: MAGE ? [0.1, 0.075] : BRAWL ? [0.125, 0.095] : V2 ? [0.11, 0.082] : [0.1, 0.075],
-    build: MAGE ? 'mage' : BRAWL ? 'brawler' : 'sword', fingers: MAGE ? mage.fingers : null, fists: BRAWL, decal, focus, sigil, sign, calls: MAGE ? 7 : BRAWL ? 3 : 5, shR: MAGE ? 0.088 : BRAWL ? 0.125 : 0.1,
-    dispose() { geo.dispose(); if (kg) kg.dispose(); face.geometry.dispose(); faceTex.dispose(); for (const m of [mat, outline.material, wmat, wo && wo.material, face.material]) if (m) m.dispose(); skeleton.dispose(); if (mage) mage.dispose(); if (brawl) brawl.dispose(); },
+    body, outline, face, faceTex, weapon, bones, bind, skeleton, chains, sheath, U, OU, tris, B, ver: V2 ? 'v2' : 'v1', legR: MAGE || ASSN ? [0.1, 0.075] : BRAWL ? [0.125, 0.095] : V2 ? [0.11, 0.082] : [0.1, 0.075],
+    build: MAGE ? 'mage' : BRAWL ? 'brawler' : ASSN ? 'assassin' : 'sword', fingers: MAGE ? mage.fingers : null, fists: BRAWL, daggers: ASSN ? assn.daggers : null, decal, focus, sigil, sign, calls: MAGE ? 7 : BRAWL || ASSN ? 3 : 5, shR: MAGE ? 0.088 : BRAWL ? 0.125 : ASSN ? 0.09 : 0.1,
+    dispose() { geo.dispose(); if (kg) kg.dispose(); face.geometry.dispose(); faceTex.dispose(); for (const m of [mat, outline.material, wmat, wo && wo.material, face.material]) if (m) m.dispose(); skeleton.dispose(); if (mage) mage.dispose(); if (brawl) brawl.dispose(); if (assn) assn.dispose(); },
   };
 }
 /** weights along a chain of rigid bones: tent functions centred on each segment (0.5/0.5 at the joints) */

@@ -200,7 +200,7 @@ export function faceAtlas(cfg = {}) {
     g.fillStyle = shade; g.beginPath(); g.moveTo(W, 118); g.lineTo(242, 118); g.bezierCurveTo(222, 158, 214, 196, 196, 226); g.bezierCurveTo(186, 242, 166, 252, 140, 256); g.lineTo(W, 256); g.closePath(); g.fill();
     g.fillStyle = deep; g.beginPath(); g.moveTo(W, 196); g.bezierCurveTo(236, 220, 214, 246, 176, 256); g.lineTo(W, 256); g.closePath(); g.fill();   // under the jaw: deeper shade
     // blush: soft pink under each eye + three short hatch strokes
-    if (!cfg.noBlush) for (const sx of [-1, 1]) {
+    if (!cfg.noBlush && !cfg.mask) for (const sx of [-1, 1]) {
       const bx = W / 2 + sx * (dx + 5), by = ey + eh * 0.72;
       const rg = g.createRadialGradient(bx, by, 1, bx, by, 22); rg.addColorStop(0, blush); rg.addColorStop(1, 'rgba(255,140,160,0)');
       g.fillStyle = rg; g.save(); g.translate(bx, by); g.scale(1, 0.42); g.translate(-bx, -by); g.beginPath(); g.arc(bx, by, 22, 0, Math.PI * 2); g.fill(); g.restore();
@@ -224,8 +224,13 @@ export function faceAtlas(cfg = {}) {
       g.strokeStyle = 'rgba(120,40,40,0.75)'; g.lineWidth = 2;
       for (const k of [0.15, 0.82, 0.95]) { const x = sx0 - ew * 0.75 * k, y = sy0 + (ey + eh * 1.05 - sy0) * k; g.beginPath(); g.moveTo(x - 6, y - 2); g.lineTo(x + 6, y + 2); g.stroke(); }
     }
+    if (cfg.mark) {   // Assassin: two short crimson slashes under the camera-side eye (clan mark, reads above the mask edge)
+      g.strokeStyle = cfg.mark; g.lineWidth = 3.4; g.lineCap = 'round'; const mx = W / 2 - dx - ew * 0.36, mY = ey + eh * 0.66;
+      for (const o of [0, 9]) { g.beginPath(); g.moveTo(mx + o, mY); g.lineTo(mx + o - 5, mY + 13); g.stroke(); }
+    }
     // nose hint: a short shade tick on the far side of the bridge, a tiny shadow under the tip, a highlight dot on the camera side
-    { const nx = W / 2 + 6, ny = ey + eh * 0.8;
+    // (mask: the lower face is covered by the mask shell — no nose / mouth / blush)
+    if (!cfg.mask) { const nx = W / 2 + 6, ny = ey + eh * 0.8;
       g.strokeStyle = noseLine; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(nx + 1, ny - 12); g.quadraticCurveTo(nx + 5, ny - 2, nx + 1, ny + 3); g.stroke();
       g.fillStyle = shade; g.beginPath(); g.ellipse(nx - 1, ny + 5, 6, 2.6, -0.15, 0, Math.PI * 2); g.fill();
       g.fillStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.ellipse(nx - 5, ny - 3, 1.8, 2.6, 0, 0, Math.PI * 2); g.fill(); }
@@ -236,6 +241,7 @@ export function faceAtlas(cfg = {}) {
       g.fillRect(tx + 18, ty - 2.5, 5, 5); g.beginPath(); g.arc(tx - 6, ty + 26, 2.6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(tx - 6, ty + 22 + 7 * 0.6 + 4, 2, 0, Math.PI * 2); g.fill();
     }
     // mouth
+    if (cfg.mask) { g.restore(); return; }
     g.strokeStyle = line; g.fillStyle = '#5a1020'; g.lineWidth = 3.4; g.lineCap = 'round'; const my = W * 0.86;
     g.beginPath();
     if (cfg.mouth === 'small' && mode !== 'hurt' && mode !== 'fierce') { g.moveTo(W / 2 - 7, my - 1); g.quadraticCurveTo(W / 2 - 2, my + 3.5, W / 2, my); g.quadraticCurveTo(W / 2 + 2, my + 3.5, W / 2 + 7, my - 1); g.stroke(); }

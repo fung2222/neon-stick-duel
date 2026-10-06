@@ -3,6 +3,7 @@
 import { PROFILE as SWORD_ANIM } from './sword.js';
 import { PROFILE as MAGE_ANIM } from './mage.js';
 import { PROFILE as BRAWLER_ANIM } from './brawler.js';
+import { PROFILE as ASSASSIN_ANIM } from './assassin.js';
 
 export const ANIME_CLASSES = {
   sword: {
@@ -51,5 +52,20 @@ export const ANIME_CLASSES = {
     outlinePx: 2.0,
     rimLight: { rimK: 0.7, rimW: 0.05 },
     anim: BRAWLER_ANIM,
+  },
+  assassin: {
+    id: 'assassin', build: 'assassin', recolor: ['scarf', 'panel'],
+    concept: 'cyber kunoichi: slim bodysuit with teal panels + gunmetal plates (chest, shoulders, vambraces, thighs, greaves), lower-face mask with glowing vents, emerald scarf with two long spring tails, high ponytail with a crimson tie, split-toe tabi, twin reverse-grip kodachi + two scabbards crossed at the lower back',
+    palette: {
+      skin: 0xf6cfb8, hair: 0x1a2421, suit: 0x1c2228, panel: 0x23443c, armor: 0x4a5d5a, glove: 0x161b1e, boots: 0x14181b, wrap: 0x3c4a46, belt: 0x2b2f33,
+      mask: 0x2a3436, scarf: 0x12895c, scarfDark: 0x0b5c3d, saya: 0x101416, metal: 0xd8efe6, accent: 0xff2b6a, trim: 0x3bff9a, rim: 0x2fcf8a, hairTie: 0xff2b6a, line: 0x050a08,
+    },
+    hair: { style: 'ponytail' },
+    outfit: {},
+    weapon: { type: 'kodachi' },
+    face: { iris: '#3bff9a', irisDark: '#04412a', brow: '#18211e', lash: 'long', eyeK: 0.92, browK: 1.1, mask: true, mark: '#ff2b6a', noBlush: true },
+    outlinePx: 1.95,
+    rimLight: { rimK: 0.62, rimW: 0.05 },
+    anim: ASSASSIN_ANIM,
   },
 };

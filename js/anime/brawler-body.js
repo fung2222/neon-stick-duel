@@ -88,7 +88,7 @@ export function buildBrawler(ctx) {
   // ---------------------------------------------------------------- fists: rounded gauntlet fist + glowing knuckle plate + thumb + cuff
   for (const side of ['F', 'B']) {
     const hb = B['hand' + side], Mh = bind[hb], th = side === 'F' ? -1 : 1, cyber = side === 'F';
-    const fist = rb(new THREE.BoxGeometry(0.09, FIST.len, 0.108, 3, 3, 3), 0.5, 0.05, 0.066, 0.06); fist.translate(0.004, FIST.len * 0.5 + 0.004, 0);
+    const fist = rb(new THREE.BoxGeometry(0.09, FIST.len, 0.104, 3, 3, 3), 0.68, 0.05, 0.066, 0.058); fist.translate(0.004, FIST.len * 0.5 + 0.004, 0);
     acc.add(fist, Mh, { part: 'hands', colorFn: (l) => (cyber ? pal.metalDark : (l.y < 0.05 ? pal.wrap : pal.skin)), shine: cyber ? 0.4 : 0, weights: W1(hb) });
     // knuckle plate: back of the hand + across the knuckle row (the striking face), glowing
     const kp = rb(new THREE.BoxGeometry(0.03, 0.07, 0.1, 1, 2, 3), 0.35, 0.02, 0.04, 0.056); kp.translate(-0.038, 0.082, 0);
@@ -98,7 +98,7 @@ export function buildBrawler(ctx) {
     tb.rotateX(-th * 1.35); tb.translate(0.04, 0.05, th * 0.044);
     acc.add(tb, Mh, { part: 'hands', color: cyber ? pal.metalDark : pal.skin, weights: W1(hb) });
     // gauntlet cuff at the wrist, flared, glowing rim
-    const cf = tube([{ y: -0.05, rx: 0 }, { y: -0.048, rx: 0.06, rz: 0.064 }, { y: -0.005, rx: 0.062, rz: 0.066 }, { y: 0.004, rx: 0.066, rz: 0.07 }, { y: 0.016, rx: 0.066, rz: 0.07 }, { y: 0.02, rx: 0 }], 10);
+    const cf = tube([{ y: -0.05, rx: 0 }, { y: -0.048, rx: 0.056, rz: 0.06 }, { y: -0.005, rx: 0.058, rz: 0.062 }, { y: 0.004, rx: 0.061, rz: 0.065 }, { y: 0.016, rx: 0.061, rz: 0.065 }, { y: 0.02, rx: 0 }], 10);
     acc.add(cf, Mh, { part: 'hands', colorFn: (l) => (l.y > 0.0 ? pal.trim : pal.metal), glowFn: (l) => (l.y > 0.0 ? 0.7 : 0), shine: 0.4, weights: (v, l) => { const k = smooth(-0.045, 0.0, l.y); return [[hb, k], [B['fa' + side], 1 - k]]; } });
   }
 

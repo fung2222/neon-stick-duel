@@ -172,12 +172,12 @@ def forms_shots(p, w=520, h=640):
         tiles, cur = [], 0.0
         for lab, ph, u in frames:
             tt = at(ph, u); cur = pg.evaluate('window.__duel.duel.a.t'); n = int(math.ceil((tt - cur) * 120 - 1e-6))
-            keep = "S.duel.a.y=Math.max(S.duel.a.y,1.6);S.duel.a.vy=0;" if mk.startswith('air') else ""
+            keep = ("S.duel.a.y=Math.max(S.duel.a.y,1.6);S.duel.a.vy=0;" if mk.startswith('air') else "") + "S.duel.a.x=-0.9;"   # pinned: the strip shows the form, not the dash
             if n > 0: pg.evaluate("(()=>{const S=window.__duel; for(let i=0;i<%d;i++){S.duel.a.t=Math.min(%f, S.duel.a.t+1/120); %s S.api.advance(1/120,1);} })()" % (n, tt, keep))
             else: pg.evaluate("window.__duel.api.advance(1/120,1)")
             cur = tt
             f = os.path.join(OUT, '_f.png'); shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
-            cw = int(w * 0.66); x0 = (w - cw) // 2; tile = im.crop((x0, int(h * 0.02), x0 + cw, int(h * 0.98)))
+            cw = int(w * 0.8); x0 = (w - cw) // 2 + int(w * 0.06); tile = im.crop((x0, int(h * 0.02), x0 + cw, int(h * 0.98)))
             d = ImageDraw.Draw(tile, 'RGBA'); d.rectangle((0, 0, cw, 30), fill=(6, 4, 18, 190)); d.text((8, 6), f'{lab}  {tt*1000:.0f} ms', fill=(255, 190, 110), font=font(15))
             tiles.append(tile)
         W = sum(t.width for t in tiles) + 6 * (len(tiles) - 1); out = Image.new('RGB', (W, tiles[0].height + 40), (8, 6, 20)); x = 0
@@ -193,12 +193,12 @@ def fight_shots(p):
         ctx, pg, errs = boot(b, w, h)
         fight(pg, cls=cls, stage=stage, clean=False)
         pg.add_style_tag(content="#banner,.banner,.popup{display:none!important}")
-        pg.evaluate("()=>{const d=window.__duel.duel; d.a.x=-0.55; d.b.x=0.75; window.__duel.cs=null;}")
+        pg.evaluate("()=>{const d=window.__duel.duel; d.a.x=-1.05; d.b.x=0.95; window.__duel.cs=null;}")
         if cls == 'brawler':   # mid-combo: the a2 cross landing on the Swordsman
             for i in range(160):
                 pg.evaluate("window.__duel.api.advance(1/60, 1, %s)" % COMBO_JS)
                 st = pg.evaluate("(()=>{const a=window.__duel.duel.a; return {st:a.st, mk:a.mk, t:a.t}})()")
-                if st['mk'] == 'a2' and st['t'] >= 0.085: break
+                if st["mk"] == "a2" and st["t"] >= 0.075: break
         else:   # the Brawler (foe) throws the stamping elbow while the Swordsman guards
             pg.evaluate("()=>{const d=window.__duel.duel; d.b.st='idle'; window.__duel.api.freezeFoe(true);}")
             pg.evaluate("window.__duel.api.setPose('b', {st:'atk', mk:'a3', t:0})")

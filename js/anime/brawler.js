@@ -58,8 +58,8 @@ export const POSES = {
   kneel: P({ rr: -PI * 2 + 0.5, py: 0.5, sp: 0.35, ch: 0.12, hd: -0.3, fFx: 0.34, fFy: A0, fBx: -0.22, fBy: 0.1, hF: 0, hB: 0.9, kF: 0, kB: 0.2, gx: 0.42, gy: 0.36, ga: H, ox: 0.2, oy: 1.1 }),
   stun: P({ py: 0.78, sp: -0.15, ch: -0.22, hd: 0.5, tw: 0.1, hF: 0, hB: 0, gx: 0.3, gy: 0.8, ga: 1.2, ox: -0.1, oy: 0.82, oa: 1.2 }),
   // win: 收功 sink into a horse stance with both fists chambered → one slow exhaled punch (held) → 抱拳禮 fist-to-fist salute, standing tall
-  winA: P({ py: 0.66, sp: 0.06, ch: 0.04, tw: 0.42, ctw: 0, hd: -0.05, ...HORSE, gx: 0.02, gy: 1.0, ga: PI, ox: -0.04, oy: 1.0, oa: PI }),
-  winB: P({ px: 0.06, py: 0.66, sp: 0.12, tw: 0.2, ctw: -0.4, hd: -0.1, ...HORSE, gx: 0.02, gy: 1.0, ga: PI, ox: 0.9, oy: 1.26, oa: 0 }),
+  winA: P({ py: 0.66, sp: 0.06, ch: 0.04, tw: 0.42, ctw: 0, hd: -0.05, ...HORSE, gx: 0.0, gy: 0.86, ga: PI, ox: -0.04, oy: 0.86, oa: PI }),
+  winB: P({ px: 0.06, py: 0.66, sp: 0.12, tw: 0.2, ctw: -0.4, hd: -0.1, ...HORSE, gx: 0.0, gy: 0.86, ga: PI, ox: 0.9, oy: 1.26, oa: 0 }),
   win: P({ px: -0.02, py: 0.9, sp: 0.1, ch: 0.04, tw: 0.25, ctw: -0.05, hd: 0.08, fFx: 0.2, fBx: -0.22, hF: 0, hB: 0, kF: 0, kB: 0.1, gx: 0.36, gy: 1.32, ga: H, ox: 0.36, oy: 1.34, oa: H }),
 };
 
@@ -77,7 +77,7 @@ const F = {
   // the rear heel pivots, the back leg straightens into a bow stance, hips + shoulders square through, the fist corkscrews palm-down;
   // the lead fist pulls back to the chin (push–pull)
   a2: {
-    A: P({ px: -0.02, py: 0.75, sp: 0.08, tw: 0.64, ctw: 0.05, fFx: 0.44, fBx: -0.44, hF: 0, hB: 0, kB: 0.42, gx: 0.64, gy: 1.36, ga: 0.9, ox: -0.02, oy: 1.0, oa: PI }),
+    A: P({ px: -0.02, py: 0.75, sp: 0.08, tw: 0.64, ctw: 0.05, fFx: 0.44, fBx: -0.44, hF: 0, hB: 0, kB: 0.42, gx: 0.64, gy: 1.36, ga: 0.9, ox: -0.02, oy: 0.95, oa: PI }),
     S: P({ px: 0.14, py: 0.73, sp: 0.2, ch: 0.06, hd: -0.14, tw: -0.05, ctw: -0.42, fFx: 0.56, fBx: -0.5, hF: 0, hB: 0.65, kF: -0.08, kB: 0.05, gx: 0.3, gy: 1.4, ga: H, ox: 0.94, oy: 1.36, oa: 0.12 }),
     E: P({ px: 0.16, py: 0.73, sp: 0.21, ch: 0.06, hd: -0.14, tw: -0.1, ctw: -0.45, fFx: 0.56, fBx: -0.5, hF: 0, hB: 0.68, kF: -0.08, kB: 0.05, gx: 0.29, gy: 1.4, ga: H, ox: 1.0, oy: 1.37, oa: 0.0 }),
     F: P({ px: 0.1, py: 0.75, sp: 0.14, hd: -0.12, tw: 0.15, ctw: -0.25, fFx: 0.54, fBx: -0.48, hF: 0, hB: 0.4, kB: 0.2, gx: 0.36, gy: 1.38, ga: H, ox: 0.56, oy: 1.34, oa: 0.8 }),
@@ -94,7 +94,7 @@ const F = {
   // 沖天炮 Knee-drive rising uppercut (rear fist, launcher): sink into a horse stance with the rear fist chambered low by the hip → the legs
   // drive up, the rear heel pivots, the hips turn through and the fist rises under the chin line → rises overhead on the toes; HELD
   a4: {
-    A: P({ px: -0.02, py: 0.63, sp: 0.3, ch: 0.12, hd: -0.16, tw: 0.62, ctw: 0.1, ...HORSE, fFx: 0.46, fBx: -0.46, gx: 0.36, gy: 1.2, ga: H, ox: 0.04, oy: 0.86, oa: PI * 0.85 }),
+    A: P({ px: -0.02, py: 0.63, sp: 0.3, ch: 0.12, hd: -0.16, tw: 0.62, ctw: 0.1, ...HORSE, fFx: 0.46, fBx: -0.46, gx: 0.36, gy: 1.2, ga: H, ox: 0.04, oy: 0.8, oa: PI * 0.85 }),
     S: P({ px: 0.12, py: 0.86, sp: 0.06, ch: -0.04, hd: -0.05, tw: 0.0, ctw: -0.36, fFx: 0.5, fBx: -0.42, kF: 0, kB: 0.1, hF: 0, hB: 0.7, gx: 0.3, gy: 1.46, ga: H, ox: 0.6, oy: 1.38, oa: H }),
     E: P({ px: 0.14, py: 0.92, sp: -0.06, ch: -0.1, hd: 0.14, tw: -0.08, ctw: -0.4, fFx: 0.5, fBx: -0.42, kF: 0, kB: 0.05, hF: 0.35, hB: 0.85, gx: 0.3, gy: 1.48, ga: H, ox: 0.5, oy: 1.94, oa: H }),
     F: P({ px: 0.13, py: 0.9, sp: -0.04, ch: -0.08, hd: 0.12, tw: -0.06, ctw: -0.38, fFx: 0.5, fBx: -0.42, kF: 0, kB: 0.05, hF: 0.25, hB: 0.8, gx: 0.3, gy: 1.46, ga: H, ox: 0.48, oy: 1.9, oa: H }),
@@ -136,7 +136,7 @@ const F = {
 // 百裂拳 Hundred Fists: chamber both fists at the hips → six 日字 chain punches (vertical fists, rolling over each other on the centre line)
 // stepping in → 擺肘 hooking elbow → 提膝 rising knee (clinch pull) → 震腳 stomp + horse-stance cross — HELD finishing pose
 const ULT = {
-  A: P({ py: 0.68, sp: 0.12, tw: 0.42, ctw: 0, ...HORSE, fFx: 0.46, fBx: -0.46, gx: 0.02, gy: 1.0, ga: PI, ox: -0.02, oy: 1.0, oa: PI }),
+  A: P({ py: 0.68, sp: 0.12, tw: 0.42, ctw: 0, ...HORSE, fFx: 0.46, fBx: -0.46, gx: 0.02, gy: 0.9, ga: PI, ox: -0.02, oy: 0.9, oa: PI }),
   CF: P({ px: 0.08, py: 0.74, sp: 0.14, hd: -0.12, tw: 0.36, ctw: 0.12, fFx: 0.5, fBx: -0.4, hF: 0, hB: 0.3, kF: -0.1, kB: 0.3, gx: 0.9, gy: 1.3, ga: H, ox: 0.3, oy: 1.26, oa: H }),
   CB: P({ px: 0.09, py: 0.74, sp: 0.15, hd: -0.12, tw: 0.2, ctw: -0.12, fFx: 0.5, fBx: -0.4, hF: 0, hB: 0.4, kF: -0.1, kB: 0.3, gx: 0.34, gy: 1.3, ga: H, ox: 0.88, oy: 1.24, oa: H }),
   MF: P({ px: 0.08, py: 0.75, sp: 0.13, hd: -0.12, tw: 0.3, ctw: 0.0, fFx: 0.5, fBx: -0.4, hF: 0, hB: 0.35, kF: -0.1, kB: 0.3, gx: 0.58, gy: 1.36, ga: H, ox: 0.6, oy: 1.22, oa: H }),   // fists crossing
@@ -145,9 +145,9 @@ const ULT = {
   W7: P({ px: 0.1, py: 0.8, sp: 0.02, tw: 0.4, ctw: 0, fFx: 0.48, fBx: -0.3, hF: 0, hB: 0.5, kF: 0, kB: 0.1, gx: 0.6, gy: 1.6, ga: H, ox: 0.52, oy: 1.58, oa: H }),
   K7: P({ px: 0.16, py: 0.84, sp: 0.12, ch: 0.06, hd: -0.12, tw: 0.3, ctw: 0, fFx: 0.48, fBx: 0.16, fBy: 0.46, aB: -0.4, hF: 0.3, hB: 0, kF: 0, kB: 0, gx: 0.56, gy: 1.22, ga: H, ox: 0.5, oy: 1.2, oa: H }),
   W8: P({ px: 0.06, py: 0.82, sp: 0.04, tw: 0.62, ctw: 0.1, fFx: 0.26, fFy: 0.28, aF: 0.15, fBx: -0.36, hF: 0, hB: 0, kF: 0, kB: 0.2, gx: 0.36, gy: 1.36, ga: H, ox: -0.02, oy: 1.0, oa: PI }),
-  C8: P({ px: 0.12, py: 0.6, sp: 0.2, ch: 0.06, hd: -0.16, tw: 0.08, ctw: -0.56, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: 0.02, gy: 1.0, ga: PI, ox: 0.96, oy: 1.24, oa: 0.06 }),
-  E8: P({ px: 0.13, py: 0.59, sp: 0.21, ch: 0.06, hd: -0.16, tw: 0.04, ctw: -0.58, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: 0.0, gy: 1.0, ga: PI, ox: 1.0, oy: 1.25, oa: 0.0 }),
-  Hz: P({ px: 0.12, py: 0.6, sp: 0.2, ch: 0.06, hd: -0.15, tw: 0.05, ctw: -0.57, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: 0.01, gy: 1.0, ga: PI, ox: 0.98, oy: 1.25, oa: 0.02 }),
+  C8: P({ px: 0.12, py: 0.6, sp: 0.2, ch: 0.06, hd: -0.16, tw: 0.08, ctw: -0.56, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: -0.02, gy: 0.84, ga: PI, ox: 0.96, oy: 1.24, oa: 0.06 }),
+  E8: P({ px: 0.13, py: 0.59, sp: 0.21, ch: 0.06, hd: -0.16, tw: 0.04, ctw: -0.58, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: -0.03, gy: 0.83, ga: PI, ox: 1.0, oy: 1.25, oa: 0.0 }),
+  Hz: P({ px: 0.12, py: 0.6, sp: 0.2, ch: 0.06, hd: -0.15, tw: 0.05, ctw: -0.57, ...HORSE, fFx: 0.54, fBx: -0.5, kF: -0.3, kB: 0.66, gx: -0.03, gy: 0.83, ga: PI, ox: 0.98, oy: 1.25, oa: 0.02 }),
 };
 /** which limb strikes (AnimeFighter.fistSeg): 0 lead fist · 1 rear fist · 2 lead elbow · 3 rear elbow · 4 lead knee · 5 rear knee · 6 lead
  *  foot · 'auto' = per key (`limb` tags on the ult flurry) */

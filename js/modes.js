@@ -50,7 +50,7 @@ export function endlessFoe(floor) {
       color: Z.color,
       // capped like every endless curve: 30F ≈ ladder fight 10, then it creeps up and stops at 150F
       diff: Math.min(0.94, capCurve(n, 0.18, 0.95, 16) + 0.02),
-      hpMul: Math.min(2.9, 2.2 + (k - 1) * 0.15), dmgMul: Math.min(1.3, 1.12 + (k - 1) * 0.04),
+      hpMul: Math.min(3.0, 2.6 + (k - 1) * 0.1), dmgMul: Math.min(1.3, 1.2 + (k - 1) * 0.02),
       ultGain: Z.ultGain, scale: Z.scale, time: Z.time,
     };
   }

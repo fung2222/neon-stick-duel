@@ -197,6 +197,11 @@ def run_boss(p, w=412, h=915, lang='zh'):
     print('   phase-2 boss moves seen:', sorted(x for x in seen if x))
     shot(pg, f'boss-phase2-{w}x{h}-{lang}')
     check(force_win(pg), f'{tag}: boss KO → result')
+    # endless: every 30th floor is an echo of the final boss
+    check(start(pg, 'endless', 'mage', floor=29), f'{tag}: endless 30F starts')
+    e = pg.evaluate("(()=>{const S=window.__duel; return {cls: S.duel.b.cls, boss: !!S.foe.boss, name: document.getElementById('hp-name-b').textContent}})()")
+    check(e['cls'] == 'shogun' and e['boss'], f'{tag}: 30F = echo of ZERO ({e})')
+    pg.wait_for_timeout(2500)
     check(not errs, f'{tag}: zero console errors {errs[:3]}')
     b.close()
 

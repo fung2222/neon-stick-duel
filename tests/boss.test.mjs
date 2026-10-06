@@ -181,7 +181,7 @@ test('ladder fight 10 = 塔主・零 (shogun), endless 30F / 60F … = echoes wi
   const z = ladderFoe(9, 'sword'); assert.equal(LADDER[9].id, 'zero'); assert.equal(z.cls, 'shogun'); assert.ok(z.boss && z.final && z.time >= 90);
   for (const n of [9, 19, 39, 49]) assert.ok(CLASS_IDS.includes(endlessFoe(n).cls), 'floor ' + n);
   for (const n of [29, 59, 89]) { const f = endlessFoe(n); assert.ok(isZeroFloor(n) && f.cls === 'shogun' && f.boss); }
-  const far = endlessFoe(30 * 400 - 1); assert.ok(far.diff <= 0.95 && far.hpMul <= 2.9 && far.dmgMul <= 1.3, 'capped');
+  const far = endlessFoe(30 * 400 - 1); assert.ok(far.diff <= 0.95 && far.hpMul <= 3.0 && far.dmgMul <= 1.3, 'capped');
 });
 
 test(`balance: ladder player (diff ${LADDER_PLAYER_DIFF}) wins fight 10 35–50 % first try for every class (400 fights each)`, () => {

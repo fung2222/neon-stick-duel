@@ -7,7 +7,7 @@
 // Clips ("forms") are key lists timed from the move's frame data, so the contact key always lands on the first active
 // frame and balance never changes. The POWER CHAIN: feet lead the hips, the hips lead the torso, the torso leads the arm
 // and blade — evalChain() samples each channel group slightly ahead in time, so every strike starts in the feet.
-import { POSE_KEYS, lerpPose, EASE } from '../rig/core.js';
+import { POSE_KEYS, EASE } from '../rig/core.js';
 
 export const XKEYS = ['sy', 'pv', 'hF', 'hB', 'kF', 'kB', 'sh'];
 export const AKEYS = [...POSE_KEYS, ...XKEYS];
@@ -22,37 +22,54 @@ export const XE = {
   hold: (k) => k,
 };
 
-export function copyA(p, out = {}) { for (const q of AKEYS) out[q] = p[q] ?? 0; return out; }
-/** lerp all channels; grips travel on arcs (core lerpPose); wrap = blade angle the short way (state crossfades) */
-export function lerpA(a, b, k, out = {}, wrap = false) {
-  lerpPose(a, b, k, out, wrap);
-  for (const q of XKEYS) { const x = a[q] ?? 0, y = b[q] ?? 0; out[q] = x + (y - x) * k; }
-  return out;
+/** a pose buffer with every channel present from the start (fixed object shape → V8 keeps fast double fields, so
+ *  writing poses every frame does not allocate) */
+export function blankA() {
+  return { px: 0.5, py: 0.5, pt: 0.5, sp: 0.5, ch: 0.5, tw: 0.5, ctw: 0.5, hd: 0.5, rr: 0.5, fFx: 0.5, fFy: 0.5, fBx: 0.5, fBy: 0.5, aF: 0.5, aB: 0.5,
+    gx: 0.5, gy: 0.5, ga: 0.5, gw: 0.5, ox: 0.5, oy: 0.5, oh: 0.5, sy: 0.5, pv: 0.5, hF: 0.5, hB: 0.5, kF: 0.5, kB: 0.5, sh: 0.5 };
 }
+// copy / lerp are generated with every channel unrolled as a named property access: the call sites stay monomorphic,
+// V8 keeps the doubles unboxed, and the per-frame pose maths allocates nothing (keyed loops over AKEYS boxed every value).
+const gen = (body) => new Function('a', 'b', 'k', 'out', 'GP0', 'GP1', 'wrapA', 'wrap', body);
+const COPY = gen(AKEYS.map((q) => `out.${q} = a.${q} === undefined ? 0 : a.${q};`).join('\n') + '\nreturn out;');
+const LERP = gen(AKEYS.map((q) => `out.${q} = a.${q} + (b.${q} - a.${q}) * k;`).join('\n') + `
+  const ax = a.gx - GP0, ay = a.gy - GP1, bx = b.gx - GP0, by = b.gy - GP1;
+  const ra = Math.sqrt(ax * ax + ay * ay), rb = Math.sqrt(bx * bx + by * by);
+  if (ra > 0.08 && rb > 0.08) {
+    const aa = Math.atan2(ay, ax), ab = aa + wrapA(Math.atan2(by, bx) - aa), r = ra + (rb - ra) * k, an = aa + (ab - aa) * k;
+    out.gx = GP0 + Math.cos(an) * r; out.gy = GP1 + Math.sin(an) * r;
+  }
+  out.ga = a.ga + (wrap ? wrapA(b.ga - a.ga) : b.ga - a.ga) * k;
+  return out;`);
+const GP0 = 0.05, GP1 = 1.42;   // = core GRIP_PIVOT: grips interpolate on arcs around this chest-level point
+export function copyA(p, out = blankA()) { return COPY(p, null, 0, out); }
+/** lerp all channels (same maths as core lerpPose: grips travel on arcs; wrap = blade angle the short way for crossfades).
+ *  Both poses must carry every channel (tests/anime.test.mjs checks all authored poses). */
+export function lerpA(a, b, k, out = blankA(), wrap = false) { return LERP(a, b, k, out, GP0, GP1, wrapA, wrap); }
 /** normalise a snapshot so crossfades never unwind a full spin / roll (−2π ≡ 0) */
 export function normSnap(p) { p.sy = wrapA(p.sy || 0); p.rr = wrapA(p.rr || 0); return p; }
 /** keyed clip: keys [{ t, p, e }] (p = pose | 'from'); e = easing into the key */
-export function evalA(keys, t, from, out = {}) {
-  const P = (k) => (k.p === 'from' ? from : k.p);
-  if (t <= keys[0].t) return copyA(P(keys[0]), out);
+export function evalA(keys, t, from, out = blankA()) {
+  if (t <= keys[0].t) return copyA(keys[0].p === 'from' ? from : keys[0].p, out);
   for (let i = 1; i < keys.length; i++) {
     const k1 = keys[i];
-    if (t <= k1.t) { const k0 = keys[i - 1], u = (t - k0.t) / Math.max(1e-6, k1.t - k0.t); return lerpA(P(k0), P(k1), (XE[k1.e] || XE.inOutSine)(u), out, k0.p === 'from' || k1.p === 'from'); }
+    if (t <= k1.t) { const k0 = keys[i - 1], u = (t - k0.t) / Math.max(1e-6, k1.t - k0.t); return lerpA(k0.p === 'from' ? from : k0.p, k1.p === 'from' ? from : k1.p, (XE[k1.e] || XE.inOutSine)(u), out, k0.p === 'from' || k1.p === 'from'); }
   }
-  return copyA(P(keys[keys.length - 1]), out);
+  const kl = keys[keys.length - 1]; return copyA(kl.p === 'from' ? from : kl.p, out);
 }
 export const FEET = ['fFx', 'fFy', 'fBx', 'fBy', 'aF', 'aB', 'hF', 'hB', 'kF', 'kB'];
 export const HIPS = ['px', 'py', 'pt', 'tw', 'pv'];
 export const TORSO = ['sp', 'ch', 'ctw', 'hd'];
-const _f = {}, _h = {}, _t = {};
+const _f = blankA(), _h = blankA(), _t = blankA();
+const CHAIN = new Function('f', 'h', 't', 'out', [...FEET.map((q) => `out.${q} = f.${q};`), ...HIPS.map((q) => `out.${q} = h.${q};`), ...TORSO.map((q) => `out.${q} = t.${q};`)].join('\n'));
 /** power chain: feet sample `lead`×2 ahead, hips ×1.3, torso ×0.6, arm + blade + spin + roll exactly at t (contact unchanged).
  *  The lead ramps in over the first 2·lead seconds so a clip still starts exactly at the crossfade snapshot. */
-export function evalChain(keys, t, from, out = {}, lead = 0.028) {
+export function evalChain(keys, t, from, out = blankA(), lead = 0.028) {
   evalA(keys, t, from, out);
   if (lead <= 0) return out;
   const r = clamp(t / (2 * lead), 0, 1);
   evalA(keys, t + lead * 2 * r, from, _f); evalA(keys, t + lead * 1.3 * r, from, _h); evalA(keys, t + lead * 0.6 * r, from, _t);
-  for (const q of FEET) out[q] = _f[q]; for (const q of HIPS) out[q] = _h[q]; for (const q of TORSO) out[q] = _t[q];
+  CHAIN(_f, _h, _t, out);
   return out;
 }
 /** build a form from frame data: list of [phase, u, pose, ease, fx] with phase s (startup) · a (active) · r (recovery) ·

@@ -5,6 +5,9 @@ import assert from 'node:assert/strict';
 import { solve, SK, POSE_KEYS, RIG_SCALE } from '../js/rig/core.js';
 import { evalChain, evalA, spinPt, splayKnee, AKEYS, XE, normSnap, copyA } from '../js/anime/clip.js';
 import { PROFILE, POSES, STANCE, FORMS, contactPose } from '../js/anime/sword.js';
+import { makeJ, solveInto } from '../js/anime/solve.js';
+import { lerpPose } from '../js/rig/core.js';
+import { lerpA } from '../js/anime/clip.js';
 import { CLASSES, TUNE } from '../js/duel.js';
 
 let passed = 0, failed = 0;
@@ -65,6 +68,20 @@ test('spins end on a whole turn; snapshots normalise (no unwinding); knee splay 
   const p = normSnap({ sy: -Math.PI * 2, rr: -Math.PI * 2 + 0.1 }); assert.ok(Math.abs(p.sy) < 1e-9 && Math.abs(p.rr - 0.1) < 1e-9);
   const h = [0, 0.9, 0.1], k = [0.2, 0.5, 0.1], a = [0.1, 0.08, 0.1], o = splayKnee(h, k, a, 1.1);
   assert.ok(Math.abs(Math.hypot(o[0] - h[0], o[1] - h[1], o[2] - h[2]) - Math.hypot(k[0] - h[0], k[1] - h[1])) < 1e-9 && Math.abs(Math.hypot(o[0] - a[0], o[1] - a[1], o[2] - a[2]) - Math.hypot(k[0] - a[0], k[1] - a[1])) < 1e-9);
+});
+test('allocation-free solveInto / lerpA match core solve / lerpPose exactly (every form sampled, planted feet, rolls)', () => {
+  const J = makeJ(); let n = 0, maxE = 0;
+  const cmp = (p, opts) => { const a = solve(p, opts), b = solveInto(p, opts.plantF || null, opts.plantB || null, J); n++;
+    for (const k of ['pelvis', 'lumbar', 'neckB', 'neckT', 'head', 'shF', 'shB', 'hipF', 'hipB', 'kneeF', 'ankleF', 'kneeB', 'ankleB', 'elbowF', 'handF', 'elbowB', 'handB', 'bladeDir', 'base', 'tip', 'grip', 'hilt'])
+      for (let i = 0; i < 3; i++) maxE = Math.max(maxE, Math.abs((a[k][i] ?? 0) - b[k][i]));
+    for (const k of ['kF', 'kB', 'eF', 'eB']) maxE = Math.max(maxE, Math.abs(a.bends[k] - b.bends[k])); maxE = Math.max(maxE, Math.abs(a.drop - b.drop)); };
+  for (const [key, m] of Object.entries(C.moves)) { const keys = PROFILE.moveKeys(key, m); if (!keys) continue; const T = m.t[0] + m.t[1] + m.t[2] + 0.3;
+    for (let t = 0; t <= T; t += 0.01) { const p = evalChain(keys, t, STANCE, {}, PROFILE.lead); cmp(p, {}); cmp(p, { plantF: [p.fFx + 0.05, 0.075, 0.1], plantB: [p.fBx - 0.04, 0.075, -0.1] }); } }
+  for (const p of Object.values(POSES)) cmp(p, {});
+  for (const [a, b] of [[POSES.stance, POSES.jump], [POSES.guard, POSES.rollB], [STANCE, POSES.win]]) for (let k = 0; k <= 1; k += 0.1) for (const w of [false, true]) {
+    const x = lerpPose(a, b, k, {}, w), y = lerpA(a, b, k, undefined, w); for (const q of POSE_KEYS) maxE = Math.max(maxE, Math.abs(x[q] - y[q])); }
+  report.solveIntoSamples = n; report.solveIntoMaxErr = maxE;
+  assert.ok(maxE < 1e-9, 'max deviation ' + maxE);
 });
 console.log(JSON.stringify(report));
 console.log(`\n${passed} passed, ${failed} failed`);

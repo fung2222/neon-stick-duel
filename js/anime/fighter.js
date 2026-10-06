@@ -5,8 +5,9 @@
 // solve() → knee splay → skinned bones → verlet chains (coat panels collide with the legs, sash, ponytail, hair spikes).
 import * as THREE from 'three';
 import { HQFighter } from '../rig/hq-fighter.js';
-import { solve, spring, SK, EASE, RIG_SCALE } from '../rig/core.js';
-import { evalChain, evalA, lerpA, copyA, normSnap, spinPt, splayKnee, XE, wrapA } from './clip.js';
+import { spring, SK, EASE, RIG_SCALE } from '../rig/core.js';
+import { makeJ, solveInto } from './solve.js';
+import { evalChain, evalA, lerpA, copyA, blankA, normSnap, spinPt, splayKnee, XE, wrapA } from './clip.js';
 import { buildCharacter, frameMat, BODY } from './builder.js';
 import { ANIME_CLASSES } from './configs.js';
 import { FACE } from './toon.js';
@@ -17,17 +18,35 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const B = Object.fromEntries(BODY.map((n, i) => [n, i]));
 const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _s = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(),
   _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _inv = new THREE.Matrix4(), UPV = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _d = new THREE.Vector3();
-const A3 = () => [0, 0, 0];
+const A3 = () => new Float64Array(3);
 const TAU = Math.PI * 2;
+const SIDES = ['F', 'B'];
+// numeric clip ids (no per-frame string building): state × 1e6 + sequence
+const STID = { idle: 1, walk: 2, guard: 3, block: 4, jump: 5, dodge: 6, atk: 7, hit: 8, air: 9, koAir: 10, ko: 11, down: 12, rise: 13, stun: 14, win: 15, intro: 16 };
 
 export class AnimeFighter extends HQFighter {
   constructor(scene) {
     super(scene);
-    this.cues = []; this.cueOut = [];
-    this.kpA = {}; this.snapA = {}; this._p = {}; this._t1 = {}; this._t2 = {}; this._lp = {}; this.rolled = null;
+    this.cues = []; this.cueOut = []; this.cuePool = Array.from({ length: 8 }, () => ({ type: '', x: 0, y: 0, k: 1, c: null })); this.cueN = 0;
+    this.kpA = blankA(); this.snapA = blankA(); this._p = blankA(); this._t1 = blankA(); this._t2 = blankA(); this._lp = blankA(); this._q = blankA(); this._tp = blankA(); this.rolled = null;
+    this.Jm = makeJ(); this.J0 = makeJ(); this.Jt = makeJ(); this.Jq = makeJ(); this._sh = {}; this._sh2 = {};
+    this.hitKeys = [{ t: 0, p: 'from' }, { t: 0.045, p: null, e: 'whip' }, { t: 0.2, p: null, e: 'outSine' }, { t: 0.4, p: null, e: 'inOutSine' }];
+    this.hitPoses = null; this.hitK0 = blankA(); this.hitR0 = blankA();
+    this.offB = A3(); this.offT = A3(); this.smpPool = Array.from({ length: 24 }, () => ({ b: new THREE.Vector3(), t: new THREE.Vector3() })); this._smp = [];
+    // allocation-free blade trail: pooled ring of samples instead of cloning vectors every frame
+    const tr = this.trail; tr.pool = Array.from({ length: tr.max }, () => ({ b: new THREE.Vector3(), t: new THREE.Vector3(), age: 0 })); tr.n = 0; tr.head = 0;
+    tr.update = poolTrailUpdate; tr.clear = function () { this.n = 0; this.mesh.visible = false; };
     this.Jw = { hip: new THREE.Vector3(), head: new THREE.Vector3(), neck: new THREE.Vector3(), handF: new THREE.Vector3(), handB: new THREE.Vector3(), footF: new THREE.Vector3(), footB: new THREE.Vector3(), tip: new THREE.Vector3(), base: new THREE.Vector3() };
     this.caps = Array.from({ length: 4 }, () => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), r: 0 }));
     this.kneeF = A3(); this.kneeB = A3(); this.sp0 = A3(); this.sp1 = A3();
+  }
+  stateOf(f) {
+    const b = (STID[f.st] || 99) * 1e6;
+    if (f.st === 'atk' && f.mk) return b + (f.seq % 1e6);
+    if (f.st === 'jump') return b + (f.djT < 0.42 ? 1 : 0);
+    if (f.st === 'hit') return b + (this.hitN % 1e6);
+    if (f.st === 'ko') return b + (f.y > 0.3 ? 1 : 0);
+    return b;
   }
   resetAnim() {
     super.resetAnim();
@@ -55,7 +74,8 @@ export class AnimeFighter extends HQFighter {
         c, ok: false, anchor: ch.bones[c.anchor], bones: c.bones.map((i) => ch.bones[i]),
         rest: c.pts.map((p) => p.clone().applyMatrix4(inv)), restQ: c.bones.map((i) => qa.clone().multiply(bindQ(ch.bind[i]))),
         p: c.pts.map(() => new THREE.Vector3()), o: c.pts.map(() => new THREE.Vector3()), r: c.pts.map(() => new THREE.Vector3()), rl: c.pts.map(() => new THREE.Vector3()),
-        stiff: c.stiff, len: c.pts.slice(1).map((p, i) => p.distanceTo(c.pts[i])),
+        stiff: Float64Array.from(c.stiff), len: Float64Array.from(c.pts.slice(1).map((p, i) => p.distanceTo(c.pts[i]))),
+        drag: +c.drag, grav: +c.grav, collide: !!c.collide, ang: +(c.ang || 0),   // flat numeric params: one object shape for every chain
       };
     });
     this.rolled = { ...this.prof.stance, rr: -TAU };
@@ -73,13 +93,13 @@ export class AnimeFighter extends HQFighter {
     const t = this.char ? this.char.tris : { body: 0, weapon: 0, face: 0 };
     return { unique: t.body + t.weapon + t.face, drawn: 2 * t.body + 2 * t.weapon + t.face, calls: 5, bones: this.char ? this.char.bones.length : 0 };
   }
-  takeFx() { const o = this.cueOut; o.length = 0; for (const c of this.cues) o.push(c); this.cues.length = 0; return o; }
-  cue(type, x, y, k = 1) { if (this.cues.length < 8) this.cues.push({ type, x, y, k, c: this.c }); }
+  takeFx() { const o = this.cueOut; o.length = 0; for (let i = 0; i < this.cueN; i++) o.push(this.cuePool[i]); this.cueN = 0; return o; }
+  cue(type, x, y, k = 1) { if (this.cueN >= 8) return; const c = this.cuePool[this.cueN++]; c.type = type; c.x = x; c.y = y; c.k = k; c.c = this.c; }
 
   onHit(e) {
     super.onHit(e);
     const st = this.prof.stance, V0 = this.prof.poses[this.hitV] || this.prof.poses.hitMid;
-    this.hitPoses = { k: lerpA(st, V0, this.hitK, {}), r: lerpA(st, V0, this.hitK * 0.7, {}) };
+    lerpA(st, V0, this.hitK, this.hitK0); lerpA(st, V0, this.hitK * 0.7, this.hitR0); this.hitPoses = true;
   }
 
   // ---------------------------------------------------------------- state machine → keyed pose (anime forms)
@@ -90,11 +110,11 @@ export class AnimeFighter extends HQFighter {
   keyed(f, dt, t) {
     const Pz = this.prof.poses, st = this.prof.stance, out = this._p;
     let id = this.stateOf(f);
-    if (f.st === 'block' && id === this.id && f.t + 1e-6 < this.lastFt) id = 'block:' + (++this.blockN);
+    if (f.st === 'block' && id === this.id && f.t + 1e-6 < this.lastFt) id = STID.block * 1e6 + (++this.blockN % 1e6);
     if (id !== this.id) { normSnap(copyA(this.kp ? this.kpA : st, this.snapA)); this.snap = this.snapA; this.id = id; this.stT = 0; }
     else this.stT += dt;
     this.lastFt = f.t;
-    const S = this.snapA, T = this.stT, xf = (pose, dur, e = 'inOutSine') => lerpA(S, pose, XE[e](clamp(T / dur, 0, 1)), out, true);
+    const S = this.snapA, T = this.stT, xf = this.xfB || (this.xfB = (pose, dur, e = 'inOutSine') => lerpA(this.snapA, pose, XE[e](clamp(this.stT / dur, 0, 1)), this._p, true));
     let rrAdd = 0;
     switch (f.st) {
       case 'atk': { const keys = this.keysFor(f); if (keys) evalChain(keys, f.t, S, out, this.prof.lead); else xf(st, 0.15); break; }
@@ -116,8 +136,9 @@ export class AnimeFighter extends HQFighter {
         xf(Pz.dodge, 0.05, 'outQuad'); lerpA(out, st, clamp((k - 0.75) / 0.25, 0, 1), out); rrAdd = fw * TAU * EASE.inOutSine(k); break;
       }
       case 'hit': {
-        const H = this.hitPoses || { k: Pz.hitMid, r: Pz.hitMid }, su = Math.max(0.12, f.stunT || 0.3);
-        evalA([{ t: 0, p: 'from' }, { t: 0.045, p: H.k, e: 'whip' }, { t: su * 0.6, p: H.r, e: 'outSine' }, { t: su + 0.08, p: st, e: 'inOutSine' }], f.t, S, out); break;
+        const su = Math.max(0.12, f.stunT || 0.3), hk = this.hitKeys;
+        hk[1].p = this.hitPoses ? this.hitK0 : Pz.hitMid; hk[2].p = this.hitPoses ? this.hitR0 : Pz.hitMid; hk[2].t = su * 0.6; hk[3].p = st; hk[3].t = su + 0.08;
+        evalA(hk, f.t, S, out); break;
       }
       case 'air': case 'koAir': {
         const base = this.lastHitSpike && f.vy < 0 ? Pz.spiked : Pz.airHit;
@@ -144,9 +165,9 @@ export class AnimeFighter extends HQFighter {
     const lead = walk ? f.vx * dur * 0.6 : atk ? f.vx * 0.04 : f.vx * 0.05;
     const lift = walk ? (stp.liftWalk || 0.05) : atk ? 0.05 : (stp.lift || 0.04);
     const gy = baseY + 0.075 * s, spinning = Math.abs(wrapA(p.sy || 0)) > 0.06;
-    const want = this._want || (this._want = {}), err = this._err || (this._err = {});
-    for (const side of ['F', 'B']) {
-      const ft = this.feet[side], lx = p['f' + side + 'x'], ly = p['f' + side + 'y'];
+    const want = this._want || (this._want = { F: false, B: false }), err = this._err || (this._err = { F: 0, B: 0 });
+    for (let si = 0; si < 2; si++) { const side = SIDES[si];
+      const ft = this.feet[side], lx = si ? p.fBx : p.fFx, ly = si ? p.fBy : p.fFy;
       want[side] = grounded && !skid && !spinning && Math.abs(p.rr) < 0.05 && ly <= SK.ankle + 0.03 && this.turnT >= 0.5;
       if (!want[side]) { ft.planted = false; ft.step = null; continue; }
       const wpos = this.rig.localToWorld(_v.set(lx, SK.ankle, 0)), dx = wpos.x + lead;
@@ -155,18 +176,18 @@ export class AnimeFighter extends HQFighter {
     }
     if (!this.feet.F.step && !this.feet.B.step) {
       let pick = null, best = 0;
-      for (const q of ['F', 'B']) if (want[q] && this.feet[q].planted && err[q] > tol && err[q] > best) { best = err[q]; pick = q; }
-      if (pick) { const ft = this.feet[pick]; ft.step = { k: 0, from: ft.w.x, dur, lift }; ft.planted = false; }
+      for (let si = 0; si < 2; si++) { const q = SIDES[si]; if (want[q] && this.feet[q].planted && err[q] > tol && err[q] > best) { best = err[q]; pick = q; } }
+      if (pick) { const ft = this.feet[pick], so = ft.stepObj || (ft.stepObj = { k: 0, from: 0, dur: 0, lift: 0 }); so.k = 0; so.from = ft.w.x; so.dur = dur; so.lift = lift; ft.step = so; ft.planted = false; }
     }
     const res = this._res || (this._res = { F: null, B: null });
-    for (const side of ['F', 'B']) {
+    for (let si = 0; si < 2; si++) { const side = SIDES[si];
       const ft = this.feet[side]; if (!want[side]) { res[side] = null; continue; }
       if (ft.step) {
         ft.step.k += dt / ft.step.dur; const k = Math.min(1, ft.step.k), e = EASE.inOutSine(k);
         ft.w.set(ft.step.from + (ft.target - ft.step.from) * e, gy + Math.sin(Math.PI * k) * ft.step.lift * s, 0);
         if (k >= 1) { ft.step = null; ft.planted = true; ft.w.y = gy; if (atk && Math.abs(f.vx) > 1) this.cue('slide', ft.w.x, baseY); }
       }
-      const l = this.rig.worldToLocal(_v.copy(ft.w)), h = p['h' + side] || 0;
+      const l = this.rig.worldToLocal(_v.copy(ft.w)), h = (si ? p.hB : p.hF) || 0;
       out[side][0] = l.x - 0.04 * (1 - Math.cos(h * 0.5)); out[side][1] = l.y + 0.15 * Math.sin(h * 0.5); out[side][2] = 0;   // heel lift: pivot on the ball of the foot
       res[side] = out[side];
     }
@@ -193,7 +214,7 @@ export class AnimeFighter extends HQFighter {
     let p = this._lp, rrAdd;
     if (frozen && this.lastPose) { rrAdd = this.lastRr; }
     else { rrAdd = this.keyed(f, rdt, t); copyA(this._p, p); this.lastPose = true; this.lastRr = rrAdd; this.fxCues(f); }
-    const q = this._q || (this._q = {}); copyA(p, q); p = q;
+    const q = this._q; copyA(p, q); p = q;
     if (this.landT < 0.2 && (f.st === 'idle' || f.st === 'walk' || f.st === 'guard')) lerpA(p, P.land, Math.sin(Math.PI * Math.min(1, this.landT / 0.2)) * 0.7, p);
     if (this.turnT < 1) lerpA(p, P.turn, Math.sin(Math.PI * this.turnT) * 0.6, p);
     const sp = this.sp;
@@ -211,18 +232,18 @@ export class AnimeFighter extends HQFighter {
     this.rig.position.set(s * pv * (1 - Math.cos(sy)), this.rig.position.y, s * pv * Math.sin(sy));
     this.group.updateMatrixWorld(true);
     // sheath flourish: the grip goes to the koiguchi (computed from the pelvis frame) — first solve for the pelvis
-    if (p.sh > 0 && this.char.sheath) { const J0 = solve(p); this.sheathAt(J0, p, this._sh || (this._sh = {})); const k = clamp(p.sh / 0.15, 0, 1); p.gx += (this._sh.gx - p.gx) * k; p.gy += (this._sh.gy - p.gy) * k; p.ox += (this._sh.mx - p.ox) * k; p.oy += (this._sh.my - p.oy) * k; }
+    if (p.sh > 0 && this.char.sheath) { const J0 = solveInto(p, null, null, this.J0); this.sheathAt(J0, p, this._sh); const k = clamp(p.sh / 0.15, 0, 1); p.gx += (this._sh.gx - p.gx) * k; p.gy += (this._sh.gy - p.gy) * k; p.ox += (this._sh.mx - p.ox) * k; p.oy += (this._sh.my - p.oy) * k; }
     const plants = this.footTargets(f, p, rdt, grounded, baseY);
-    const J = solve(p, { plantF: plants.F, plantB: plants.B });
-    J.kneeF = splayKnee(J.hipF, J.kneeF, J.ankleF, p.kF || 0, this.kneeF); J.kneeB = splayKnee(J.hipB, J.kneeB, J.ankleB, p.kB || 0, this.kneeB);
+    const J = solveInto(p, plants.F, plants.B, this.Jm);
+    splayKnee(J.hipF, J.kneeF, J.ankleF, p.kF || 0, J.kneeF); splayKnee(J.hipB, J.kneeB, J.ankleB, p.kB || 0, J.kneeB);
     let lift = 0;
     if (grounded) { const lo = Math.min(J.head[1] - 0.15, J.kneeF[1] - 0.06, J.kneeB[1] - 0.06, J.ankleF[1] - 0.075, J.ankleB[1] - 0.075, J.pelvis[1] - 0.1, J.handF[1] - 0.05, J.handB[1] - 0.05); if (lo < 0) lift = -lo; }
     this.rig.position.y = lift * s;
     this.placeBones(J, p, sy);
     this.group.updateMatrixWorld(true);
     // world joints for FX + contact points (preallocated)
-    const W = (a, o) => this.rig.localToWorld(o.set(a[0], a[1], a[2] || 0)), Jw = this.Jw;
-    W(J.pelvis, Jw.hip); W(J.head, Jw.head); W(J.neckB, Jw.neck); W(J.handF, Jw.handF); W(J.handB, Jw.handB); W(J.ankleF, Jw.footF); W(J.ankleB, Jw.footB);
+    const Jw = this.Jw;
+    this.W(J.pelvis, Jw.hip); this.W(J.head, Jw.head); this.W(J.neckB, Jw.neck); this.W(J.handF, Jw.handF); this.W(J.handB, Jw.handB); this.W(J.ankleF, Jw.footF); this.W(J.ankleB, Jw.footB);
     this.bladeWorld(J, Jw);
     this.joints = Jw;
     if (rdt > 0) { if (this.lastTipW) this.tipVel.subVectors(Jw.tip, this.lastTipW).divideScalar(rdt); (this.lastTipW || (this.lastTipW = new THREE.Vector3())).copy(Jw.tip); }
@@ -260,6 +281,7 @@ export class AnimeFighter extends HQFighter {
     }
     this.fxT = f.t;
   }
+  W(a, o) { return this.rig.localToWorld(o.set(a[0], a[1], a[2] || 0)); }
   /** koiguchi (saya mouth) + blade direction in rig space, from the pelvis frame */
   sheathAt(J, p, out) {
     frameMat(J.pelvis, J.lumbar, p.tw, _m);
@@ -289,20 +311,22 @@ export class AnimeFighter extends HQFighter {
     this.setBone(B.handB, J.handB, b.hb, 0);
     this.setBone(B.thF, J.hipF, J.kneeF, 0); this.setBone(B.shinF, J.kneeF, J.ankleF, 0);
     this.setBone(B.thB, J.hipB, J.kneeB, 0); this.setBone(B.shinB, J.kneeB, J.ankleB, 0);
-    for (const [side, an, pitch] of [['F', J.ankleF, p.aF], ['B', J.ankleB, p.aB]]) {
-      const planted = this.feet[side].planted || this.feet[side].step, h = p['h' + side] || 0;
+    for (let si = 0; si < 2; si++) {
+      const side = SIDES[si], an = si ? J.ankleB : J.ankleF, pitch = si ? p.aB : p.aF;
+      const planted = this.feet[side].planted || this.feet[side].step, h = (si ? p.hB : p.hF) || 0;
       const a = (planted ? -h * 0.5 : pitch - h * 0.3) + J.roll;
       b.ft[0] = an[0] + Math.cos(a); b.ft[1] = an[1] + Math.sin(a); b.ft[2] = an[2];
-      this.setBone(B['foot' + side], an, b.ft, 0);
+      this.setBone(si ? B.footB : B.footF, an, b.ft, 0);
     }
     // katana at the weapon hand (or sliding into the saya during the win flourish)
     const w = this.char.weapon;
     if (p.sh > 0 && this.char.sheath) {
-      const S = this.sheathAt(J, p, this._sh2 || (this._sh2 = {})), k = EASE.inOutSine(clamp(p.sh / 0.15, 0, 1)), d = 0.08 + (1 - p.sh) * 0.62;
+      const S = this.sheathAt(J, p, this._sh2), k = EASE.inOutSine(clamp(p.sh / 0.15, 0, 1)), d = 0.08 + (1 - p.sh) * 0.62;
       b.hd[0] = S.mx - S.dx * d; b.hd[1] = S.my - S.dy * d; b.hd[2] = S.mz - S.dz * d;
       const ax = J.handF[0] + (b.hd[0] - J.handF[0]) * k, ay = J.handF[1] + (b.hd[1] - J.handF[1]) * k, az = J.handF[2] + (b.hd[2] - J.handF[2]) * k;
       const dx = bd[0] + (S.dx - bd[0]) * k, dy = bd[1] + (S.dy - bd[1]) * k, dz = bd[2] + (S.dz - bd[2]) * k;
-      frameMat([ax, ay, az], [ax + dx, ay + dy, az + dz], 0, _m);
+      const fa = this._fa || (this._fa = A3()), fb = this._fb || (this._fb = A3()); fa[0] = ax; fa[1] = ay; fa[2] = az; fb[0] = ax + dx; fb[1] = ay + dy; fb[2] = az + dz;
+      frameMat(fa, fb, 0, _m);
     } else frameMat(J.handF, b.hd, 0, _m);
     _m.decompose(w.position, w.quaternion, _s);
   }
@@ -310,8 +334,8 @@ export class AnimeFighter extends HQFighter {
   // ---------------------------------------------------------------- spring chains (verlet in world space)
   legCaps(J) {
     const s = this.scale, C = this.caps;
-    const set = (c, a, b2, r) => { this.rig.localToWorld(c.a.set(a[0], a[1], a[2] || 0)); this.rig.localToWorld(c.b.set(b2[0], b2[1], b2[2] || 0)); c.r = r * s; };
-    set(C[0], J.hipF, J.kneeF, 0.1); set(C[1], J.kneeF, J.ankleF, 0.075); set(C[2], J.hipB, J.kneeB, 0.1); set(C[3], J.kneeB, J.ankleB, 0.075);
+    this.W(J.hipF, C[0].a); this.W(J.kneeF, C[0].b); C[0].r = 0.1 * s; this.W(J.kneeF, C[1].a); this.W(J.ankleF, C[1].b); C[1].r = 0.075 * s;
+    this.W(J.hipB, C[2].a); this.W(J.kneeB, C[2].b); C[2].r = 0.1 * s; this.W(J.kneeB, C[3].a); this.W(J.ankleB, C[3].b); C[3].r = 0.075 * s;
   }
   stepChains(dt, t) {
     if (!this.chainSt) return;
@@ -321,19 +345,19 @@ export class AnimeFighter extends HQFighter {
       for (let i = 0; i < n; i++) st.r[i].copy(st.rest[i]).applyMatrix4(M);
       if (!st.ok || st.p[0].distanceToSquared(st.r[0]) > 2.25) { for (let i = 0; i < n; i++) { st.p[i].copy(st.r[i]); st.o[i].copy(st.r[i]); } st.ok = true; }
       if (dt > 0) {
-        const steps = Math.min(4, Math.max(1, Math.ceil(dt / (1 / 120)))), h = dt / steps, c = st.c, drag = Math.pow(c.drag, h * 60);
+        const steps = Math.min(4, Math.max(1, Math.ceil(dt / (1 / 120)))), h = dt / steps, drag = Math.pow(st.drag, h * 60);
         for (let k = 0; k < steps; k++) {
           st.p[0].copy(st.r[0]); st.o[0].copy(st.r[0]);
           for (let i = 1; i < n; i++) {
             const p = st.p[i], o = st.o[i];
             _v.subVectors(p, o).multiplyScalar(drag); o.copy(p); p.add(_v);
-            p.y -= c.grav * h * h * s;
-            p.x += Math.sin(t * 5.3 + i * 1.7 + (c.ang || 0) * 3) * 0.25 * h * h * s;   // light flutter
+            p.y -= st.grav * h * h * s;
+            p.x += Math.sin(t * 5.3 + i * 1.7 + st.ang * 3) * 0.25 * h * h * s;   // light flutter
             const kq = 1 - Math.pow(1 - st.stiff[i], h * 60); p.lerp(st.r[i], kq);
           }
           for (let it = 0; it < 2; it++) for (let i = 1; i < n; i++) {
             const a = st.p[i - 1], p = st.p[i], L = st.len[i - 1] * s; _v.subVectors(p, a); const d = _v.length() || 1e-6; p.copy(a).addScaledVector(_v, L / d);
-            if (c.collide) for (const cap of this.caps) this.pushOut(p, cap);
+            if (st.collide) for (let ci = 0; ci < 4; ci++) this.pushOut(p, this.caps[ci]);
           }
         }
       }
@@ -362,19 +386,44 @@ export class AnimeFighter extends HQFighter {
       if (this.trailSeq !== f.seq) { this.trailSeq = f.seq; this.prevT = Math.max(0, f.t - dt); this.prevRoot.copy(this.group.position); }
       const t0 = Math.max(this.prevT, on0), t1 = Math.min(f.t, on1);
       if (keys && t1 > t0) {
-        const s = this.scale, ly = this.rig.position.y, tp = this._tp || (this._tp = {});
-        evalChain(keys, f.t, this.snapA, tp, this.prof.lead); const now = solve(tp);
-        const offB = [J.base[0] - now.base[0], J.base[1] - now.base[1], J.base[2] - now.base[2]], offT = [J.tip[0] - now.tip[0], J.tip[1] - now.tip[1], J.tip[2] - now.tip[2]];
+        const tp = this._tp;
+        evalChain(keys, f.t, this.snapA, tp, this.prof.lead); const now = solveInto(tp, null, null, this.Jt);
+        const offB = this.offB, offT = this.offT; for (let i = 0; i < 3; i++) { offB[i] = J.base[i] - now.base[i]; offT[i] = J.tip[i] - now.tip[i]; }
         const n = clamp(Math.ceil((t1 - t0) / (1 / 300)), 1, 24);
         for (let i = 1; i <= n; i++) {
-          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead); const q = solve(tp), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
+          const tt = t0 + (t1 - t0) * i / n; evalChain(keys, tt, this.snapA, tp, this.prof.lead); const q = solveInto(tp, null, null, this.Jq), k = (tt - this.prevT) / Math.max(1e-6, f.t - this.prevT);
           const dx = (this.prevRoot.x - this.group.position.x) * (1 - k), dy = (this.prevRoot.y - this.group.position.y) * (1 - k), sy = wrapA(tp.sy || 0), pv = tp.pv || 0;
-          const toW = (src, off) => { spinPt([src[0] + off[0], src[1] + off[1], src[2] + off[2]], sy, pv, this.sp0); const v = this.group.localToWorld(new THREE.Vector3(this.sp0[0] * s, this.sp0[1] * s + ly, this.sp0[2] * s)); v.x += dx; v.y += dy; return v; };
-          samples.push({ b: toW(q.base, offB), t: toW(q.tip, offT) });
+          const smp = this.smpPool[i - 1]; this.toW(q.base, offB, sy, pv, dx, dy, smp.b); this.toW(q.tip, offT, sy, pv, dx, dy, smp.t); samples.push(smp);
         }
       }
       this.prevT = f.t; this.prevRoot.copy(this.group.position);
     } else if (f.st !== 'atk') this.trailSeq = -1;
     this.trail.update(dt, samples);
   }
+  /** rig-space blade point (+ offset) at spin (sy, pv) → world, shifted back along the root motion (dx, dy) */
+  toW(src, off, sy, pv, dx, dy, out) {
+    const a = this.sp1, s = this.scale; a[0] = src[0] + off[0]; a[1] = src[1] + off[1]; a[2] = src[2] + off[2]; spinPt(a, sy, pv, this.sp0);
+    this.group.localToWorld(out.set(this.sp0[0] * s, this.sp0[1] * s + this.rig.position.y, this.sp0[2] * s)); out.x += dx; out.y += dy; return out;
+  }
+}
+
+/** ArcTrail.update without allocations (installed on the anime fighter's trail): pooled ring, newest first */
+function poolTrailUpdate(dt, samples) {
+  const P = this.pool, max = this.max;
+  for (let i = 0; i < this.n; i++) P[(this.head + i) % max].age += dt;
+  for (let i = 0; i < samples.length; i++) {
+    this.head = (this.head + max - 1) % max; const e = P[this.head]; this.n = Math.min(max, this.n + 1);
+    e.b.copy(samples[i].b).lerp(samples[i].t, this.inner); e.t.copy(samples[i].t); e.age = (samples.length - 1 - i) / Math.max(1, samples.length) * dt;
+  }
+  while (this.n && P[(this.head + this.n - 1) % max].age > this.life) this.n--;
+  const m = this.n;
+  for (let i = 0; i < max; i++) {
+    const k = i * 6;
+    if (!m) { this.al[i * 2] = this.al[i * 2 + 1] = 0; continue; }
+    const s = P[(this.head + Math.min(i, m - 1)) % max];
+    this.pos[k] = s.b.x; this.pos[k + 1] = s.b.y; this.pos[k + 2] = s.b.z; this.pos[k + 3] = s.t.x; this.pos[k + 4] = s.t.y; this.pos[k + 5] = s.t.z;
+    const a = i < m ? Math.max(0, 1 - s.age / this.life) ** 1.4 : 0; this.al[i * 2] = 0; this.al[i * 2 + 1] = a;
+  }
+  const g = this.mesh.geometry.attributes; g.position.needsUpdate = true; g.aA.needsUpdate = true;
+  this.mesh.visible = m > 1;
 }

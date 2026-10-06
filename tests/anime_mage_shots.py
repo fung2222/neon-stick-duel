@@ -4,8 +4,8 @@ Writes to out_dir (default /workspace/shots/duel-anime):
   mage-turnaround.png       full body, win pose: front, 3/4, side, back 3/4 (+ triangle counts)
   mage-vs-old.png           old neon (classic stick) Mage vs anime Mage, same sim pose: idle, a3 orb cast, ult held pose
   mage-forms-<move>.png     key-frame strips (wind-up → release → settle) for a1 a2 a3 air1 s1 s2 ult, played in at 1/120 s
-  fight-mage-vs-sword-<w>x<h>.png   in-fight frames (HUD on): player anime Mage vs the stage-4 Swordsman (RONIN-07)
-  fight-sword-vs-mage-412x915.png   player Swordsman vs the stage-3 Mage (NEON ADEPT, recoloured)
+  mage-vs-sword-<w>x<h>.png   in-fight frames (HUD on): player anime Mage vs the stage-4 Swordsman (RONIN-07)
+  sword-vs-mage-412x915.png   player Swordsman vs the stage-3 Mage (NEON ADEPT, recoloured)
   mage-card.png             close-up portrait
   mage-combo.mp4            ~5.6 s 412x915 (+1 black row → 412x916) combo → pillar → ult, H.264 yuv420p, fixed 1/30 s per frame clock
   mage-perf.json            draw calls / triangles, per-character tris, JS update cost, heap growth per update
@@ -57,8 +57,9 @@ def boot(b, w, h, query='?mute=1&style=anime', lang='en'):
     return ctx, pg, errs
 
 def fight(pg, cls='mage', stage=3, clean=True):
-    pg.evaluate("window.__duel.api.startMode('ladder', {cls:'%s', stage:%d})" % (cls, stage))
-    pg.evaluate("window.__duel.api.manual(true)")
+    # one evaluate: start, stop the real-time loop and freeze the foe before any wall-clock frame runs (otherwise the AI acts in real
+    # time between calls and the capture depends on machine load), and zero the sim accumulator so the step phase is fixed
+    pg.evaluate("(()=>{const S=window.__duel, api=S.api; api.startMode('ladder', {cls:'%s', stage:%d}); api.manual(true); api.freezeFoe(true); S.acc=0;})()" % (cls, stage))
     pg.evaluate("window.__duel.api.advance(1/30, 70)")
     if clean: pg.add_style_tag(content=CLEAN)
     else: pg.add_style_tag(content="#loading{display:none!important}")
@@ -184,7 +185,7 @@ def forms_shots(p, w=520, h=640):
     b.close()
 
 def fight_shots(p):
-    for (w, h, cls, stage, name) in [(412, 915, 'mage', 3, 'fight-mage-vs-sword-412x915.png'), (1280, 800, 'mage', 3, 'fight-mage-vs-sword-1280x800.png'), (412, 915, 'sword', 2, 'fight-sword-vs-mage-412x915.png')]:
+    for (w, h, cls, stage, name) in [(412, 915, 'mage', 3, 'mage-vs-sword-412x915.png'), (1280, 800, 'mage', 3, 'mage-vs-sword-1280x800.png'), (412, 915, 'sword', 2, 'sword-vs-mage-412x915.png')]:
         b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
         ctx, pg, errs = boot(b, w, h)
         fight(pg, cls=cls, stage=stage, clean=False)
@@ -255,7 +256,9 @@ def video(p, w=412, h=915, seconds=5.6, fps=30):
         shot(pg, os.path.join(fd, '%04d.png' % i))
     mp4 = os.path.join(OUT, 'mage-combo.mp4')
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(fps), '-i', os.path.join(fd, '%04d.png'), '-vf', 'pad=412:916:0:0:black,setsar=1', '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart', mp4], check=True)
-    shutil.rmtree(fd, ignore_errors=True)
+    nf = int(subprocess.run(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
+    check(nf == n, f'video: {nf} encoded frames == {n} captured')
+    if not os.environ.get('KEEP_FRAMES'): shutil.rmtree(fd, ignore_errors=True)
     sz = os.path.getsize(mp4); print('wrote', mp4, sz, sorted(x for x in seen if x))
     check({'a1', 'a2', 'a3', 's2', 'ult'} <= seen, f'video shows combo + pillar + ult ({sorted(x for x in seen if x)})')
     check(50000 < sz < 8 * 1024 * 1024, f'video size {sz} bytes (< 8 MB)')

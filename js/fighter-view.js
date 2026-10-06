@@ -8,12 +8,26 @@
 import * as THREE from 'three';
 import { StickFighter } from './stickman.js';
 import { HQFighter, HQ_PROFILES } from './rig/hq-fighter.js';
+import { AnimeFighter } from './anime/fighter.js';
+import { ANIME_CLASSES } from './anime/configs.js';
+
+// Look per class: 'anime' (cel-shaded character, js/anime/) or 'neon' (the v2.2 HQ / classic stick look).
+//   ?style=anime | ?style=neon   (pause screen STYLE button stores `style`); classes without an anime config are always neon.
+export const STYLE_DEFAULT = {};
+let styleOv = null;
+export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
+export const styleMode = () => styleOv;
+export const hasAnime = (cls) => !!ANIME_CLASSES[cls];
+export function styleFor(cls) { return hasAnime(cls) ? styleOv || STYLE_DEFAULT[cls] || 'neon' : 'neon'; }
 
 export const RIG_DEFAULT = { sword: 'hq' };
 let override = null;
 export function setRigMode(m) { override = m === 'hq' || m === 'classic' ? m : null; }
 export const rigMode = () => override;
+/** 'anime' | 'hq' | 'classic'. ?rig=classic always wins (comparison shots); otherwise the anime style, then the HQ rig. */
 export function rigFor(cls) {
+  if (override === 'classic') return 'classic';
+  if (styleFor(cls) === 'anime') return 'anime';
   if (!HQ_PROFILES[cls]) return 'classic';
   return override || RIG_DEFAULT[cls] || 'classic';
 }
@@ -21,16 +35,22 @@ export const hasHQ = (cls) => !!HQ_PROFILES[cls];
 
 export class FighterView {
   constructor(scene) {
-    this.classic = new StickFighter(scene); this.hq = new HQFighter(scene); this.hq.visible = false;
-    this.cur = this.classic; this.rig = 'classic'; this.vis = true; this.prevTip = null; this.tipVel = new THREE.Vector3();
+    this.scene = scene; this.classic = new StickFighter(scene); this.hq = new HQFighter(scene); this.hq.visible = false; this.anime = null;
+    this.cur = this.classic; this.rig = 'classic'; this.vis = true; this.prevTip = new THREE.Vector3(); this.hasPrev = false; this.tipVel = new THREE.Vector3();
   }
   setClass(cls, color = null, scale = 1) {
     this.args = [cls, color, scale];
-    const useHQ = rigFor(cls) === 'hq', next = useHQ ? this.hq : this.classic, other = useHQ ? this.classic : this.hq;
-    next.setClass(cls, color, scale); other.visible = false;
-    if (next !== this.cur) { this.cur = next; if (useHQ) this.hq.resetAnim(); }
-    this.rig = useHQ ? 'hq' : 'classic'; this.cur.visible = this.vis;
+    const rig = rigFor(cls);
+    if (rig === 'anime' && !this.anime) { this.anime = new AnimeFighter(this.scene); this.anime.visible = false; }
+    const next = rig === 'anime' ? this.anime : rig === 'hq' ? this.hq : this.classic;
+    next.setClass(cls, color, scale);
+    for (const r of [this.classic, this.hq, this.anime]) if (r && r !== next) r.visible = false;
+    if (next !== this.cur) { this.cur = next; if (next.resetAnim) next.resetAnim(); this.hasPrev = false; }
+    this.rig = rig; this.cur.visible = this.vis;
   }
+  /** dust / ring cues from the anime renderer (empty for the other rigs) */
+  takeFx() { return this.cur.takeFx ? this.cur.takeFx() : null; }
+  stats() { return this.cur.stats ? this.cur.stats() : null; }
   /** re-apply after the rig setting changed */
   refresh() { if (this.args) this.setClass(...this.args); }
   set visible(v) { this.vis = v; this.cur.visible = v; }
@@ -38,7 +58,7 @@ export class FighterView {
   update(f, dt, t, baseY, frozen = false, shake = 0) {
     this.cur.update(f, dt, t, baseY, frozen, shake);
     const tip = this.cur.joints && this.cur.joints.tip;
-    if (tip && dt > 0 && !frozen) { if (this.prevTip) this.tipVel.subVectors(tip, this.prevTip).divideScalar(dt); this.prevTip = tip.clone(); }
+    if (tip && dt > 0 && !frozen) { if (this.hasPrev) this.tipVel.subVectors(tip, this.prevTip).divideScalar(dt); this.prevTip.copy(tip); this.hasPrev = true; }
   }
   flash() { this.cur.flash(); }
   onHit(e) { if (this.cur.onHit) this.cur.onHit(e); }

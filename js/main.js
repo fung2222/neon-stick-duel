@@ -8,7 +8,7 @@ import { STAT_KEYS } from './classes.js';
 import { aiThink } from './ai.js';
 import { TRIAL, LADDER, ladderFoe, endlessFoe, fightScore, migrateSave } from './modes.js';
 import './strings.js';
-import { FighterView, setRigMode, rigFor } from './fighter-view.js';
+import { FighterView, setRigMode, rigFor, setStyleMode, styleFor } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { createControls } from './controls.js';
@@ -47,6 +47,8 @@ const S = {
 };
 window.__duel = S;  // test hook
 setRigMode(flags.get('rig') || store.get('rig'));   // ?rig=hq|classic, else the pause-screen setting, else per-class default
+// ?style=anime|neon, else the pause-screen setting, else STYLE_DEFAULT; an explicit ?rig=hq without ?style shows the neon HQ rig
+setStyleMode(flags.get('style') || (flags.get('rig') === 'hq' ? 'neon' : store.get('style')));
 const fa = new FighterView(scene), fb = new FighterView(scene);
 const viewOf = (f) => (f === S.duel.a ? fa : fb);
 const timers = []; const later = (sec, fn) => timers.push({ t: sec, fn });
@@ -117,6 +119,16 @@ function slash(pos, dir, color, k) {
 }
 function updateSlashes(dt) { for (const sl of slashes) { if (!sl.m.visible) continue; sl.t += dt; const k = sl.t / sl.life; if (k >= 1) { sl.m.visible = false; continue; } sl.m.scale.set(sl.len * (0.7 + 0.5 * k), sl.w * (1 - k * 0.7), 1); sl.m.material.opacity = (1 - k) ** 1.5; } }
 function updateStars(dt) { for (const st of stars) { if (!st.s.visible) continue; st.t += dt; const k = st.t / st.life; if (k >= 1) { st.s.visible = false; continue; } st.s.scale.setScalar(st.size * (0.6 + k * 1.1)); st.s.material.opacity = 1 - k; } }
+
+// anime footwork FX: dust on stamps / slides, low ground rings, an air ring on spins (kept small + dim: crisp, low glow)
+const DUST = new THREE.Color(0x8d97b8), _fxP = new THREE.Vector3(), _fxC = new THREE.Color();
+function stepFx(c) {
+  if (c.type === 'stamp') {
+    _fxP.set(c.x, c.y + 0.06, 0.15); particles.burst(_fxP, DUST, Math.round(9 * c.k), { speed: 2.4, up: 0.9, life: 0.32, size: 0.5, grav: -3, bright: 0.9 });
+    _fxP.y = c.y + 0.02; waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.55), { r0: 0.12, r1: 1.0 * c.k, h: 0.07, dur: 0.26, a: 0.9 });
+  } else if (c.type === 'slide') { _fxP.set(c.x, c.y + 0.05, 0.15); particles.burst(_fxP, DUST, Math.round(5 * c.k), { speed: 1.6, up: 0.5, life: 0.28, size: 0.42, grav: -2, bright: 0.8 }); }
+  else if (c.type === 'ring') { _fxP.set(c.x, c.y, 0); waves.spawn(_fxP, _fxC.copy(c.c).multiplyScalar(0.6), { r0: 0.35, r1: 1.5, h: 0.04, dur: 0.22, a: 0.85 }); }
+}
 
 // ------------------------------------------------------------------ duel setup
 function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color : (S.foe?.color ?? 0xff2bd6); }
@@ -271,12 +283,12 @@ function handleEvents() {
   for (const e of d.events) {
     const me = e.who === d.a;
     switch (e.type) {
-      case 'move': if (vol && e.kind !== 'ult' && viewOf(e.who).rig !== 'hq') audio.swing(e.who.cls, e.kind); break;   // HQ rigs cue the swing when the blade accelerates (tick)
+      case 'move': if (vol && e.kind !== 'ult' && viewOf(e.who).rig === 'classic') audio.swing(e.who.cls, e.kind); break;   // HQ / anime rigs cue the swing when the blade accelerates (tick)
       case 'hit': {
         const att = e.att, col = new THREE.Color(colorOf(att)), av = viewOf(att), dv = viewOf(e.who);
         // sparks at the real contact point (where the weapon meets the body), streaks along the weapon's motion
         const cp = !e.proj ? av.contactPoint(e.who, ROOF_Y) : null, pos = cp || new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3);
-        dv.onHit(e); if (dv.rig !== 'hq') dv.flash();
+        dv.onHit(e); if (dv.rig === 'classic') dv.flash();
         if (vol) audio.hit(e.heavy, att.cls);
         const k = Math.min(1, (e.stop || 0.05) * 60 / 6), kdir = Math.sign(e.who.x - att.x) || att.facing;
         spark(pos, col, 1.3 + 1.2 * k);
@@ -447,9 +459,14 @@ ui.on('btn-restart-tower', restartTower);
 ui.on('btn-fight', confirmClass); ui.on('btn-sel-back', () => { audio.back(); showMenu(); });
 ui.on('btn-pause', pause); ui.on('btn-mute', () => { audio.init(); ui.setMuted(audio.toggleMute()); });
 ui.on('btn-resume', resume);
-function paintRig() { const b = $('btn-rig'); if (b) b.textContent = t('rigBtn', { v: t(rigFor('sword') === 'hq' ? 'rigHQ' : 'rigClassic') }); }
+function paintRig() {
+  const b = $('btn-rig'); if (b) b.textContent = t('rigBtn', { v: t(rigFor('sword') !== 'classic' ? 'rigHQ' : 'rigClassic') });
+  const s = $('btn-style'); if (s) s.textContent = t('styleBtn', { v: t(styleFor('sword') === 'anime' ? 'styleAnime' : 'styleNeon') });
+}
 function setRig(mode, persist = true) { setRigMode(mode); if (persist) store.set('rig', mode); fa.refresh(); fb.refresh(); paintRig(); }
-ui.on('btn-rig', () => { audio.click(); setRig(rigFor('sword') === 'hq' ? 'classic' : 'hq'); });
+function setStyle(mode, persist = true) { setStyleMode(mode); if (persist) store.set('style', mode); if (mode === 'anime' && rigFor('sword') === 'classic') setRigMode(null); fa.refresh(); fb.refresh(); paintRig(); }
+ui.on('btn-rig', () => { audio.click(); setRig(rigFor('sword') !== 'classic' ? 'classic' : 'hq'); });
+ui.on('btn-style', () => { audio.click(); setStyle(styleFor('sword') === 'anime' ? 'neon' : 'anime'); });
 i18n.onChange(paintRig); paintRig(); ui.on('btn-quit', () => { audio.back(); showMenu(); });
 ui.on('btn-res-main', resultMain); ui.on('btn-res-menu', resultMenu); ui.on('btn-revive', revive);
 ui.on('btn-hub', () => returnToHub(hub)); ui.on('btn-trial-menu', () => { audio.back(); showMenu(); });
@@ -467,10 +484,12 @@ S.api = {
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
   pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
-  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword') }), setRig: (m, persist = false) => setRig(m, persist),
-  hold: (on = true) => { S.hold = on; },
+  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword'), style: styleFor('sword') }), setRig: (m, persist = false) => setRig(m, persist),
+  setStyle: (m, persist = false) => setStyle(m, persist), charStats: () => ({ a: fa.stats(), b: fb.stats() }),
+  renderInfo: () => { const r = stage.renderer, ar = r.info.autoReset; r.info.autoReset = false; r.info.reset(); r.render(scene, camera); const o = { calls: r.info.render.calls, triangles: r.info.render.triangles }; r.info.autoReset = ar; return o; },
+  hold: (on = true) => { S.hold = on; }, cam: (o = null) => { S.camOv = o; },
   manual: (on = true) => { S.manual = on; S.mt = S.mt || performance.now() / 1000; },
-  advance: (dt = 1 / 30, n = 1, each = null) => { for (let i = 0; i < n; i++) { if (each) each(S); S.adv = true; S.mt += dt; try { tick(dt, S.mt); } finally { S.adv = false; } } },
+  advance: (dt = 1 / 30, n = 1, each = null) => { for (let i = 0; i < n; i++) { if (each) each(S); S.adv = true; S.skipR = i < n - 1; S.mt += dt; try { tick(dt, S.mt); } finally { S.adv = false; S.skipR = false; } } },   // only the last stepped frame is drawn (headless capture speed)
   /** freeze the sim and put a fighter in a given state (screenshots / rig comparisons). spec: { st, mk, t, stunT, hit: event-like } */
   setPose: (who, spec) => { const f = S.duel[who], o = who === 'a' ? S.duel.b : S.duel.a; Object.assign(f, { vx: 0, vy: 0, y: 0, mk: null, t: 0 }, spec); if (spec.mk) f.seq = (f.seq || 0) + 1;
     if (spec.st === 'hit') { const e = { who: f, att: o, dmg: 48, kb: 1.6, heavy: false, src: 'a2', back: false, ...(spec.hit || {}) }; viewOf(f).onHit(e); } }, dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
@@ -527,6 +546,7 @@ function frameCamera(dt, now, instant = false) {
   const k = instant ? 1 : 1 - Math.exp(-dt * (S.ultCam && S.ultCam.t > 0 ? 7 : 4)); camPos.lerp(tP, k); camLook.lerp(tL, k);
   camImpulse(dt); camera.position.copy(camPos); camera.position.x += camImp.x; camera.position.y += camImp.y;
   camera.lookAt(tL.copy(camLook).add(new THREE.Vector3(camImp.x * 0.6, camImp.y * 0.6, 0))); fx.shake(camera, now, 0.45);
+  const o = S.camOv; if (o) { camera.fov = o.fov || 30; camera.updateProjectionMatrix(); camera.position.set(o.pos[0], ROOF_Y + o.pos[1], o.pos[2]); camera.lookAt(o.look[0], ROOF_Y + o.look[1], o.look[2]); }   // test hook (portrait cards)
 }
 
 // ------------------------------------------------------------------ frame loop
@@ -551,10 +571,11 @@ function tick(dt, now) {
     fa.update(d.a, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.a), d.stop > 0 && !paused ? 0.05 : 0);
     fb.update(d.b, dt, now, ROOF_Y, stop || (fz && d.freezeBy !== d.b), d.stop > 0 && !paused ? 0.05 : 0);
     if (!paused && S.state !== 'menu' && S.state !== 'select') for (const [v, f] of [[fa, d.a], [fb, d.b]]) { const m = v.takeSwingCue(f); if (m && m.kind !== 'ult') audio.swing(f.cls, m.kind); }
+    if (!paused) for (const v of [fa, fb]) { const cues = v.takeFx(); if (cues) for (const c of cues) stepFx(c); }
     syncProjs(paused ? 0 : dt);
   }
   roof.update(now); particles.update(dt); waves.update(dt); updateStars(dt); updateSlashes(dt);
-  city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); stage.render(dt);
+  city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); if (!S.skipR) stage.render(dt);
 }
 i18n.bindToggle($('btn-lang')); i18n.bindToggle($('btn-lang2'));
 i18n.onChange(() => {

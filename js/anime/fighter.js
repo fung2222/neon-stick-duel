@@ -9,7 +9,7 @@ import { spring, SK, EASE, RIG_SCALE } from '../rig/core.js';
 import { makeJ, solveInto } from './solve.js';
 import { evalChain, evalA, lerpA, copyA, blankA, normSnap, spinPt, splayKnee, XE, wrapA } from './clip.js';
 import { buildCharacter, frameMat, BODY } from './builder.js';
-import { FINGER } from './mage-body.js';
+import { FINGER, HOLO_K } from './mage-body.js';
 import { ANIME_CLASSES } from './configs.js';
 import { FACE } from './toon.js';
 import { CLASSES } from '../classes.js';
@@ -23,6 +23,7 @@ const _m = new THREE.Matrix4(), _m2 = new THREE.Matrix4(), _s = new THREE.Vector
 const A3 = () => new Float64Array(3);
 const TAU = Math.PI * 2;
 const SIDES = ['F', 'B'];
+const SIGN_LIFE = 0.32;   // hand-sign after-image lifetime (s)
 // numeric clip ids (no per-frame string building): state × 1e6 + sequence
 const STID = { idle: 1, walk: 2, guard: 3, block: 4, jump: 5, dodge: 6, atk: 7, hit: 8, air: 9, koAir: 10, ko: 11, down: 12, rise: 13, stun: 14, win: 15, intro: 16 };
 
@@ -39,7 +40,8 @@ export class AnimeFighter extends HQFighter {
     const tr = this.trail; tr.pool = Array.from({ length: tr.max }, () => ({ b: new THREE.Vector3(), t: new THREE.Vector3(), age: 0 })); tr.n = 0; tr.head = 0;
     tr.update = poolTrailUpdate; tr.clear = function () { this.n = 0; this.mesh.visible = false; };
     this.Jw = { hip: new THREE.Vector3(), head: new THREE.Vector3(), neck: new THREE.Vector3(), handF: new THREE.Vector3(), handB: new THREE.Vector3(), footF: new THREE.Vector3(), footB: new THREE.Vector3(), tip: new THREE.Vector3(), base: new THREE.Vector3() };
-    this.caps = Array.from({ length: 4 }, () => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), r: 0 }));
+    this.caps = Array.from({ length: 6 }, () => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), r: 0 }));   // 0–3 leg capsules, 4–5 shoulder spheres (a = b)
+    this.signT = 9; this.signFire = false; this.signFace = 1;
     this.kneeF = A3(); this.kneeB = A3(); this.sp0 = A3(); this.sp1 = A3();
   }
   stateOf(f) {
@@ -72,6 +74,8 @@ export class AnimeFighter extends HQFighter {
     this.parts = [ch.body, ch.outline, ch.weapon, ...ch.bones]; this.blade = ch.weapon;
     if (ch.decal) { this.rig.add(ch.decal); this.parts.push(ch.decal); }
     if (ch.sigil) this.scene.add(ch.sigil);
+    if (ch.sign) this.scene.add(ch.sign);
+    this.signT = 9; this.signFire = false;
     this.trail.inner = this.prof.focus ? 0 : 0.42; this.gustK = 0; this.focusSpin = 0;
     this.c = new THREE.Color(hex); this.trail.setColor(this.c.clone().lerp(new THREE.Color(1, 1, 1), 0.2)); this.ring.material.color.copy(this.c);
     // chains: rest positions / rotations relative to their anchor bone (from the bind pose)
@@ -83,7 +87,7 @@ export class AnimeFighter extends HQFighter {
         rest: c.pts.map((p) => p.clone().applyMatrix4(inv)), restQ: c.bones.map((i) => qa.clone().multiply(bindQ(ch.bind[i]))),
         p: c.pts.map(() => new THREE.Vector3()), o: c.pts.map(() => new THREE.Vector3()), r: c.pts.map(() => new THREE.Vector3()), rl: c.pts.map(() => new THREE.Vector3()),
         stiff: Float64Array.from(c.stiff), len: Float64Array.from(c.pts.slice(1).map((p, i) => p.distanceTo(c.pts[i]))),
-        drag: +c.drag, grav: +c.grav, collide: !!c.collide, ang: +(c.ang || 0),   // flat numeric params: one object shape for every chain
+        drag: +c.drag, grav: +c.grav, collide: !!c.collide, shoulder: !!c.sh, ang: +(c.ang || 0),   // flat numeric params: one object shape for every chain
       };
     });
     this.rolled = { ...this.prof.stance, rr: -TAU };
@@ -93,7 +97,7 @@ export class AnimeFighter extends HQFighter {
   disposeParts() {
     for (const p of this.parts) this.rig.remove(p);
     this.parts = []; this.mesh = {}; this.ribbons = [];
-    if (this.char) { if (this.char.sigil) this.scene.remove(this.char.sigil); this.char.dispose(); this.char = null; }
+    if (this.char) { if (this.char.sigil) this.scene.remove(this.char.sigil); if (this.char.sign) this.scene.remove(this.char.sign); this.char.dispose(); this.char = null; }
     this.blade = null; this.chainSt = null;
   }
   /** triangle / draw-call budget of this fighter (for the perf report) */
@@ -101,7 +105,7 @@ export class AnimeFighter extends HQFighter {
     const t = this.char ? this.char.tris : { body: 0, weapon: 0, face: 0, extra: 0 };
     return { unique: t.body + t.weapon + t.face + (t.extra || 0), drawn: 2 * t.body + 2 * t.weapon + t.face + (t.extra || 0), calls: this.char ? this.char.calls : 5, bones: this.char ? this.char.bones.length : 0 };
   }
-  set visible(v) { super.visible = v; if (!v && this.char && this.char.sigil) this.char.sigil.visible = false; }
+  set visible(v) { super.visible = v; if (!v && this.char) { if (this.char.sigil) this.char.sigil.visible = false; if (this.char.sign) this.char.sign.visible = false; } }
   get visible() { return this.vis; }
   takeFx() { const o = this.cueOut; o.length = 0; for (let i = 0; i < this.cueN; i++) o.push(this.cuePool[i]); this.cueN = 0; return o; }
   cue(type, x, y, k = 1) { if (this.cueN >= 8) return; const c = this.cuePool[this.cueN++]; c.type = type; c.x = x; c.y = y; c.k = k; c.c = this.c; }
@@ -283,6 +287,22 @@ export class AnimeFighter extends HQFighter {
     // Mage ground sigil (magic circle under the caster on the big casts)
     const sg = this.char.sigil;
     if (sg) { const g = p.gs || 0; sg.visible = this.vis && g > 0.02; if (sg.visible) { sg.position.set(f.x, baseY + 0.025, 0); sg.scale.setScalar(s * (0.5 + 0.62 * g)); sg.rotation.z = t * 0.9; sg.material.opacity = Math.min(1, g) * 0.85; } }
+    // Mage hand-sign after-image: on each release the mudra (open palm | sword fingers) flashes at the casting hand as a hologram
+    // ~2.5× the hand, then expands and fades where it was cast (world space, so it stays behind as the hand moves on)
+    const sgn = this.char.sign;
+    if (sgn) {
+      if (this.signFire) {
+        this.signFire = false; this.signT = 0; this.signFace = f.facing;
+        const hb = this.char.bones[B.handF]; _v.setFromMatrixColumn(hb.matrixWorld, 1).normalize();
+        sgn.position.copy(Jw.handF).addScaledVector(_v, 0.06 * s); sgn.position.z += 0.05;
+        sgn.rotation.z = Math.atan2(_v.y, _v.x) - Math.PI / 2;
+        sgn.material.map.offset.x = (p.cF2 > 0.5 && p.cF1 < 0.5) ? 0.5 : 0;   // sword fingers 劍指 | open palm
+      }
+      if (this.signT < SIGN_LIFE) {
+        this.signT += rdt; const k = Math.min(1, this.signT / SIGN_LIFE), sc = s * 0.21 * (1 + 0.7 * EASE.outQuad(k));
+        sgn.visible = this.vis; sgn.scale.set(sc * this.signFace, sc, 1); sgn.material.opacity = Math.pow(1 - k, 1.4);
+      } else sgn.visible = false;
+    }
     // shadow, guard hex, ult ring
     this.shadow.position.set(f.x, baseY + 0.015, 0); const sc = Math.max(0.3, 1 - f.y * 0.22) * s; this.shadow.scale.set(sc * 1.1, sc, 1);
     const guard = f.st === 'guard' || f.st === 'block';
@@ -302,7 +322,7 @@ export class AnimeFighter extends HQFighter {
       else if (k.fx === 'sink') this.cue('stamp', J.hip.x || f.x, base, 0.75);
       else if (k.fx === 'slide' || k.fx === 'skid') this.cue('slide', (k.fx === 'skid' ? J.footF.x : J.footB.x) || f.x, base, k.fx === 'skid' ? 1.2 : 0.7);
       else if (k.fx === 'ring') this.cue('ring', f.x, this.group.position.y + 1.05 * this.scale, 1);
-      else if (k.fx === 'gust') { this.gustK = 1; this.gustDir = -f.facing; }
+      else if (k.fx === 'gust') { this.gustK = 1; this.gustDir = -f.facing; this.signFire = true; }
     }
     this.fxT = f.t;
   }
@@ -356,7 +376,13 @@ export class AnimeFighter extends HQFighter {
       const fa = this._fa || (this._fa = A3()), fb = this._fb || (this._fb = A3()), fr = p.fr || 0.14, bob = 0.012 * Math.sin(this.tNow * 2.4);
       for (let i = 0; i < 3; i++) fa[i] = J.handF[i] + bd[i] * fr; fa[1] += bob; for (let i = 0; i < 3; i++) fb[i] = fa[i] + bd[i];
       frameMat(fa, fb, 0, _m); _m.decompose(w.position, w.quaternion, _s);
-      const holo = this.char.focus; holo.scale.setScalar(Math.max(0.05, p.fs || 1)); holo.rotation.y = this.focusSpin;
+      w.quaternion.multiply(_q.setFromAxisAngle(UPV, this.focusSpin * 0.6));   // the crystal turns on its axis: facets catch the light
+      // holo ring: tilted toward the camera (normal = cast direction blended with the view direction, in the crystal's local frame)
+      // so it reads as a circle, not an edge-on line, from the side-on fight camera; then it spins about that normal
+      const holo = this.char.focus, yv = this.yaw + sy; holo.scale.setScalar(Math.max(0.05, p.fs || 1));
+      _w.set(-Math.sin(yv), 0, Math.cos(yv)).applyQuaternion(_q2.copy(w.quaternion).invert());
+      _u.set(0, 0.5, 0).addScaledVector(_w, 0.85).normalize();
+      holo.quaternion.setFromUnitVectors(UPV, _u).multiply(_q.setFromAxisAngle(UPV, this.focusSpin));
       return;
     }
     if (p.sh > 0 && this.char.sheath) {
@@ -386,7 +412,7 @@ export class AnimeFighter extends HQFighter {
   }
   /** Mage: the "blade" segment (trail / contact) is the glyph's diameter ⟂ to the cast direction, at the focus point */
   focusSeg(J, p) {
-    const bd = J.bladeDir, fr = p.fr || 0.14, r = 0.115 * Math.max(0.3, p.fs || 1), hd = J.handF;
+    const bd = J.bladeDir, fr = p.fr || 0.14, r = 0.115 * HOLO_K * Math.max(0.3, p.fs || 1), hd = J.handF;
     let qx = -bd[1], qy = bd[0]; const ql = Math.hypot(qx, qy) || 1; qx /= ql; qy /= ql;
     const cx = hd[0] + bd[0] * fr, cy = hd[1] + bd[1] * fr, cz = hd[2] + bd[2] * fr;
     J.base[0] = cx - qx * r; J.base[1] = cy - qy * r; J.base[2] = cz; J.tip[0] = cx + qx * r; J.tip[1] = cy + qy * r; J.tip[2] = cz;
@@ -397,6 +423,8 @@ export class AnimeFighter extends HQFighter {
     const s = this.scale, C = this.caps, [rT, rS] = this.char.legR || [0.1, 0.075];
     this.W(J.hipF, C[0].a); this.W(J.kneeF, C[0].b); C[0].r = rT * s; this.W(J.kneeF, C[1].a); this.W(J.ankleF, C[1].b); C[1].r = rS * s;
     this.W(J.hipB, C[2].a); this.W(J.kneeB, C[2].b); C[2].r = rT * s; this.W(J.kneeB, C[3].a); this.W(J.ankleB, C[3].b); C[3].r = rS * s;
+    // shoulder spheres: hair, locks, ponytail, charm and cape are pushed out of them (they used to clip the shoulders on hard spins)
+    const rs = (this.char.shR || 0.09) * s; this.W(J.shF, C[4].a); C[4].b.copy(C[4].a); C[4].r = rs; this.W(J.shB, C[5].a); C[5].b.copy(C[5].a); C[5].r = rs;
   }
   stepChains(dt, t) {
     if (!this.chainSt) return;
@@ -425,6 +453,7 @@ export class AnimeFighter extends HQFighter {
           for (let it = 0; it < 2; it++) for (let i = 1; i < n; i++) {
             const a = st.p[i - 1], p = st.p[i], L = st.len[i - 1] * s; _v.subVectors(p, a); const d = _v.length() || 1e-6; p.copy(a).addScaledVector(_v, L / d);
             if (st.collide) for (let ci = 0; ci < 4; ci++) this.pushOut(p, this.caps[ci]);
+            if (st.shoulder) { this.pushOut(p, this.caps[4]); this.pushOut(p, this.caps[5]); }
           }
         }
       }

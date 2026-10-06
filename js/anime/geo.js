@@ -7,9 +7,11 @@ const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _l = new THREE.Vector3
 export const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class SkinAcc {
-  constructor() { this.P = []; this.N = []; this.C = []; this.G = []; this.L = []; this.SI = []; this.SW = []; this.I = []; this.H = []; this.n = 0; this.parts = {}; this.yr = {}; }
+  /** skinHex: vertices whose colour is this hex get the warm skin shadow (aSkin = 1) in the toon shader */
+  constructor(skinHex = null) { this.P = []; this.N = []; this.C = []; this.G = []; this.L = []; this.SI = []; this.SW = []; this.I = []; this.H = []; this.K = []; this.A = []; this.n = 0; this.parts = {}; this.yr = {}; this.skinHex = skinHex; }
   /** add a geometry. M: local → bind (rig) space. o.color (hex) | o.colorFn(local, bind) → hex; o.glow | o.glowFn;
-   *  o.weights(bind, local) → [[bone, w], …]; o.line (outline width factor); o.keep(centroidLocal) → false drops a triangle */
+   *  o.weights(bind, local) → [[bone, w], …]; o.line (outline width factor); o.keep(centroidLocal) → false drops a triangle;
+   *  o.ao | o.aoFn(local, bind) → baked occlusion (pushes the toon ramp toward shadow: under the chin, …) */
   add(geo, M, o) {
     if (!geo.attributes.normal) geo.computeVertexNormals();
     const pos = geo.attributes.position, nor = geo.attributes.normal, cnt = pos.count, base = this.n;
@@ -18,18 +20,36 @@ export class SkinAcc {
       _l.fromBufferAttribute(pos, i); _v.copy(_l).applyMatrix4(M); _n.fromBufferAttribute(nor, i).applyMatrix3(_nm).normalize();
       this.P.push(_v.x, _v.y, _v.z); this.N.push(_n.x, _n.y, _n.z);
       { const pk = o.part || 'misc', r = this.yr[pk] || (this.yr[pk] = [Infinity, -Infinity]); r[0] = Math.min(r[0], _v.y); r[1] = Math.max(r[1], _v.y); }   // bind-space height range per part (proportion report)
-      _c.set(o.colorFn ? o.colorFn(_l, _v) : o.color); this.C.push(_c.r, _c.g, _c.b);
-      this.G.push(o.glowFn ? o.glowFn(_l, _v) : (o.glow || 0)); this.L.push(o.lineFn ? o.lineFn(_l, _v) : (o.line ?? 1)); this.H.push(o.shine || 0);
+      const hex = o.colorFn ? o.colorFn(_l, _v, i) : o.color; _c.set(hex); this.C.push(_c.r, _c.g, _c.b);
+      this.K.push(o.skin ?? (this.skinHex != null && hex === this.skinHex ? 1 : 0)); this.A.push(o.aoFn ? o.aoFn(_l, _v) : (o.ao || 0));
+      this.G.push(o.glowFn ? o.glowFn(_l, _v, i) : (o.glow || 0)); this.L.push(o.lineFn ? o.lineFn(_l, _v) : (o.line ?? 1)); this.H.push(o.shine || 0);
       let w = o.weights(_v, _l).filter((q) => q[1] > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4);
       const s = w.reduce((a, q) => a + q[1], 0) || 1;
       for (let k = 0; k < 4; k++) { this.SI.push(w[k] ? w[k][0] : 0); this.SW.push(w[k] ? w[k][1] / s : 0); }
     }
-    const idx = geo.index ? geo.index.array : [...Array(cnt).keys()];
+    const idx = geo.index ? geo.index.array : [...Array(cnt).keys()], T = [], P = this.P;
     for (let t = 0; t < idx.length; t += 3) {
       const a = idx[t], b = idx[t + 1], c = idx[t + 2];
       if (o.keep) { _l.set(0, 0, 0); for (const q of [a, b, c]) { _v.fromBufferAttribute(pos, q); _l.add(_v); } _l.multiplyScalar(1 / 3); if (!o.keep(_l)) continue; }
-      this.I.push(base + a, base + b, base + c); const pk = o.part || 'misc'; this.parts[pk] = (this.parts[pk] || 0) + 1;
+      T.push(a, b, c);
     }
+    // Orientation fix: tubes built top → down (limbs, neck, boots) and mirrored matrices come out wound INSIDE-OUT, which
+    // turned their inverted-hull outline into an inner hull (no outline on arms/legs). Closed parts with negative signed
+    // volume get their winding and normals flipped so every part faces outward. Open sheets (|vol| ~ 0) are left alone.
+    let vol = 0;
+    for (let t = 0; t < T.length; t += 3) {
+      const a = (base + T[t]) * 3, b = (base + T[t + 1]) * 3, c = (base + T[t + 2]) * 3;
+      const ax = P[a], ay = P[a + 1], az = P[a + 2], bx = P[b] - ax, by = P[b + 1] - ay, bz = P[b + 2] - az, cx = P[c] - ax, cy = P[c + 1] - ay, cz = P[c + 2] - az;
+      const nx = by * cz - bz * cy, ny = bz * cx - bx * cz, nz = bx * cy - by * cx;
+      vol += (ax - P[base * 3]) * nx + (ay - P[base * 3 + 1]) * ny + (az - P[base * 3 + 2]) * nz;
+    }
+    const flip = o.flip ?? vol < -1e-9;
+    if (flip) for (let i = base * 3; i < (base + cnt) * 3; i++) this.N[i] = -this.N[i];
+    for (let t = 0; t < T.length; t += 3) {
+      if (flip) this.I.push(base + T[t], base + T[t + 2], base + T[t + 1]); else this.I.push(base + T[t], base + T[t + 1], base + T[t + 2]);
+      const pk = o.part || 'misc'; this.parts[pk] = (this.parts[pk] || 0) + 1;
+    }
+    if (flip) { const pk = o.part || 'misc'; (this.flipped || (this.flipped = {}))[pk] = ((this.flipped || {})[pk] || 0) + 1; }
     this.n += cnt;
   }
   build() {
@@ -40,6 +60,8 @@ export class SkinAcc {
     g.setAttribute('aGlow', new THREE.Float32BufferAttribute(this.G, 1));
     g.setAttribute('aLine', new THREE.Float32BufferAttribute(this.L, 1));
     g.setAttribute('aShine', new THREE.Float32BufferAttribute(this.H, 1));
+    g.setAttribute('aSkin', new THREE.Float32BufferAttribute(this.K, 1));
+    g.setAttribute('aAO', new THREE.Float32BufferAttribute(this.A, 1));
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(this.SI, 4));
     g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(this.SW, 4));
     g.setIndex(this.n > 65535 ? new THREE.Uint32BufferAttribute(this.I, 1) : new THREE.Uint16BufferAttribute(this.I, 1));

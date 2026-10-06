@@ -38,20 +38,32 @@ const J0 = (k) => (Array.isArray(k) ? k : BIND[k]);
 const W1 = (b) => () => [[b, 1]];
 const M4 = () => new THREE.Matrix4();
 const T = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
+/** baked shade on the neck under the chin (front + sides of the upper neck; the back of the neck stays open) */
+const neckAO = (l) => smooth(1.6, 1.66, l.y) * (0.55 + 0.45 * smooth(-0.02, 0.03, l.x)) * 0.9;
 
-/** anime head shape: unit direction → surface point (head-local: +X face, +Y up, +Z camera side). Pointed chin, narrow jaw. */
-export function headPoint(dx, dy, dz, r = 0.118, out = [0, 0, 0]) {
+/** anime head shape: unit direction → surface point (head-local: +X face, +Y up, +Z camera side). Pointed chin, narrow jaw.
+ *  jaw = 1 (v2.5 face pass, skin head + face decal only; the hair cap keeps the round skull): below the cheekbones the front of the
+ *  face narrows in straight lines to a small chin (V-jaw, front view), the jaw underside flattens so the jaw corner under the ear
+ *  reads in 3/4 / side view, and the chin tip comes forward a touch. */
+export function headPoint(dx, dy, dz, r = 0.118, out = [0, 0, 0], jaw = 0) {
   const lo = dy < 0 ? -dy : 0;
-  out[0] = r * dx * (dx > 0 ? 1.0 : 1.08) + (dy < 0 ? 0.034 * lo * Math.max(0, dx + 0.35) : 0) - 0.008;
-  out[1] = r * dy * (dy < 0 ? 1.3 : 1.04) + 0.012;
-  out[2] = r * dz * (1 - 0.4 * lo * lo) * 0.93;
+  let zk = 1 - 0.4 * lo * lo, x = r * dx * (dx > 0 ? 1.0 : 1.08) + (dy < 0 ? 0.034 * lo * Math.max(0, dx + 0.35) : 0) - 0.008, y = r * dy * (dy < 0 ? 1.3 : 1.04) + 0.012;
+  if (jaw && lo > 0) {
+    const ring = Math.sqrt(Math.max(1e-6, 1 - dy * dy)), cph = dx / ring, front = smooth(-0.55, 0.3, cph);
+    const s = Math.max(0, (lo - 0.16) / 0.84), target = 1 - 0.74 * Math.pow(s, 0.95);   // front silhouette width, cheekbone → chin
+    zk += (Math.min(1.05, target / Math.max(0.25, ring)) - zk) * front;
+    const und = smooth(0.42, 0.92, lo) * smooth(-0.7, 0.1, cph) * (1 - smooth(0.4, 0.9, cph));   // flatten the underside behind the chin
+    y += r * 0.17 * und;
+    x += r * 0.035 * smooth(0.7, 1, lo) * Math.max(0, cph);                                    // chin tip forward
+  }
+  out[0] = x; out[1] = y; out[2] = r * dz * zk * 0.93;
   return out;
 }
-function headGeo(r, segU = 22, segV = 16) {   // seam-free deformed sphere
-  const rings = []; const P = [], I = [];
-  P.push(...headPoint(0, -1, 0, r));
-  for (let k = 1; k < segV; k++) { const th = Math.PI - (k / segV) * Math.PI; for (let j = 0; j < segU; j++) { const ph = (j / segU) * Math.PI * 2; P.push(...headPoint(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph), r)); } }
-  P.push(...headPoint(0, 1, 0, r));
+function headGeo(r, segU = 22, segV = 16, jaw = 0) {   // seam-free deformed sphere
+  const rings = []; const P = [], I = [], hp = (a, b, c) => headPoint(a, b, c, r, [0, 0, 0], jaw);
+  P.push(...hp(0, -1, 0));
+  for (let k = 1; k < segV; k++) { const th = Math.PI - (k / segV) * Math.PI; for (let j = 0; j < segU; j++) { const ph = (j / segU) * Math.PI * 2; P.push(...hp(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph))); } }
+  P.push(...hp(0, 1, 0));
   const rv = (k, j) => 1 + (k - 1) * segU + (j % segU);
   for (let k = 1; k < segV - 1; k++) for (let j = 0; j < segU; j++) { const a = rv(k, j), b = rv(k, j + 1), c = rv(k + 1, j), d = rv(k + 1, j + 1); I.push(a, c, b, b, c, d); }
   for (let j = 0; j < segU; j++) I.push(0, rv(1, j), rv(1, j + 1));
@@ -64,7 +76,7 @@ function faceGeo(r) {
   const nu = 14, nv = 12, P = [], UV = [], I = [];
   for (let k = 0; k <= nv; k++) for (let j = 0; j <= nu; j++) {
     const th = FACE_TH[0] + (FACE_TH[1] - FACE_TH[0]) * (k / nv), ph = FACE_PH - 2 * FACE_PH * (j / nu);
-    P.push(...headPoint(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph), r * 1.012)); UV.push(j / nu, 1 - k / nv);
+    P.push(...headPoint(Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph), r * 1.012, [0, 0, 0], 1)); UV.push(j / nu, 1 - k / nv);
   }
   for (let k = 0; k < nv; k++) for (let j = 0; j < nu; j++) { const a = k * (nu + 1) + j, b = a + 1, c = a + nu + 1, d = c + 1; I.push(a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setIndex(I); g.computeVertexNormals(); return g;
@@ -96,11 +108,21 @@ function katanaGeo(pal, L = 1.18) {
   const g = acc.build(); g.deleteAttribute('skinIndex'); g.deleteAttribute('skinWeight'); return g;
 }
 
-/** Mage focus crystal (local +Y = cast direction, origin = focus centre): elongated octahedron with a glowing core band */
+/** Mage focus crystal (local +Y = cast direction, origin = focus centre). v2.5: a hexagonal bipyramid with painted facets (light /
+ *  violet / deep, alternating, lighter on top) on smooth radial normals, so it reads as a cut gem — and spins — instead of a white
+ *  spark; the outline hull stays closed because the normals are shared. 12 triangles. */
 function crystalGeo(pal) {
-  const acc = new SkinAcc(), W = () => [[0, 1]];
-  const g = new THREE.OctahedronGeometry(0.034, 0); g.scale(0.85, 1.5, 0.85);
-  acc.add(g, M4(), { colorFn: (l) => (Math.abs(l.y) < 0.012 ? pal.trim : pal.crystal), glowFn: (l) => (Math.abs(l.y) < 0.012 ? 0.9 : 0.45), weights: W, line: 0.6, shine: 0.8 });
+  const acc = new SkinAcc(), W = () => [[0, 1]], n = 6, R = 0.042, Yt = 0.1, Yb = -0.07, P = [], N = [], F = [];
+  const ring = (j) => { const a = (j % n) / n * Math.PI * 2; return [Math.cos(a) * R, 0, Math.sin(a) * R]; };
+  for (let j = 0; j < n; j++) {
+    const a = ring(j), b = ring(j + 1);
+    P.push(0, Yt, 0, ...a, ...b); F.push(j % 2 ? 0 : 1, j % 2 ? 0 : 1, j % 2 ? 0 : 1);     // top facets: light / violet
+    P.push(0, Yb, 0, ...b, ...a); F.push(j % 2 ? 1 : 2, j % 2 ? 1 : 2, j % 2 ? 1 : 2);     // bottom facets: violet / deep
+  }
+  for (let i = 0; i < P.length; i += 3) { const x = P[i], y = P[i + 1] * 0.55, z = P[i + 2], l = Math.hypot(x, y, z) || 1; N.push(x / l, y / l, z / l); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  const COL = [pal.crystal, pal.crystalMid ?? 0xa77bff, pal.crystalDeep ?? 0x4e2aa6], GL = [0.5, 0.42, 0.3];
+  acc.add(g, M4(), { colorFn: (l, v, i) => COL[F[i]], glowFn: (l, v, i) => GL[F[i]], weights: W, line: 0.6, shine: 0.9 });
   const out = acc.build(); out.deleteAttribute('skinIndex'); out.deleteAttribute('skinWeight'); return out;
 }
 
@@ -114,7 +136,7 @@ export function buildCharacter(cfg) {
   const bones = [], bind = [], names = [...BODY];
   for (const n of BODY) { const [a, b] = BIND_SEG[n]; bind.push(frameMat(J0(a), J0(b), 0, M4())); }
   const addBone = (name, m) => { names.push(name); bind.push(m); return names.length - 1; };
-  const acc = new SkinAcc();
+  const acc = new SkinAcc(pal.skin);
   const chains = [];
   /** register a spring chain: points (bind space) p[0..n], anchored to bone `anchor`. Returns its bone indices. */
   const chain = (name, anchor, pts, opt) => {
@@ -131,7 +153,7 @@ export function buildCharacter(cfg) {
   const hm = T(...HB);
   const MAGE = cfg.build === 'mage';
   let mage = null, sheath = null;
-  if (MAGE) mage = buildMage({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr, headGeo, M4, T, W1, addBone });
+  if (MAGE) mage = buildMage({ acc, B, bind, chain, chainW, pal, H, hm, HB, hr, headGeo, M4, T, W1, addBone, neckAO });
   else {   // ---------------------------------------------------------------- Swordsman body (v1 pilot / v2 anime)
   const roundBox = (g, k) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const r = Math.hypot(x, y, z) || 1; p.setXYZ(i, x * (1 - k) + x / r * 0.05 * k, y * (1 - k) + y / r * 0.055 * k, z * (1 - k) + z / r * 0.048 * k); } g.computeVertexNormals(); return g; };
   if (!V2) {
@@ -219,9 +241,9 @@ export function buildCharacter(cfg) {
       acc.add(cg, M4(), { part: 'collar', colorFn: (l) => (l.y > 1.67 ? pal.trim : pal.coat), glowFn: (l) => (l.y > 1.67 ? 0.6 : 0), weights: (v) => { const k = smooth(1.58, 1.67, v.y) * 0.45; return [[B.chest, 1 - k], [B.neck, k]]; } });
     }
     // short neck (chin sits just above the collar line)
-    acc.add(tube([{ y: 1.54, rx: 0 }, { y: 1.555, rx: 0.043, rz: 0.047, x: 0.004 }, { y: 1.63, rx: 0.04, rz: 0.043, x: 0.008 }, { y: 1.7, rx: 0.036, rz: 0.038, x: 0.008 }, { y: 1.72, rx: 0 }], 10), M4(),
-      { part: 'neck', color: pal.skin, weights: (v) => { const a = smooth(1.55, 1.6, v.y), b = smooth(1.66, 1.71, v.y); return [[B.chest, 1 - a], [B.neck, a * (1 - b)], [B.head, b]]; } });
-    acc.add(headGeo(hr), hm, { part: 'head', color: pal.skin, weights: W1(B.head) });
+    acc.add(tube([{ y: 1.54, rx: 0 }, { y: 1.555, rx: 0.043, rz: 0.047, x: 0.004 }, { y: 1.63, rx: 0.04, rz: 0.043, x: 0.008 }, { y: 1.668, rx: 0.038, rz: 0.04, x: 0.008 }, { y: 1.7, rx: 0.036, rz: 0.038, x: 0.008 }, { y: 1.72, rx: 0 }], 10), M4(),
+      { part: 'neck', color: pal.skin, aoFn: neckAO, weights: (v) => { const a = smooth(1.55, 1.6, v.y), b = smooth(1.66, 1.71, v.y); return [[B.chest, 1 - a], [B.neck, a * (1 - b)], [B.head, b]]; } });
+    acc.add(headGeo(hr, 22, 18, 1), hm, { part: 'head', color: pal.skin, weights: W1(B.head) });
     // hands: chunky stylised sword-grip fist (weapon hand, local +Y = blade axis) and an open guarding mitt (off hand), gloves
     const rb = (g, k, rx, ry, rz) => { const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const r = Math.hypot(x / rx, y / ry, z / rz) || 1; p.setXYZ(i, x * (1 - k) + x / r * k, y * (1 - k) + y / r * k, z * (1 - k) + z / r * k); } g.computeVertexNormals(); return g; };
     const handF = bind[B.handF], handB = bind[B.handB];
@@ -314,7 +336,7 @@ export function buildCharacter(cfg) {
     }
     const surf = (u, v) => { const a = gap + u * (Math.PI * 2 - 2 * gap), [x, z] = rad(a, v); return [x + (Math.cos(a) < 0 ? -0.03 * v : 0.01 * v), y0 - L * v, z]; };
     const nrm = (u) => { const a = gap + u * (Math.PI * 2 - 2 * gap); return [Math.cos(a), 0.15, Math.sin(a)]; };
-    const cg = shell(surf, nrm, V2 ? 26 : 30, 9, 0.012);
+    const cg = shell(surf, nrm, V2 ? 26 : 30, V2 ? 8 : 9, 0.012);   // v2.5: 8 rows (was 9) pays for the jaw rings + neck shade ring under 15k drawn
     const angOf = (v3) => { let a = Math.atan2(v3.z / 1.1, v3.x); if (a < 0) a += Math.PI * 2; return a; };
     acc.add(cg, M4(), {
       part: 'coat', colorFn: (l) => { const v = (y0 - l.y) / L, out = Math.hypot(l.x, l.z / 1.1) > Math.hypot(...rad(angOf(l), v).map((q, i) => q / (i ? 1.1 : 1))) - 0.0005; return v > 0.94 ? pal.trim : out ? pal.coat : pal.lining; },
@@ -344,14 +366,14 @@ export function buildCharacter(cfg) {
     for (const [x, y, z] of backs) { const l = Math.hypot(x, y, z); spikes.push({ at: [(x / l * 0.09 - 0.01) * hk, (y / l * 0.09 + 0.03) * hk, (z / l * 0.09 + z * 0.4) * hk], dir: [x, y * 0.85 - 0.25, z * 2.2], L: 0.13 + (y < 0 ? 0.03 : 0), w: 0.034, d: 0.038 }); }
     for (const sp of spikes) {
       const d = new THREE.Vector3(...sp.dir).normalize(), root = new THREE.Vector3(...sp.at).add(new THREE.Vector3(...HB)), tip = root.clone().addScaledVector(d, sp.L);
-      const ids = chain('hair', B.head, [root.toArray(), tip.toArray()], { stiff: [0, 0.32], drag: 0.86, grav: 2.5, collide: false });
+      const ids = chain('hair', B.head, [root.toArray(), tip.toArray()], { stiff: [0, 0.32], drag: 0.86, grav: 2.5, collide: false, sh: true });
       const g = spike(sp.L, sp.w, sp.d, 4); acc.add(g, bind[ids[0]], { part: 'hair', colorFn: HC, shine: 1, weights: W1(ids[0]), line: 0.85 });
     }
     // ponytail: tie ring (glow) + long tapered tube on a 3-bone chain
     if (H.ponytail) {
       const P0 = new THREE.Vector3(-0.115 * hk, 0.085 * hk, 0).add(new THREE.Vector3(...HB)), n = H.ponytail.segs || 3, L = H.ponytail.len || 0.42, dir = new THREE.Vector3(-0.55, -0.83, 0).normalize();
       const pts = []; for (let k = 0; k <= n; k++) pts.push(P0.clone().addScaledVector(dir, L * k / n).toArray());
-      const ids = chain('tail', B.head, pts, { stiff: [0, 0.12, 0.06, 0.035], drag: 0.9, grav: 5, collide: false, tail: true });
+      const ids = chain('tail', B.head, pts, { stiff: [0, 0.12, 0.06, 0.035], drag: 0.9, grav: 5, collide: false, tail: true, sh: true });
       const tm = new THREE.Matrix4().compose(P0, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), new THREE.Vector3(1, 1, 1));
       const rings = [{ y: -0.02, rx: 0 }, { y: -0.012, rx: 0.03, rz: 0.03 }, { y: 0.015, rx: 0.032, rz: 0.032 }, { y: 0.03, rx: 0.042, rz: 0.04 }];
       for (let k = 1; k <= 9; k++) { const u = k / 9; rings.push({ y: 0.03 + (L - 0.03) * u, rx: 0.044 * (1 - u * 0.85) * (1 + 0.25 * Math.sin(u * 3)), rz: 0.036 * (1 - u * 0.8), x: 0.02 * Math.sin(u * 2.5) }); }
@@ -365,28 +387,28 @@ export function buildCharacter(cfg) {
   for (let i = 0; i < names.length; i++) { const b = new THREE.Bone(); b.name = names[i]; bind[i].decompose(b.position, b.quaternion, b.scale); bones.push(b); }
   const skeleton = new THREE.Skeleton(bones, bind.map((m) => m.clone().invert()));
   const geo = acc.build();
-  const U = toonUniforms(pal.rim ?? pal.trim), OU = outlineUniforms(cfg.outlinePx ?? 1.9, pal.line ?? 0x07060f);
+  const U = toonUniforms(pal.rim ?? pal.trim, cfg.rimLight), OU = outlineUniforms(cfg.outlinePx ?? 1.9, pal.line ?? 0x07060f);
   const mat = toonMat(U);   // one material for the whole body; the hair highlight is masked per vertex (aShine)
   const body = new THREE.SkinnedMesh(geo, mat), outline = new THREE.SkinnedMesh(geo, outlineMat(OU));
   for (const m of [body, outline]) { m.bind(skeleton, new THREE.Matrix4()); m.frustumCulled = false; }
   hookOutline(outline, OU); outline.renderOrder = -1;
   // face decal (child of the head bone)
-  const faceTex = faceAtlas(cfg.face);
-  const face = new THREE.Mesh(faceGeo(hr), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, alphaTest: 0.35, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const faceTex = faceAtlas({ ...cfg.face, skin: pal.skin });   // the painted shade (bangs / cheek / jaw) is skin × the toon skin shadow
+  const face = new THREE.Mesh(faceGeo(hr), new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, alphaTest: 0.02, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   face.renderOrder = 2; face.position.set(HB[0] - BIND.head[0], HB[1] - BIND.head[1], 0); bones[B.head].add(face);
   // weapon (+ outline), placed by the renderer: katana at the weapon hand, or the Mage's focus crystal ahead of the casting palm
   const kg = MAGE ? crystalGeo(pal) : katanaGeo(pal), wmat = toonMat(U), weapon = new THREE.Mesh(kg, wmat), wo = new THREE.Mesh(kg, outlineMat(OU));
   hookOutline(wo, OU); weapon.add(wo); weapon.frustumCulled = false; wo.frustumCulled = false;
-  let decal = null, focus = null, sigil = null;
+  let decal = null, focus = null, sigil = null, sign = null;
   if (MAGE) {
     decal = new THREE.SkinnedMesh(mage.decal.geo, mage.decal.mat); decal.bind(skeleton, new THREE.Matrix4()); decal.frustumCulled = false; decal.renderOrder = 1;
-    focus = mage.focus; weapon.add(focus); sigil = mage.sigil;
+    focus = mage.focus; weapon.add(focus); sigil = mage.sigil; sign = mage.sign;
   }
   const extraTris = MAGE ? mage.decal.geo.index.count / 3 + focus.userData.holo.geometry.index.count / 3 : 0;
   const tris = { parts: acc.parts, yr: acc.yr, body: geo.index.count / 3, weapon: kg.index.count / 3, face: face.geometry.index.count / 3, extra: extraTris };
   return {
     body, outline, face, faceTex, weapon, bones, bind, skeleton, chains, sheath, U, OU, tris, B, ver: V2 ? 'v2' : 'v1', legR: MAGE ? [0.1, 0.075] : V2 ? [0.11, 0.082] : [0.1, 0.075],
-    build: MAGE ? 'mage' : 'sword', fingers: MAGE ? mage.fingers : null, decal, focus, sigil, calls: MAGE ? 7 : 5,
+    build: MAGE ? 'mage' : 'sword', fingers: MAGE ? mage.fingers : null, decal, focus, sigil, sign, calls: MAGE ? 7 : 5, shR: MAGE ? 0.088 : 0.1,
     dispose() { geo.dispose(); kg.dispose(); face.geometry.dispose(); faceTex.dispose(); for (const m of [mat, outline.material, wmat, wo.material, face.material]) m.dispose(); skeleton.dispose(); if (mage) mage.dispose(); },
   };
 }

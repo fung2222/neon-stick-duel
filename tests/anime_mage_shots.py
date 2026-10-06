@@ -1,5 +1,5 @@
 """Anime Mage (phase 2): screenshots, clip, perf numbers (headless Chrome, deterministic frame stepping via window.__duel.api.advance).
-Usage: python tests/anime_mage_shots.py [base_url] [out_dir] [--only turnaround,vsold,forms,fight,perf,video,card]
+Usage: python tests/anime_mage_shots.py [base_url] [out_dir] [--only turnaround,vsold,forms,fight,perf,video,card,face] [--before old_base_url]
 Writes to out_dir (default /workspace/shots/duel-anime):
   mage-turnaround.png       full body, win pose: front, 3/4, side, back 3/4 (+ triangle counts)
   mage-vs-old.png           old neon (classic stick) Mage vs anime Mage, same sim pose: idle, a3 orb cast, ult held pose
@@ -7,6 +7,8 @@ Writes to out_dir (default /workspace/shots/duel-anime):
   mage-vs-sword-<w>x<h>.png   in-fight frames (HUD on): player anime Mage vs the stage-4 Swordsman (RONIN-07)
   sword-vs-mage-412x915.png   player Swordsman vs the stage-3 Mage (NEON ADEPT, recoloured)
   mage-card.png             close-up portrait
+  face-before-after.png     both heads (Swordsman + Mage): 3/4 close-up + the head as it is drawn at 412x915 (x4, nearest), before vs after;
+                            `--before <url>` = the old build (e.g. a `git archive` of the previous commit served on another port)
   mage-combo.mp4            ~5.6 s 412x915 (+1 black row → 412x916) combo → pillar → ult, H.264 yuv420p, fixed 1/30 s per frame clock
   mage-perf.json            draw calls / triangles, per-character tris, JS update cost, heap growth per update
 Zero console errors is asserted on every page.
@@ -15,8 +17,9 @@ import sys, os, time, json, subprocess, shutil, math
 from playwright.sync_api import sync_playwright
 from PIL import Image, ImageDraw, ImageFont
 
-_a = sys.argv[1:]; ONLY = None
+_a = sys.argv[1:]; ONLY = None; BEFORE = None
 if '--only' in _a: i = _a.index('--only'); ONLY = set(_a[i + 1].split(',')); del _a[i:i + 2]
+if '--before' in _a: i = _a.index('--before'); BEFORE = _a[i + 1]; del _a[i:i + 2]   # base URL of the old build (face before / after)
 BASE = _a[0] if len(_a) > 0 else 'http://127.0.0.1:8833/'
 OUT = _a[1] if len(_a) > 1 else '/workspace/shots/duel-anime'
 ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required',
@@ -265,7 +268,45 @@ def video(p, w=412, h=915, seconds=5.6, fps=30):
     check(not errs, f'video: zero console errors {errs[:3]}')
     b.close()
 
+FACE_CAM = {'sword': "{fov:11,pos:[0.3,2.08,3.4],look:[-0.84,1.95,0]}", 'mage': "{fov:11,pos:[0.3,2.04,3.4],look:[-0.84,1.91,0]}"}
+def face_tiles(p, base, cls):
+    """→ (close-up tile, phone-scale tile) of the player's head in idle (3/4 view) from the build at `base`"""
+    global BASE
+    keep = BASE; BASE = base
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=ARGS)
+    ctx, pg, errs = boot(b, 520, 520)
+    fight(pg, cls=cls, stage=1)
+    pg.evaluate("window.__duel.api.dbg().fb.visible=false; window.__duel.api.cam(%s)" % FACE_CAM[cls])
+    pose(pg, {'st': 'idle', 't': 0}, 40)
+    f = os.path.join(OUT, '_face.png'); shot(pg, f); close = Image.open(f).convert('RGB'); os.remove(f)
+    ctx.close()
+    ctx, pg, errs2 = boot(b, 412, 915)
+    fight(pg, cls=cls, stage=1)
+    pose(pg, {'st': 'idle', 't': 0}, 40)
+    hs = pg.evaluate("(()=>{const {fa, stage} = window.__duel.api.dbg(); const s = stage.toScreen(fa.joints.head.clone()); return [s.x, s.y];})()")
+    shot(pg, f); im = Image.open(f).convert('RGB'); os.remove(f)
+    cx, cy, r = int(hs[0]), int(hs[1]) + 4, 26
+    phone = im.crop((cx - r, cy - r, cx + r, cy + r)).resize((r * 2 * 4, r * 2 * 4), Image.NEAREST)
+    check(not errs and not errs2, f'face {cls} @ {base}: zero console errors {(errs + errs2)[:3]}')
+    b.close(); BASE = keep
+    return close, phone
+def face_shots(p):
+    if not BEFORE: check(False, 'face: pass --before <old build url>'); return
+    cols = []
+    for cls in ['sword', 'mage']:
+        for lab, base in [('BEFORE', BEFORE), ('AFTER', BASE)]:
+            cols.append((f'{lab} · {"劍士 SWORDSMAN" if cls == "sword" else "魔導士 MAGE"}', *face_tiles(p, base, cls)))
+    cw, chh = cols[0][1].size; pw, ph = cols[0][2].size; W = (cw + 8) * 4 - 8
+    out = Image.new('RGB', (W, 44 + chh + 36 + ph + 10), (8, 6, 20)); d = ImageDraw.Draw(out)
+    d.text((12, 10), 'FACE · before vs after · top: 3/4 close-up · bottom: the same head as drawn in a 412×915 fight (×4, nearest)', fill=(255, 255, 255), font=font(18, True))
+    for i, (lab, close, phone) in enumerate(cols):
+        x = i * (cw + 8); out.paste(close, (x, 44)); out.paste(phone, (x + (cw - pw) // 2, 44 + chh + 36))
+        d.rectangle((x, 44, x + cw, 72), fill=(6, 4, 18)); d.text((x + 8, 48), lab, fill=(255, 220, 140) if lab.startswith('AFTER') else (180, 180, 200), font=font(16, True))
+        d.text((x + 8, 44 + chh + 10), 'phone scale (412×915) ×4', fill=(170, 170, 200), font=font(14))
+    path = os.path.join(OUT, 'face-before-after.png'); out.save(path); print('wrote', path)
+
 with sync_playwright() as p:
+    if (ONLY and 'face' in ONLY) or (ONLY is None and BEFORE): face_shots(p)
     if want('turnaround'): turnaround(p)
     if want('vsold'): vs_old(p)
     if want('card'): card(p)

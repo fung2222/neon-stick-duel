@@ -7,7 +7,7 @@ export const ANIME_CLASSES = {
   sword: {
     id: 'sword', concept: 'cyber-samurai: long coat on springs, crimson obi, layered shoulder armour, silver spiky hair + ponytail, glowing-edge katana',
     palette: {
-      skin: 0xffd9c6, hair: 0xe4ebff, hairTie: 0x00e5ff, coat: 0x2d4683, lining: 0x7a1840, inner: 0xe8edf8, pants: 0x161b2e,
+      skin: 0xf8cdb4, hair: 0xe4ebff, hairTie: 0x00e5ff, coat: 0x2d4683, lining: 0x7a1840, inner: 0xe8edf8, pants: 0x161b2e,
       sash: 0xc81e57, sashEdge: 0xf0c25a, armor: 0x56617e, boots: 0x15171f, glove: 0x1b1e2b, trim: 0x00e5ff, metal: 0xd4e2ff,
       tsuka: 0x10121a, tsukaWrap: 0x2b7d99, gold: 0xd9b45a, saya: 0x0e1018, line: 0x07060f,
     },
@@ -15,7 +15,7 @@ export const ANIME_CLASSES = {
     hair: { style: 'spiky', bangs: 7, ponytail: { len: 0.44, segs: 3 } },
     outfit: { coat: { len: 0.68, flare: 0.11, chains: 7, gap: 0.78 }, collar: true, sash: { tails: 2 }, pauldron: 'F', bracer: 'F' },
     weapon: { type: 'katana', sheath: true },
-    face: { iris: '#25d8ff', irisDark: '#0a2f6e' },
+    face: { iris: '#25d8ff', irisDark: '#08245a', brow: '#232842', blush: 'rgba(255,110,130,0.42)' },
     outlinePx: 1.9,
     anim: SWORD_ANIM,
   },
@@ -23,14 +23,15 @@ export const ANIME_CLASSES = {
     id: 'mage', build: 'mage', recolor: ['cape', 'skirt'],
     concept: 'netrunner techno-sorceress: asymmetric bob + long near lock, bun with glowing hair-sticks, hood worn down, asymmetric short cape, sleeveless bodysuit, circuit tattoos, mudra hands, short skirt, thigh-high boots, floating holo-glyph focus',
     palette: {
-      skin: 0xffe1d4, hair: 0x2d2550, suit: 0x1f1c38, cape: 0x3d2c7e, lining: 0x7c1f66, skirt: 0x2e2660, tights: 0x2b2546, boots: 0x1a1730, wrap: 0x342c5e,
-      gold: 0xf2c766, trim: 0xc58bff, nail: 0xd9a8ff, crystal: 0xe9dcff, metalDark: 0x26223a, hairTie: 0xc58bff, line: 0x0a0614,
+      skin: 0xfad2bd, hair: 0x2d2550, suit: 0x1f1c38, cape: 0x3d2c7e, lining: 0xd5d9f0, skirt: 0x2e2660, tights: 0x564b8e, boots: 0x231e40, wrap: 0x3c3370,
+      panel: 0x938cc8, gold: 0xf2c766, trim: 0xc58bff, nail: 0xd9a8ff, crystal: 0xf3eaff, crystalMid: 0xa77bff, crystalDeep: 0x4e2aa6, metalDark: 0x26223a, hairTie: 0xc58bff, line: 0x0a0614,
     },
     hair: { style: 'bob' },
     outfit: {},
     weapon: { type: 'focus' },
-    face: { iris: '#c27bff', irisDark: '#3b1170', brow: '#2d2550', lash: 'long', mouth: 'small', tattoo: '#d7a6ff', blush: 'rgba(255,120,170,0.3)' },
+    face: { iris: '#c27bff', irisDark: '#2e0c5c', brow: '#241d44', lash: 'long', mouth: 'small', tattoo: '#d7a6ff', blush: 'rgba(255,110,160,0.45)' },
     outlinePx: 1.9,
+    rimLight: { rimK: 0.85, rimW: 0.07 },   // v2.5: stronger / wider rim so the dark suit separates from the night city
     anim: MAGE_ANIM,
   },
 };

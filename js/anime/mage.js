@@ -57,10 +57,11 @@ export const POSES = {
   rollB: P({ rr: -3.5, py: 0.5, sp: 0.62, ch: 0.3, hd: 0.45, tw: 0, ctw: 0, fFx: 0.22, fFy: 0.6, fBx: 0.12, fBy: 0.52, aF: -0.3, aB: -0.3, hF: 0, hB: 0, kB: 0, gx: 0.28, gy: 1.0, ga: 1.2, ...FIST, ox: 0.3, oy: 0.95, ...OFIST, fs: 0.6 }),
   kneel: P({ rr: -TAU + 0.5, py: 0.5, sp: 0.35, ch: 0.12, hd: -0.3, fFx: 0.34, fFy: A0, fBx: -0.22, fBy: 0.1, hF: 0, hB: 0.9, kB: 0.2, gx: 0.36, gy: 0.9, ga: 0.2, ...OPEN, ox: 0.4, oy: 0.3, oa: -1.5, ...OOPEN }),
   stun: P({ py: 0.85, sp: -0.15, ch: -0.22, hd: 0.5, tw: 0.1, hF: 0, hB: 0, gx: 0.3, gy: 0.76, ga: -0.9, cF1: 0.5, cF2: 0.6, ox: -0.1, oy: 0.8, oa: -1.2, cB1: 0.5, cB2: 0.6, fs: 0.5 }),
-  // win: gather both palms → flourish (the focus spins out and back) → final: cat stance, sword fingers by the cheek, fist on the hip
+  // win: gather both palms → flourish (the focus spins out and back) → final: cat stance, sword fingers raised, glyph halo overhead, fist on the hip
   winA: P({ py: 0.81, sp: 0.02, ch: -0.06, tw: 0.25, ctw: 0, hd: 0.08, kB: 0.3, hF: 0, gx: 0.18, gy: 1.52, ga: 1.5, gw: 0, ...OPEN, ox: 0.1, oy: 1.5, oa: 1.5, ...OOPEN, fr: 0.2, fs: 1.6, gs: 0.6 }),
   winB: P({ px: 0.04, py: 0.83, sp: 0.1, tw: 0.5, ctw: 0.2, hd: -0.08, hF: 0.2, gx: 0.56, gy: 1.08, ga: -0.25, gw: 0.4, ...OPEN, ox: -0.02, oy: 1.02, oa: -1.4, ...OFIST, fr: 0.22, fs: 1.9, gs: 0.3 }),
-  win: P({ px: -0.02, py: 0.87, sp: 0.0, ch: -0.02, tw: 0.42, ctw: -0.1, hd: -0.12, fFx: 0.24, fBx: -0.3, hF: 0.25, gx: 0.2, gy: 1.42, ga: 1.25, gw: 0.25, ...SWORD, ox: -0.03, oy: 1.0, oa: -1.4, ...OFIST, fr: 0.2, fs: 0.95 }),
+  // v2.5: sword fingers raised to the sky, the glyph spins as a small halo ABOVE the head (it used to float in front of her eyes)
+  win: P({ px: -0.02, py: 0.87, sp: 0.0, ch: -0.04, tw: 0.42, ctw: -0.1, hd: -0.04, fFx: 0.24, fBx: -0.3, hF: 0.25, gx: 0.1, gy: 2.02, ga: 1.5, gw: 0.2, ...SWORD, ox: -0.03, oy: 1.0, oa: -1.4, ...OFIST, fr: 0.2, fs: 0.75 }),
 };
 
 // ------------------------------------------------------------------ attack forms (F[move] = named key poses)

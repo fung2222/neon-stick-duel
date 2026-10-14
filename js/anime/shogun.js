@@ -235,7 +235,7 @@ export function warpT(t, m, phase, seq = 0) {
   const q = 1 / 18, b = Math.floor(t / q), h = hash(b * 7.3 + seq * 1.7);
   if (h < 0.45) return t;                               // smooth stretch
   const held = b * q + (h < 0.75 ? 0 : q * 0.35);       // freeze on the step (a dropped frame)
-  return Math.min(t, held);
+  return Math.min(t, Math.max(held, 0.02));             // never rewind past the smooth intro (monotonic)
 }
 export const hash = (x) => { const s = Math.sin(x * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 /** idle / walk jitter in phase 2: short bursts (~1 in 4 windows of 1/12 s) of a few cm offsets on the hips / chest / head */

@@ -186,4 +186,9 @@
   .combo { top: 24%; }
 }
 
-/* hub return */ #btn-arcade-menu { margin-top: 10px; animation: none; }
+/* hub return */ #btn-arcade-menu { margin-top: 0; animation: none; }
+
+/* menu-home: primary modes stay in CTA; class sits in top bar */
+.menu-home .mode-row { margin-bottom: 0; }
+.menu-home .menu-top #btn-class,
+.menu-home .menu-top #btn-restart-tower { min-width: 0; }

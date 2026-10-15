@@ -192,3 +192,6 @@
 .menu-home .mode-row { margin-bottom: 0; }
 .menu-home .menu-top #btn-class,
 .menu-home .menu-top #btn-restart-tower { min-width: 0; }
+
+.menu-home .mode-row { justify-content: center; margin-bottom: 0; }
+.menu-home .menu-sec .neon-btn { animation: none; min-width: 0; }

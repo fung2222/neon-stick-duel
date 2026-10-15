@@ -185,3 +185,5 @@
   .demo-tag { top: calc(max(8px, env(safe-area-inset-top)) + 100px) !important; }
   .combo { top: 24%; }
 }
+
+/* hub return */ #btn-arcade-menu { margin-top: 10px; animation: none; }

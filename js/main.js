@@ -13,7 +13,7 @@ import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { BossFx } from './boss-fx.js';
 import { createControls } from './controls.js';
-import { readHub, returnToHub } from './hub.js';
+import { readHub, returnToHub, shouldShowArcadeMenu } from './hub.js';
 import { POST } from './config.js';
 
 const $ = (id) => document.getElementById(id);
@@ -557,6 +557,8 @@ ui.on('btn-style', () => { audio.click(); setStyle(styleFor('sword') === 'anime'
 i18n.onChange(paintRig); paintRig(); ui.on('btn-quit', () => { audio.back(); showMenu(); });
 ui.on('btn-res-main', resultMain); ui.on('btn-res-menu', resultMenu); ui.on('btn-revive', revive);
 ui.on('btn-hub', () => returnToHub(hub)); ui.on('btn-trial-menu', () => { audio.back(); showMenu(); });
+ui.on('btn-arcade-menu', () => { audio.back(); returnToHub(hub, { openStore: false }); });
+if (shouldShowArcadeMenu(hub)) { const b = document.getElementById('btn-arcade-menu'); if (b) b.classList.remove('hidden'); }
 Platform.onBack(() => {
   if (ui.closeModal()) return true;
   if (S.state === 'play' || S.state === 'intro') { pause(); return true; }

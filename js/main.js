@@ -678,6 +678,7 @@ function tick(dt, now) {
 i18n.bindToggle($('btn-lang')); i18n.bindToggle($('btn-lang2'));
 
 ui.mountHowto({
+  privacyUrl: './privacy.html',
   onOpen: () => { try { audio.click(); } catch (_) {} },
   getContent: () => ({
     kicker: 'NEON STICK DUEL',
@@ -688,6 +689,11 @@ ui.mountHowto({
     ],
   }),
 });
+ui.mountSettings({
+  audio, stage,
+  onOpen: () => { try { audio.click(); } catch (_) {} },
+});
+
 
 i18n.onChange(() => {
   syncGlitch(); refreshMenu();

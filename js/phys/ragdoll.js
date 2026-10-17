@@ -22,18 +22,19 @@ export const POSE = { STAND: 'stand', WALK: 'walk', PUNCH: 'punch', HIT: 'hit', 
 
 export const SOFT = {
   // Pose motors: legs firm, arms softer; light upright assist; KO limp unlocks.
-  gain: 14, hipT: 78, knT: 58, ankT: 44, shT: 28, elT: 22, neckT: 14, wrT: 8,
+  gain: 14, hipT: 78, knT: 58, ankT: 44, shT: 38, elT: 32, neckT: 14, wrT: 10,
   upright: 48, uprightD: 14, walkK: 16, flinchT: 0.22,
   punchReach: 1.05, punchDmg: 16,
-  // Kung-fu punch phases (seconds)
-  punchWindup: 0.12, punchThrust: 0.16, punchRecover: 0.14,
+  // Kung-fu punch phases — long enough to READ on 30–60fps
+  punchWindup: 0.32, punchThrust: 0.22, punchRecover: 0.20,
   balanceBoost: 1.6, walkHz: 2.4,
 };
 
 /** Base joint targets (Landfall-style active ragdoll poses). */
 export const POSE_STAND = {
   hipF: 0.1, hipB: -0.06, knF: 0.28, knB: 0.25, ankF: 0.04, ankB: 0.04,
-  shF: -0.4, shB: 0.3, elF: 0.6, elB: 0.55, neck: 0, wrF: 0, wrB: 0,
+  // Raised guard — fists up, elbows bent (not hanging straight down)
+  shF: -1.05, shB: -0.75, elF: 1.35, elB: 1.25, neck: 0, wrF: 0.05, wrB: 0.05,
 };
 
 /** Neon weapon catalogue (original CYBER props — not Landfall clones). */
@@ -262,10 +263,12 @@ export function makePhysWorld() {
   return { world, a, b, weapons, events, ground };
 }
 
-function setMotor(j, targetAngle, gain, maxTorque) {
+function setMotor(j, targetAngle, gain, maxTorque, maxSpeed = 14) {
   if (!j) return;
   const ang = j.getJointAngle();
-  j.setMotorSpeed((targetAngle - ang) * gain);
+  let spd = (targetAngle - ang) * gain;
+  if (maxSpeed != null && Math.abs(spd) > maxSpeed) spd = Math.sign(spd) * maxSpeed;
+  j.setMotorSpeed(spd);
   if (maxTorque != null) j.setMaxMotorTorque(maxTorque);
 }
 
@@ -345,50 +348,57 @@ function walkPoseTargets(phase, face) {
   };
 }
 
-/** Kung-fu punch: windup (chamber) → thrust (extend) → recover. */
+/** Kung-fu punch: windup (chamber) → thrust (extend) → recover.
+ *  Targets are EXAGGERATED so chamber/thrust read clearly in silhouette. */
 function punchPoseTargets(face, phase = 'thrust') {
+  const f = face || 1;
   const base = {
     ...POSE_STAND,
-    hipF: POSE_STAND.hipF + 0.05,
-    hipB: POSE_STAND.hipB - 0.02,
-    knF: POSE_STAND.knF + 0.08,
-    knB: POSE_STAND.knB + 0.05,
-    // rear guard hand stays up
-    shB: 0.35 * face,
-    elB: 1.05,
-    neck: -0.06 * face,
+    hipF: POSE_STAND.hipF + 0.06,
+    hipB: POSE_STAND.hipB - 0.03,
+    knF: POSE_STAND.knF + 0.1,
+    knB: POSE_STAND.knB + 0.06,
+    // off-hand stays in high guard
+    shB: -1.1,
+    elB: 1.55,
+    neck: -0.05 * f,
     wrF: 0, wrB: 0,
   };
   if (phase === 'windup') {
-    // Chamber: fist pulls back near ribs, elbow bent
+    // CHAMBER: lead fist pulls BACK behind torso, elbow cocked (readable silhouette)
+    // Joint map (face+1): negative sh ⇒ fist behind; high el ⇒ bent.
     return {
       ...base,
-      hipF: base.hipF - 0.06 * face,
-      shF: 0.85 * face,   // shoulder back
-      elF: 1.85,          // elbow cocked
-      wrF: 0.15,
-      neck: 0.12 * face,
+      hipF: base.hipF - 0.06 * f,
+      shF: -1.9 * f,    // clearly behind torso
+      elF: 2.25,        // cocked (limit 2.7)
+      wrF: 0.25,
+      neck: 0.15 * f,
+      shB: -1.15,
+      elB: 1.55,
     };
   }
   if (phase === 'recover') {
-    // Ease fist back toward stand / guard
     return {
       ...base,
-      shF: -0.55 * face,
-      elF: 0.85,
-      shB: 0.25 * face,
-      elB: 0.75,
+      shF: POSE_STAND.shF,
+      elF: POSE_STAND.elF,
+      shB: POSE_STAND.shB,
+      elB: POSE_STAND.elB,
       neck: 0,
     };
   }
-  // thrust — full extension forward
+  // THRUST: lead arm snaps FORWARD toward foe, elbow opens
+  // Joint map (face+1): positive sh ⇒ fist forward/right.
   return {
     ...base,
-    hipF: base.hipF + 0.08,
-    shF: -1.75 * face,  // shoulder snaps forward
-    elF: 0.2,           // nearly straight (stay inside elbow limits)
-    wrF: -0.1,
-    neck: -0.12 * face,
+    hipF: base.hipF + 0.1,
+    shF: 2.25 * f,    // forward reach
+    elF: 0.15,        // nearly straight
+    wrF: -0.15,
+    neck: -0.15 * f,
+    shB: -0.75,
+    elB: 1.35,
   };
 }
 
@@ -418,7 +428,7 @@ function poseTargets(doll, intent) {
     default: {
       const st = { ...POSE_STAND };
       if (intent.guard) {
-        st.shF = -1.15; st.shB = -0.95; st.elF = 1.45; st.elB = 1.25;
+        st.shF = -1.4; st.shB = -1.25; st.elF = 1.7; st.elB = 1.55;
         st.hipF = 0.16; st.hipB = 0.05; st.knF = 0.4; st.knB = 0.38;
       }
       return st;
@@ -525,8 +535,10 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
   const thrusting = doll.punchPhase === 'thrust';
   const winding = doll.punchPhase === 'windup';
   // Firm but solver-safe — too much torque blows the elbow past limits
-  const armG = g * (thrusting ? 1.55 : winding ? 1.4 : punching ? 1.15 : 0.9);
-  const armT = stiff * softMul * (thrusting ? 1.55 : winding ? 1.45 : punching ? 1.2 : 1);
+  // Arm drive: moderate gain + speed cap so exaggerated targets arrive without blowing joints
+  const armG = g * (thrusting ? 1.15 : winding ? 1.25 : punching ? 1.05 : 0.95);
+  const armT = stiff * softMul * (thrusting ? 1.7 : winding ? 1.8 : punching ? 1.3 : 1);
+  const armSpd = thrusting ? 14 : winding ? 11 : 9;
 
   setMotor(J.hipF, targets.hipF, legG, SOFT.hipT * legT);
   setMotor(J.hipB, targets.hipB, legG, SOFT.hipT * legT);
@@ -534,10 +546,10 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
   setMotor(J.knB, targets.knB, legG, SOFT.knT * legT);
   if (J.ankF) setMotor(J.ankF, targets.ankF, legG, SOFT.ankT * legT);
   if (J.ankB) setMotor(J.ankB, targets.ankB, legG, SOFT.ankT * legT);
-  setMotor(J.shF, targets.shF, armG, SOFT.shT * armT);
-  setMotor(J.shB, targets.shB, g * 0.85, SOFT.shT * stiff * softMul);
-  setMotor(J.elF, targets.elF, armG, SOFT.elT * armT);
-  setMotor(J.elB, targets.elB, g * 0.85, SOFT.elT * stiff * softMul);
+  setMotor(J.shF, targets.shF, armG, SOFT.shT * armT, armSpd);
+  setMotor(J.shB, targets.shB, g * 0.9, SOFT.shT * stiff * softMul, armSpd);
+  setMotor(J.elF, targets.elF, armG, SOFT.elT * armT, armSpd);
+  setMotor(J.elB, targets.elB, g * 0.9, SOFT.elT * stiff * softMul, armSpd);
   setMotor(J.neck, targets.neck ?? 0, g, SOFT.neckT * softMul);
   setMotor(J.wrF, targets.wrF ?? 0, g * 0.5, SOFT.wrT * softMul);
   setMotor(J.wrB, targets.wrB ?? 0, g * 0.5, SOFT.wrT * softMul);

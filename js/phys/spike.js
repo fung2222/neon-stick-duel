@@ -44,6 +44,15 @@ export async function runPhysSpike(ctx) {
         applyHit(d, dmg, (who === 'a' ? phys.b : phys.a).parts.torso.getPosition().x);
       },
       forceMx: (v) => { S._forceMx = v; },
+      /** Freeze a punch phase for screenshots: 'windup'|'thrust'|'recover'|null */
+      holdPunchPhase: (who, phase) => {
+        const d = who === 'a' ? phys.a : phys.b;
+        if (!phase) { d.punchPhase = null; d.punchPhaseT = 0; d.punchActive = 0; return; }
+        d.pose = 'punch'; d.punchPhase = phase; d.punchPhaseT = 0.01;
+        d.punchActive = phase === 'thrust' ? 0.5 : 0;
+        // pin phase by large remaining time via negative tick workaround: refresh each frame
+        S._holdPunch = { who, phase };
+      },
       jump: () => { S._forceJump = true; },
       grab: () => { S._forceGrab = true; },
       throw: () => { S._forceThrow = true; },
@@ -322,6 +331,13 @@ export async function runPhysSpike(ctx) {
       throwIt: S._forceThrow || false,
     };
     S._forcePunch = false; S._forceJump = false; S._forceGrab = false; S._forceThrow = false;
+    if (S._holdPunch) {
+      const d = S._holdPunch.who === 'a' ? phys.a : phys.b;
+      d.punchPhase = S._holdPunch.phase;
+      d.punchPhaseT = 0.05;
+      d.pose = 'punch';
+      d.punchActive = S._holdPunch.phase === 'thrust' ? 0.3 : 0;
+    }
 
     const intentB = aiThink(dt);
     driveRagdoll(phys.a, intentA, dt, phys.world, phys.weapons, phys.b);

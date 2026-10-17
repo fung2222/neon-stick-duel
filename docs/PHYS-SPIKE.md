@@ -55,4 +55,6 @@ Alive fighters follow a pose state machine: **stand → walk → punch → hit �
 
 ## Punch phases (kung-fu)
 
-Bare-fist attack on `?phys=1`: **windup** (chamber / arm pulls back) → **thrust** (extend + hit window) → **recover** (return to stand). Hit detection only during thrust.
+Bare-fist attack on `?phys=1`: **windup** (chamber — lead fist pulls **behind** torso, elbow cocked) → **thrust** (arm snaps **forward**, elbow opens, hit window) → **recover** (return to raised guard). Stand uses a raised guard (not arms hanging). Phases are long enough to read at 30–60fps. Hit detection only during thrust.
+
+Shots: `docs/shots/phys/phys-before-*.png` (old hang) vs `phys-after-{stand,windup,thrust,recover}-412x915.png`.

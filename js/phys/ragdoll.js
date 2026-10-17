@@ -19,8 +19,10 @@ const MASK = {
 };
 
 export const SOFT = {
-  gain: 4.5, hipT: 22, knT: 14, shT: 10, elT: 8, neckT: 5, wrT: 4,
-  upright: 14, uprightD: 2.5, walkK: 12, flinchT: 0.28,
+  // Alive = plant & punch (still soft vs classic fighters). Limp/KO keeps floppy.
+  gain: 9.5, hipT: 48, knT: 32, shT: 30, elT: 24, neckT: 12, wrT: 10,
+  upright: 36, uprightD: 9, walkK: 24, flinchT: 0.12,
+  punchActive: 0.24, punchReach: 1.05, punchDmg: 16,
 };
 
 /** Neon weapon catalogue (original CYBER props — not Landfall clones). */
@@ -33,7 +35,7 @@ export const WEAPON_DEFS = {
 function boxBody(world, x, y, hx, hy, dens, filter, opts = {}) {
   const b = world.createBody({
     type: 'dynamic', position: { x, y }, angle: opts.angle || 0,
-    linearDamping: opts.ld ?? 0.25, angularDamping: opts.ad ?? 0.22, fixedRotation: !!opts.fixed,
+    linearDamping: opts.ld ?? 0.35, angularDamping: opts.ad ?? 0.4, fixedRotation: !!opts.fixed,
   });
   b.createFixture({
     shape: new Box(hx, hy), density: dens,
@@ -45,7 +47,7 @@ function boxBody(world, x, y, hx, hy, dens, filter, opts = {}) {
 function circleBody(world, x, y, r, dens, filter, opts = {}) {
   const b = world.createBody({
     type: 'dynamic', position: { x, y },
-    linearDamping: opts.ld ?? 0.22, angularDamping: opts.ad ?? 0.18,
+    linearDamping: opts.ld ?? 0.3, angularDamping: opts.ad ?? 0.35,
   });
   b.createFixture({
     shape: new Circle(r), density: dens,
@@ -70,11 +72,11 @@ export function makeRagdoll(world, x0, face, team) {
   const torsoH = 0.38, torsoW = 0.16, headR = 0.16;
   const ua = { hx: 0.07, hy: 0.18 }, la = { hx: 0.06, hy: 0.16 };
   const th = { hx: 0.09, hy: 0.22 }, sh = { hx: 0.08, hy: 0.2 };
-  const fistR = 0.09;
+  const fistR = 0.14;  // larger hitbox (visual ~matches in neon-view)
   const pelvisY = 0.95;
 
-  const torso = boxBody(world, x0, pelvisY + torsoH, torsoW, torsoH, 2.8, bodyCat, { ad: 0.35 });
-  const head = circleBody(world, x0, pelvisY + torsoH * 2 + headR + 0.02, headR, 0.85, bodyCat, { ad: 0.2 });
+  const torso = boxBody(world, x0, pelvisY + torsoH, torsoW, torsoH, 3.0, bodyCat, { ad: 0.65, ld: 0.4 });
+  const head = circleBody(world, x0, pelvisY + torsoH * 2 + headR + 0.02, headR, 0.9, bodyCat, { ad: 0.45, ld: 0.35 });
   const shY = pelvisY + torsoH * 2 - 0.04, hipY = pelvisY;
 
   const uArmF = boxBody(world, x0 + f * 0.22, shY - ua.hy, ua.hx, ua.hy, 0.7, bodyCat);
@@ -107,7 +109,7 @@ export function makeRagdoll(world, x0, face, team) {
 
   const doll = {
     team, face: f, parts, joints: j, alive: true, hp: 100, maxHp: 100,
-    punchCd: 0, jumpCd: 0, limpT: 0, flinchT: 0, grabCd: 0, throwCd: 0,
+    punchCd: 0, punchActive: 0, jumpCd: 0, limpT: 0, flinchT: 0, grabCd: 0, throwCd: 0,
     held: null, color: team === 'a' ? 0x00e5ff : 0xff2bd6,
     _stance: { hipF: 0.2, hipB: -0.15, knF: 0.35, knB: 0.3, shF: -0.55, shB: 0.45, elF: 0.75, elB: 0.65 },
     _impactCd: 0,
@@ -175,11 +177,15 @@ export function makePhysWorld() {
       if (fist?.alive && victim?.alive && fist.team !== victim.team && !fist.held && !fist._hitLatch) {
         const wv = Vec2.sub(ba.getLinearVelocity(), bb.getLinearVelocity());
         const speed = Math.hypot(wv.x, wv.y);
-        if (speed >= 3.2) {
-          const dmg = Math.min(18, 4 + Math.min(speed, 16) * 1.1);
+        const active = fist.punchActive > 0;
+        const minSp = active ? 1.2 : 4.5;  // only easy hits during punch window
+        if (speed >= minSp || (active && speed >= 0.4)) {
+          const dmg = active ? SOFT.punchDmg : Math.min(14, 3 + Math.min(speed, 14));
           const tp = victim.parts.torso.getPosition();
-          events.push({ type: 'hit', kind: 'punch', att: fist, def: victim, dmg, speed, x: tp.x, y: tp.y });
+          const fp = (fistUd === ua ? ba : bb).getPosition();
+          events.push({ type: 'hit', kind: 'punch', att: fist, def: victim, dmg, speed, x: fp.x, y: fp.y, solid: true });
           fist._hitLatch = true;
+          fist.punchActive = 0;
         }
       }
     }
@@ -293,18 +299,19 @@ export function throwWeapon(world, doll, { drop = false } = {}) {
   return w;
 }
 
-export function driveRagdoll(doll, intent, dt, world, weapons) {
+export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
   const {
     mx = 0, guard = false, jump = false, punch = false,
     grab = false, throwIt = false, drop = false,
   } = intent || {};
   if (doll.punchCd > 0) doll.punchCd -= dt;
+  if (doll.punchActive > 0) doll.punchActive -= dt;
   if (doll.jumpCd > 0) doll.jumpCd -= dt;
   if (doll.flinchT > 0) doll.flinchT -= dt;
   if (doll.grabCd > 0) doll.grabCd -= dt;
   if (doll.throwCd > 0) doll.throwCd -= dt;
   if (doll._impactCd > 0) doll._impactCd -= dt;
-  if (doll.punchCd <= 0) doll._hitLatch = false;
+  if (doll.punchCd <= 0 && doll.punchActive <= 0) doll._hitLatch = false;
   if (doll.held && doll.held.hitCd > 0) doll.held.hitCd -= dt;
 
   const J = doll.joints;
@@ -328,11 +335,13 @@ export function driveRagdoll(doll, intent, dt, world, weapons) {
   setMotor(J.hipB, st.hipB - mx * 0.2, g, SOFT.hipT * stiff * softMul);
   setMotor(J.knF, st.knF, g * 1.1, SOFT.knT * stiff * softMul);
   setMotor(J.knB, st.knB, g * 1.1, SOFT.knT * stiff * softMul);
-  setMotor(J.shF, guard && !flinch ? -1.2 : st.shF + Math.sin(performance.now() * 0.004 + doll.face) * 0.08, g * 0.9, SOFT.shT * stiff * softMul);
-  setMotor(J.shB, guard && !flinch ? -1.0 : st.shB - Math.sin(performance.now() * 0.0035) * 0.08, g * 0.9, SOFT.shT * stiff * softMul);
-  setMotor(J.elF, guard && !flinch ? 1.5 : st.elF, g, SOFT.elT * stiff * softMul);
+  // no idle wobble — plant for fighting; slight punch reach pose while active
+  const punchReach = doll.punchActive > 0 && !flinch;
+  setMotor(J.shF, guard && !flinch ? -1.2 : (punchReach ? -1.8 * doll.face : st.shF), g * (punchReach ? 1.6 : 1), SOFT.shT * stiff * softMul * (punchReach ? 1.8 : 1));
+  setMotor(J.shB, guard && !flinch ? -1.0 : st.shB, g * 0.9, SOFT.shT * stiff * softMul);
+  setMotor(J.elF, guard && !flinch ? 1.5 : (punchReach ? 0.25 : st.elF), g * (punchReach ? 1.5 : 1), SOFT.elT * stiff * softMul * (punchReach ? 1.6 : 1));
   setMotor(J.elB, guard && !flinch ? 1.3 : st.elB, g, SOFT.elT * stiff * softMul);
-  setMotor(J.neck, Math.sin(performance.now() * 0.002) * 0.15, g * 0.7, SOFT.neckT * softMul);
+  setMotor(J.neck, 0, g * 0.8, SOFT.neckT * softMul);
   setMotor(J.wrF, 0, g * 0.5, SOFT.wrT * softMul);
   setMotor(J.wrB, 0, g * 0.5, SOFT.wrT * softMul);
 
@@ -344,7 +353,10 @@ export function driveRagdoll(doll, intent, dt, world, weapons) {
     const ang = torso.getAngle();
     torso.applyTorque(-ang * SOFT.upright * stiff - torso.getAngularVelocity() * SOFT.uprightD);
   }
-  if (Math.abs(mx) > 0.2) doll.face = mx > 0 ? 1 : -1;
+  if (foe && foe.alive) {
+    const fx = foe.parts.torso.getPosition().x, mx0 = doll.parts.torso.getPosition().x;
+    if (Math.abs(fx - mx0) > 0.15) doll.face = fx > mx0 ? 1 : -1;
+  } else if (Math.abs(mx) > 0.2) doll.face = mx > 0 ? 1 : -1;
 
   if (jump && doll.jumpCd <= 0) {
     const p = torso.getPosition();
@@ -359,52 +371,97 @@ export function driveRagdoll(doll, intent, dt, world, weapons) {
   if ((throwIt || drop) && world && doll.held) throwWeapon(world, doll, { drop: !!drop && !throwIt });
 
   if (punch && doll.punchCd <= 0) {
-    if (doll.held) swingWeapon(doll);
-    else firePunch(doll);
-    doll.punchCd = doll.held ? 0.42 : 0.36;
+    if (doll.held) swingWeapon(doll, foe);
+    else firePunch(doll, foe);
+    doll.punchCd = doll.held ? 0.4 : 0.32;
   }
 }
 
-function firePunch(doll) {
+function firePunch(doll, foe = null) {
   const fist = doll.parts.fistF;
-  const dir = doll.face;
-  setMotor(doll.joints.shF, -2.2 * dir, 18, 55);
-  setMotor(doll.joints.elF, 0.15, 16, 40);
-  fist.applyLinearImpulse({ x: dir * 2.6, y: 0.45 }, fist.getWorldCenter(), true);
-  doll.parts.uArmF.applyAngularImpulse(dir * -0.35);
-  doll.parts.lArmF.applyAngularImpulse(dir * -0.2);
-  doll.parts.torso.applyLinearImpulse({ x: dir * 0.4, y: 0.12 }, doll.parts.torso.getWorldCenter(), true);
-  doll.parts.torso.applyForceToCenter({ x: dir * 70, y: 0 }, true);
+  let dir = doll.face;
+  let aimY = 0.35;
+  if (foe && foe.alive) {
+    const fp = fist.getPosition();
+    const tp = foe.parts.torso.getPosition();
+    const dx = tp.x - fp.x, dy = tp.y - fp.y;
+    const len = Math.hypot(dx, dy) || 1;
+    dir = Math.sign(dx) || dir;
+    doll.face = dir;
+    aimY = Math.max(-0.2, Math.min(0.9, dy / len));
+    // step-in toward foe
+    doll.parts.torso.applyLinearImpulse({ x: dir * 1.1, y: 0.15 }, doll.parts.torso.getWorldCenter(), true);
+  }
+  setMotor(doll.joints.shF, -2.4 * dir, 28, 90);
+  setMotor(doll.joints.elF, 0.1, 24, 70);
+  // strong directed punch
+  fist.applyLinearImpulse({ x: dir * 4.8, y: aimY * 2.8 }, fist.getWorldCenter(), true);
+  doll.parts.uArmF.applyLinearImpulse({ x: dir * 1.6, y: aimY }, doll.parts.uArmF.getWorldCenter(), true);
+  doll.parts.lArmF.applyLinearImpulse({ x: dir * 1.2, y: aimY * 0.8 }, doll.parts.lArmF.getWorldCenter(), true);
+  doll.parts.torso.applyForceToCenter({ x: dir * 100, y: 0 }, true);
+  doll.punchActive = SOFT.punchActive;
+  doll._hitLatch = false;
 }
 
-function swingWeapon(doll) {
+function swingWeapon(doll, foe = null) {
   const w = doll.held;
   if (!w) return;
-  const dir = doll.face;
-  setMotor(doll.joints.shF, -2.5 * dir, 22, 70);
-  setMotor(doll.joints.elF, 0.1, 18, 50);
-  w.body.applyAngularImpulse(dir * -1.6);
-  w.body.applyLinearImpulse({ x: dir * 3.2, y: 0.8 }, w.body.getWorldCenter(), true);
-  doll.parts.torso.applyLinearImpulse({ x: dir * 0.5, y: 0.15 }, doll.parts.torso.getWorldCenter(), true);
+  let dir = doll.face;
+  if (foe && foe.alive) {
+    const dx = foe.parts.torso.getPosition().x - doll.parts.torso.getPosition().x;
+    if (Math.abs(dx) > 0.1) { dir = Math.sign(dx); doll.face = dir; }
+  }
+  setMotor(doll.joints.shF, -2.6 * dir, 30, 100);
+  setMotor(doll.joints.elF, 0.08, 24, 70);
+  w.body.applyAngularImpulse(dir * -2.2);
+  w.body.applyLinearImpulse({ x: dir * 4.5, y: 1.0 }, w.body.getWorldCenter(), true);
+  doll.parts.torso.applyLinearImpulse({ x: dir * 0.7, y: 0.15 }, doll.parts.torso.getWorldCenter(), true);
   w.hitCd = 0;
+  doll.punchActive = SOFT.punchActive;
 }
 
-export function applyHit(doll, dmg) {
+/** Distance probe so punches connect even if Box2D contact is fussy. */
+export function probeMeleeHits(ctx) {
+  const out = [];
+  for (const [att, def] of [[ctx.a, ctx.b], [ctx.b, ctx.a]]) {
+    if (!att?.alive || !def?.alive || att.held || att._hitLatch) continue;
+    if (!(att.punchActive > 0)) continue;
+    const fist = att.parts.fistF.getPosition();
+    const torso = def.parts.torso.getPosition();
+    const head = def.parts.head.getPosition();
+    const dT = Math.hypot(fist.x - torso.x, fist.y - torso.y);
+    const dH = Math.hypot(fist.x - head.x, fist.y - head.y);
+    const reach = SOFT.punchReach;
+    if (dT <= reach || dH <= reach * 0.9) {
+      out.push({
+        type: 'hit', kind: 'punch', att, def, dmg: SOFT.punchDmg, speed: 8,
+        x: fist.x, y: fist.y, solid: true, probe: true,
+      });
+      att._hitLatch = true;
+      att.punchActive = 0;
+    }
+  }
+  return out;
+}
+
+export function applyHit(doll, dmg, fromX = null) {
   if (!doll.alive) return false;
   doll.hp = Math.max(0, doll.hp - dmg);
   doll.flinchT = SOFT.flinchT;
   const torso = doll.parts.torso;
-  torso.applyLinearImpulse({ x: (Math.random() - 0.5) * 1.6, y: 1.2 + dmg * 0.06 }, torso.getWorldCenter(), true);
-  const spin = (b, s) => b.applyAngularImpulse((Math.random() - 0.5) * s);
-  spin(doll.parts.head, 0.25);
-  spin(doll.parts.uArmF, 0.55); spin(doll.parts.lArmF, 0.4);
-  spin(doll.parts.uArmB, 0.5); spin(doll.parts.thighF, 0.35); spin(doll.parts.shinF, 0.3);
-  spin(torso, 0.2);
+  const tx = torso.getPosition().x;
+  const kdir = fromX != null ? Math.sign(tx - fromX) || doll.face : doll.face;
+  // directed knockback — little random spin while alive (readable hits)
+  torso.applyLinearImpulse({ x: kdir * (2.2 + dmg * 0.08), y: 1.4 + dmg * 0.05 }, torso.getWorldCenter(), true);
+  doll.parts.head.applyLinearImpulse({ x: kdir * 0.4, y: 0.3 }, doll.parts.head.getWorldCenter(), true);
   if (doll.hp <= 0) {
     doll.alive = false; doll.hp = 0;
     for (const j of Object.values(doll.joints)) { j.enableMotor(false); j.setMaxMotorTorque(0); }
     for (const b of Object.values(doll.parts)) b.setAngularDamping(0.08);
-    torso.applyLinearImpulse({ x: (Math.random() - 0.5) * 2.5, y: 2.2 }, torso.getWorldCenter(), true);
+    // KO flop may flail
+    const spin = (b, s) => b.applyAngularImpulse((Math.random() - 0.5) * s);
+    spin(doll.parts.uArmF, 0.6); spin(doll.parts.uArmB, 0.5); spin(doll.parts.thighF, 0.4); spin(torso, 0.35);
+    torso.applyLinearImpulse({ x: kdir * 2.8, y: 2.4 }, torso.getWorldCenter(), true);
     return true;
   }
   return false;
@@ -414,7 +471,9 @@ export function stepWorld(ctx, dt = DT) {
   ctx.events.length = 0;
   ctx.world.step(dt, 8, 3);
   for (const w of ctx.weapons || []) if (w.hitCd > 0) w.hitCd -= dt;
-  return ctx.events.splice(0);
+  const contact = ctx.events.splice(0);
+  const probed = probeMeleeHits(ctx);
+  return contact.concat(probed);
 }
 
 export function torsoPose(doll) {

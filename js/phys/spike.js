@@ -32,7 +32,7 @@ export async function runPhysSpike(ctx) {
 
   const S = {
     state: 'menu', acc: 0, time: 60, over: null, score: 0, introT: 0,
-    aiMem: { punchT: 0, jumpT: 0, grabT: 0, throwT: 0 },
+    aiMem: { punchT: 0, jumpT: 0, grabT: 0, throwT: 0 }, hitStop: 0,
   };
   window.__phys = S;
   window.__duel = {
@@ -73,7 +73,7 @@ export async function runPhysSpike(ctx) {
     tag.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:40;padding:6px 14px;border:1px solid #00e5ff;color:#7ff6ff;font:700 11px Orbitron,sans-serif;letter-spacing:.12em;background:rgba(5,1,15,.75);pointer-events:none';
     document.body.appendChild(tag);
   }
-  tag.textContent = 'PHYS P1 · ?phys=1 · weapons · impact';
+  tag.textContent = 'PHYS P1 · ?phys=1 · punch-fix';
 
   const ctl = createControls({
     active: () => S.state === 'play' && !flags.demo && !ui.modalOpen,
@@ -125,7 +125,7 @@ export async function runPhysSpike(ctx) {
     phys = Object.assign(phys, makePhysWorld());
     phys.a.color = 0x00e5ff; phys.b.color = 0xff2bd6;
     S.time = 60; S.over = null; S.acc = 0; S.introT = 0.55; S.state = 'intro'; S.score = 0;
-    S.aiMem = { punchT: 0.5, jumpT: 1.2, grabT: 0.3, throwT: 1.5 };
+    S.aiMem = { punchT: 0.5, jumpT: 1.2, grabT: 0.3, throwT: 1.5 }; S.hitStop = 0;
     ui.show(null); ui.hud(true); $('controls').classList.remove('hidden');
     document.body.dataset.state = 'play';
     ui.banner(L() ? 'PHYS DUEL' : '物理對打', L() ? 'GRAB · THROW · PUNCH' : '拾取 · 投擲 · 出拳', '');
@@ -190,7 +190,7 @@ export async function runPhysSpike(ctx) {
       // armed: close in, swing, sometimes throw
       if (Math.abs(dx) > 1.6) mx = Math.sign(dx) * 0.9;
       else if (Math.abs(dx) < 0.9) mx = -Math.sign(dx || 1) * 0.2;
-      if (Math.abs(dx) < 2.2 && S.aiMem.punchT <= 0 && me.alive) {
+      if (Math.abs(dx) < 1.8 && S.aiMem.punchT <= 0 && me.alive) {
         punch = true; S.aiMem.punchT = 0.5 + Math.random() * 0.35;
       }
       if (Math.abs(dx) < 3.5 && Math.abs(dx) > 1.5 && S.aiMem.throwT <= 0 && Math.random() < 0.35) {
@@ -199,7 +199,7 @@ export async function runPhysSpike(ctx) {
     }
 
     foe.face = Math.sign(dx) || foe.face;
-    if (!foe.held && Math.abs(dx) < 1.7 && S.aiMem.punchT <= 0 && me.alive) {
+    if (!foe.held && Math.abs(dx) < 1.35 && S.aiMem.punchT <= 0 && me.alive) {
       punch = true; S.aiMem.punchT = 0.55 + Math.random() * 0.45;
     }
     if (S.aiMem.jumpT <= 0 && Math.random() < 0.25) { jump = true; S.aiMem.jumpT = 1.4 + Math.random(); }
@@ -245,23 +245,31 @@ export async function runPhysSpike(ctx) {
   function handleHits(evs) {
     for (const e of evs) {
       if (e.type !== 'hit') continue;
-      const ko = applyHit(e.def, e.dmg);
-      if (e.def === phys.b && (e.att === phys.a || e.kind === 'weapon')) S.score += e.dmg * (e.kind === 'weapon' ? 2.5 : 2);
-      if (e.kind === 'impact' && e.def === phys.b) S.score += e.dmg; // environmental KO assist
+      const fromX = e.att ? e.att.parts.torso.getPosition().x : e.x;
+      const ko = applyHit(e.def, e.dmg, fromX);
+      if (e.def === phys.b && (e.att === phys.a || e.kind === 'weapon' || e.probe)) S.score += e.dmg * (e.kind === 'weapon' ? 2.5 : 2);
+      if (e.kind === 'impact' && e.def === phys.b) S.score += e.dmg;
       const view = e.def === phys.a ? va : vb;
-      view.flash(e.kind === 'impact' ? 0xffaa44 : 0xffffff, 70);
+      view.flash(e.kind === 'impact' ? 0xffaa44 : 0xffffff, 110);
       const col = new THREE.Color(e.kind === 'impact' ? 0xff8844 : (e.att?.color ?? e.weapon?.def.color ?? 0xffffff));
-      const pos = new THREE.Vector3(e.x, ROOF_Y + e.y, 0.2);
-      particles.burst?.(pos, col, e.kind === 'weapon' ? 18 : 12, { speed: 3.5, up: 1.2, life: 0.35, size: 0.7, bright: 1.6 });
-      waves.spawn?.(pos, col, { r0: 0.1, r1: e.kind === 'impact' ? 1.6 : 1.2, h: 0.08, dur: 0.25, a: 1.2 });
-      camKick(Math.sign(e.x || 1) * 0.04, 0.03);
-      fx.kick?.({ trauma: e.kind === 'weapon' ? 0.12 : 0.08 });
+      const pos = new THREE.Vector3(e.x, ROOF_Y + e.y, 0.25);
+      const heavy = e.kind === 'weapon' || e.solid || e.probe;
+      particles.burst?.(pos, col, heavy ? 28 : 14, { speed: 5, up: 1.6, life: 0.4, size: heavy ? 1.1 : 0.7, bright: 2.2 });
+      waves.spawn?.(pos, col, { r0: 0.15, r1: heavy ? 2.0 : 1.3, h: 0.1, dur: 0.28, a: 1.5 });
+      camKick((e.att ? Math.sign(e.def.parts.torso.getPosition().x - fromX) : 1) * 0.07, 0.05);
+      fx.kick?.({ trauma: heavy ? 0.18 : 0.1 });
+      // brief hit-stop so the connect reads
+      if (heavy || e.kind === 'punch') S.hitStop = Math.max(S.hitStop || 0, e.kind === 'weapon' ? 0.09 : 0.07);
+      // floating damage number
+      try {
+        const sp = stage.toScreen(new THREE.Vector3(e.x, ROOF_Y + e.y + 0.45, 0));
+        ui.popup?.(sp.x, sp.y, String(Math.round(e.dmg)), '', e.solid || e.probe ? 'big' : '');
+      } catch (_) {}
       audio.hit?.('brawler', true);
-      Platform.haptic?.(e.dmg > 16 ? 'medium' : 'light');
+      Platform.haptic?.(heavy ? 'medium' : 'light');
       if (ko) {
-        // drop weapon on KO
         if (e.def.held) {
-          try { driveRagdoll(e.def, { drop: true }, 0, phys.world, phys.weapons); } catch (_) {}
+          try { driveRagdoll(e.def, { drop: true }, 0, phys.world, phys.weapons, null); } catch (_) {}
         }
         audio.ko?.();
         later(0.9, () => finish(e.def === phys.b));
@@ -275,18 +283,20 @@ export async function runPhysSpike(ctx) {
   function sim(dt) {
     if (S.state === 'intro') {
       S.introT -= dt;
-      driveRagdoll(phys.a, { mx: 0 }, dt, phys.world, phys.weapons);
-      driveRagdoll(phys.b, { mx: 0 }, dt, phys.world, phys.weapons);
+      driveRagdoll(phys.a, { mx: 0 }, dt, phys.world, phys.weapons, phys.b);
+      driveRagdoll(phys.b, { mx: 0 }, dt, phys.world, phys.weapons, phys.a);
       stepWorld(phys, DT);
       if (S.introT <= 0) { S.state = 'play'; ui.banner(L() ? 'FIGHT' : '開始', '', ''); }
       return;
     }
     if (S.state !== 'play' || S.over) {
-      driveRagdoll(phys.a, {}, dt, phys.world, phys.weapons);
-      driveRagdoll(phys.b, {}, dt, phys.world, phys.weapons);
+      driveRagdoll(phys.a, {}, dt, phys.world, phys.weapons, phys.b);
+      driveRagdoll(phys.b, {}, dt, phys.world, phys.weapons, phys.a);
       stepWorld(phys, DT);
       return;
     }
+
+    if (S.hitStop > 0) { S.hitStop -= dt; updateHud(); return; }
 
     S.time -= dt;
     if (S.time <= 0) {
@@ -308,16 +318,16 @@ export async function runPhysSpike(ctx) {
     S._forcePunch = false; S._forceJump = false; S._forceGrab = false; S._forceThrow = false;
 
     const intentB = aiThink(dt);
-    driveRagdoll(phys.a, intentA, dt, phys.world, phys.weapons);
-    driveRagdoll(phys.b, intentB, dt, phys.world, phys.weapons);
+    driveRagdoll(phys.a, intentA, dt, phys.world, phys.weapons, phys.b);
+    driveRagdoll(phys.b, intentB, dt, phys.world, phys.weapons, phys.a);
     const evs = stepWorld(phys, DT);
     handleHits(evs);
     updateHud();
   }
 
   function menuIdle(dt) {
-    driveRagdoll(phys.a, { mx: Math.sin(performance.now() / 800) * 0.3 }, dt, phys.world, phys.weapons);
-    driveRagdoll(phys.b, { mx: Math.sin(performance.now() / 900 + 1) * -0.3 }, dt, phys.world, phys.weapons);
+    driveRagdoll(phys.a, { mx: Math.sin(performance.now() / 800) * 0.25 }, dt, phys.world, phys.weapons, phys.b);
+    driveRagdoll(phys.b, { mx: Math.sin(performance.now() / 900 + 1) * -0.25 }, dt, phys.world, phys.weapons, phys.a);
     stepWorld(phys, DT);
   }
 

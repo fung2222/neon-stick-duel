@@ -29,6 +29,9 @@ python3 -m http.server 8811
 - **CHROME PIPE** 鉻管
 
 ### Feel
+- **Punch-fix (post-P1):** sturdier alive stance (less stumble), larger fist hitbox, aim+probe hits, hit-stop + damage popups. Floppy limp only on KO.
+
+### Feel
 - Soft Stick Fight–like joints (wide revolute limits, soft motors) — **limb silhouette unchanged**
 - Wall / floor **impact damage** on hard landings / wall smashes
 - Simple HP · KO = motors off → limp

@@ -16,6 +16,13 @@ python3 -m http.server 8811
 
 Controls (same pad): stick move · **ATTACK** = punch impulse · **JUMP** · **GUARD** stiffens motors.
 
+## Feel (v0.2 soft joints)
+
+Wide revolute limits + soft motors + low angular damping → limbs bend/flail like Stick Fight.
+**Limb mesh sizes unchanged** (silhouette locked). Hit = brief motor near-zero + angular flail; KO = motors off.
+
+Live Pages (after merge to `main`): https://fung2222.github.io/neon-stick-duel/?phys=1
+
 ## What this spike proves
 
 - Planck.js 2D world on the existing neon rooftop (cyber-kit stage + bloom)

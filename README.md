@@ -34,7 +34,7 @@
 `A` `D` / `←` `→` 走位 · `W` / `↑` / `Space` 跳（空中再撳＝二段跳）· `S` / `↓` 防禦 · `Shift` 閃避 · `J` 攻擊 · `K` `L` 技能 · `U` 必殺 · `P` / `Esc` 暫停 · `M` 靜音
 
 ## 網址參數 URL flags
-`?demo=1` AI 對打示範（`&cls=mage&floor=12`）· `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4`
+`?demo=1` AI 對打示範（`&cls=mage&floor=12`）· `?sprite=1` 霓狐劍士 2D 精靈豎切面（Option 3）· `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4` · `?phys=1&dev=1` 已棄用 ragdoll（開發用）
 
 ## 技術 Tech
 Three.js + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.3.0（`vendor/cyber-kit/`），冇 build step。純模擬（`js/duel.js`，固定 1/60 s）有單元測試同 AI 對 AI 平衡模擬；火柴人用正向運動學 + 彈簧姿勢混合即時生成。所有角色、圖示、音效都係原創／程式生成。

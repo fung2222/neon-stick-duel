@@ -1,19 +1,19 @@
-// Fighter view: picks the renderer per class — the HQ rig (js/rig/, hierarchical skeleton + IK + clips) for classes that
-// have an HQ profile and are switched to it, the classic procedural StickFighter otherwise. Same API either way.
-//   ?rig=hq       every class with an HQ profile uses it (today: Swordsman)
-//   ?rig=classic  everyone uses the classic rig (for side-by-side comparison)
-//   no flag       the stored setting (pause screen RIG button), else RIG_DEFAULT
-// To port a class: add js/rig/<class>.js (PROFILE with stance / poses / moveKeys / outfit), register it in
-// HQ_PROFILES (rig/hq-fighter.js), add the outfit + weapon meshes in HQFighter.setClass, then flip RIG_DEFAULT.
+// Fighter view: picks the renderer per class.
+//   ?sprite=1          Option 3 vertical slice — neon fox SpriteFighter for sword (Phase 1)
+//   ?style=anime|neon  anime cel-shaded vs neon HQ/classic stick
+//   ?rig=hq|classic    HQ stick (Swordsman) vs classic stick
 import * as THREE from 'three';
 import { StickFighter } from './stickman.js';
 import { HQFighter, HQ_PROFILES } from './rig/hq-fighter.js';
 import { AnimeFighter } from './anime/fighter.js';
-import { ANIME_CLASSES, animeCfg } from './anime/configs.js';
+import { animeCfg } from './anime/configs.js';
+import { SpriteFighter } from './sprite/fox.js';
+import { hasSprite } from './sprite/meta.js';
 
-// Look per class: 'anime' (cel-shaded character, js/anime/) or 'neon' (the v2.2 HQ / classic stick look).
-//   ?style=anime | ?style=neon   (pause screen STYLE button stores `style`); classes without an anime config are always neon.
-export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime', shogun: 'anime' };   // v2.3: anime Swordsman · v2.4: anime Mage · v2.6: anime Brawler · v2.7: anime Assassin (perf in docs/HANDOFF.md §12–15)
+export { hasSprite, spriteMeta, SPRITE_CLASSES } from './sprite/meta.js';
+
+// Look per class: 'anime' (cel-shaded) or 'neon' (HQ / classic stick).
+export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime', shogun: 'anime' };
 let styleOv = null;
 export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
 export const styleMode = () => styleOv;
@@ -24,8 +24,15 @@ export const RIG_DEFAULT = { sword: 'hq' };
 let override = null;
 export function setRigMode(m) { override = m === 'hq' || m === 'classic' ? m : null; }
 export const rigMode = () => override;
-/** 'anime' | 'hq' | 'classic'. ?rig=classic always wins (comparison shots); otherwise the anime style, then the HQ rig. */
+
+/** Option 3 sprite path (?sprite=1). Only classes in SPRITE_CLASSES (sword / neon fox) use it. */
+let spriteOn = false;
+export function setSpriteMode(on) { spriteOn = !!on; }
+export const spriteMode = () => spriteOn;
+
+/** 'sprite' | 'anime' | 'hq' | 'classic' */
 export function rigFor(cls) {
+  if (spriteOn && hasSprite(cls)) return 'sprite';
   if (override === 'classic') return 'classic';
   if (styleFor(cls) === 'anime') return 'anime';
   if (!HQ_PROFILES[cls]) return 'classic';
@@ -35,46 +42,48 @@ export const hasHQ = (cls) => !!HQ_PROFILES[cls];
 
 export class FighterView {
   constructor(scene) {
-    this.scene = scene; this.classic = new StickFighter(scene); this.hq = new HQFighter(scene); this.hq.visible = false; this.anime = null;
-    this.cur = this.classic; this.rig = 'classic'; this.vis = true; this.prevTip = new THREE.Vector3(); this.hasPrev = false; this.tipVel = new THREE.Vector3();
+    this.scene = scene;
+    this.classic = new StickFighter(scene);
+    this.hq = new HQFighter(scene); this.hq.visible = false;
+    this.anime = null; this.sprite = null;
+    this.cur = this.classic; this.rig = 'classic'; this.vis = true;
+    this.prevTip = new THREE.Vector3(); this.hasPrev = false; this.tipVel = new THREE.Vector3();
   }
   setClass(cls, color = null, scale = 1) {
     this.args = [cls, color, scale];
     const rig = rigFor(cls);
     if (rig === 'anime' && !this.anime) { this.anime = new AnimeFighter(this.scene); this.anime.visible = false; }
-    const next = rig === 'anime' ? this.anime : rig === 'hq' ? this.hq : this.classic;
+    if (rig === 'sprite' && !this.sprite) { this.sprite = new SpriteFighter(this.scene); this.sprite.visible = false; }
+    const next = rig === 'sprite' ? this.sprite : rig === 'anime' ? this.anime : rig === 'hq' ? this.hq : this.classic;
     next.setClass(cls, color, scale);
-    for (const r of [this.classic, this.hq, this.anime]) if (r && r !== next) r.visible = false;
+    for (const r of [this.classic, this.hq, this.anime, this.sprite]) if (r && r !== next) r.visible = false;
     if (next !== this.cur) { this.cur = next; if (next.resetAnim) next.resetAnim(); this.hasPrev = false; }
     this.rig = rig; this.cur.visible = this.vis;
   }
-  /** dust / ring cues from the anime renderer (empty for the other rigs) */
   takeFx() { return this.cur.takeFx ? this.cur.takeFx() : null; }
   stats() { return this.cur.stats ? this.cur.stats() : null; }
-  /** re-apply after the rig setting changed */
   refresh() { if (this.args) this.setClass(...this.args); }
   set visible(v) { this.vis = v; this.cur.visible = v; }
   get visible() { return this.vis; }
   update(f, dt, t, baseY, frozen = false, shake = 0) {
     this.cur.update(f, dt, t, baseY, frozen, shake);
     const tip = this.cur.joints && this.cur.joints.tip;
-    if (tip && dt > 0 && !frozen) { if (this.hasPrev) this.tipVel.subVectors(tip, this.prevTip).divideScalar(dt); this.prevTip.copy(tip); this.hasPrev = true; }
+    if (tip && dt > 0 && !frozen) {
+      if (this.hasPrev) this.tipVel.subVectors(tip, this.prevTip).divideScalar(dt);
+      this.prevTip.copy(tip); this.hasPrev = true;
+    }
   }
   flash() { this.cur.flash(); }
   onHit(e) { if (this.cur.onHit) this.cur.onHit(e); }
   get joints() { return this.cur.joints; }
-  // final boss hooks (anime only; the neon / classic rigs ignore them)
   get cloaked() { return !!this.cur.cloaked; }
   setCloak(on) { if (this.cur.setCloak) this.cur.setCloak(on); }
   bossSync(projs, simF) { if (this.cur.bossSync) this.cur.bossSync(projs, simF); }
   get hasDataBlades() { return !!this.cur.hasDataBlades; }
   setPhaseLook(p) { if (this.cur.setPhaseLook) this.cur.setPhaseLook(p); }
   get spawnGhostAt() { return this.cur.spawnGhostAt && this.cur.ghosts ? (...a) => this.cur.spawnGhostAt(...a) : null; }
-  /** Assassin 居合: the ult's delayed hits land while the blades go home (main.js draws X cuts on the foe instead of contact sparks) */
   zan() { return !!(this.cur.zanNow && this.cur.zanNow()); }
-  /** swing-sound cue: HQ fires when the blade starts accelerating; classic fires on the move start (handled by main) */
   takeSwingCue(f) { return this.cur.takeSwingCue ? this.cur.takeSwingCue(f) : null; }
-  /** world point where this fighter's weapon meets the defender's body (sparks go here). null = no weapon segment */
   contactPoint(def, baseY) {
     const j = this.cur.joints; if (!j || !j.tip || !j.base) return null;
     const y0 = baseY + def.y + 0.25, y1 = baseY + def.y + 2.05, hw = 0.32;

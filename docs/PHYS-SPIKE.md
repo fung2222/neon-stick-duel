@@ -1,6 +1,9 @@
-# PHYS path — Planck neon ragdoll (`?phys=1`)
+# PHYS path — Planck neon ragdoll (**DEPRECATED**)
 
-**On `main` (GitHub Pages).** Classic class-fighter unchanged without the flag.
+> **2026-10-17 — Option 3 pivot:** Roy chose a **2D sprite / animation fighter** (neon fox blade vertical slice via `?sprite=1`).  
+> The phys ragdoll path is **deprecated**. `?phys=1` alone no longer boots it; use **`?phys=1&dev=1`** only if you still need the archived spike. Prefer `docs/SPRITE-PIVOT.md`.
+
+**Was on `main` (GitHub Pages) behind `?phys=1`.** Classic class-fighter unchanged without the flag.
 
 ## Try
 

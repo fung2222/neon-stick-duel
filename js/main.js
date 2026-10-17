@@ -8,7 +8,7 @@ import { STAT_KEYS } from './classes.js';
 import { aiThink } from './ai.js';
 import { TRIAL, LADDER, ladderFoe, endlessFoe, fightScore, migrateSave } from './modes.js';
 import './strings.js';
-import { FighterView, setRigMode, rigFor, setStyleMode, styleFor } from './fighter-view.js';
+import { FighterView, setRigMode, rigFor, setStyleMode, styleFor, setSpriteMode, spriteMode, spriteMeta } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { BossFx } from './boss-fx.js';
@@ -19,6 +19,17 @@ import { POST } from './config.js';
 const $ = (id) => document.getElementById(id);
 const L = () => (i18n.lang === 'en' ? 1 : 0);
 const nm = (o) => (Array.isArray(o) ? o[L()] : L() ? o.en : o.zh);
+/** Display name for a class — neon fox label when ?sprite=1 and the class has a sprite body. */
+const clsLabel = (id) => {
+  const meta = spriteMode() && spriteMeta(id);
+  if (meta) return L() ? meta.en : meta.zh;
+  const C = CLASSES[id]; return C ? (L() ? C.en : C.zh) : id;
+};
+const clsDesc = (id) => {
+  const meta = spriteMode() && spriteMeta(id);
+  if (meta) return nm(meta.desc);
+  return nm(CLASSES[id].desc);
+};
 const store = createStore(GAME_ID);
 if (flags.reset) store.clear();
 const migrated = migrateSave(store);
@@ -51,6 +62,8 @@ window.__duel = S;  // test hook
 setRigMode(flags.get('rig') || store.get('rig'));   // ?rig=hq|classic, else the pause-screen setting, else per-class default
 // ?style=anime|neon, else the pause-screen setting, else STYLE_DEFAULT; an explicit ?rig=hq without ?style shows the neon HQ rig
 setStyleMode(flags.get('style') || (flags.get('rig') === 'hq' ? 'neon' : store.get('style')));
+// Option 3 vertical slice: ?sprite=1 → neon fox SpriteFighter for Swordsman (other classes keep anime/neon)
+setSpriteMode(flags.get('sprite') === '1' || flags.get('sprite') === 'true');
 const fa = new FighterView(scene), fb = new FighterView(scene);
 const viewOf = (f) => (f === S.duel.a ? fa : fb);
 const timers = []; const later = (sec, fn) => timers.push({ t: sec, fn });
@@ -145,7 +158,7 @@ const BREATH = new THREE.Color(0xdfe6ff);
 const _zA = new THREE.Vector3(), _zB = new THREE.Vector3();
 
 // ------------------------------------------------------------------ duel setup
-function colorOf(f) { const d = S.duel; return f === d.a ? CLASSES[f.cls].color : (S.foe?.color ?? 0xff2bd6); }
+function colorOf(f) { const d = S.duel; if (f === d.a) { const m = spriteMode() && spriteMeta(f.cls); return (m && m.color) || CLASSES[f.cls].color; } return S.foe?.color ?? 0xff2bd6; }
 function setupDuel(clsA, foe, { oa = {}, preview = false } = {}) {
   S.foe = foe; clearProjMeshes();
   S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss, time: foe.time || 0 });
@@ -178,7 +191,7 @@ function refreshMenu() {
   const ls = isTrial() ? 0 : S.stage;
   ui.setText('ladder-sub', t('ladderS', { n: ls + 1, name: nm(ladderFoe(ls, S.cls)) }));
   ui.setText('endless-sub', t('endlessS', { f: (isTrial() ? 0 : S.floor) + 1 }));
-  ui.setText('class-label', t('changeCls', { c: nm(C) }));
+  ui.setText('class-label', t('changeCls', { c: clsLabel(S.cls) }));
   $('btn-restart-tower').classList.toggle('hidden', isTrial() || S.floor === 0);
   const tn = $('start-trial'); tn.classList.toggle('hidden', !hub.trial);
   if (hub.trial) tn.textContent = t('trialTag') + (hub.trialLeft != null ? ' · ' + t('trialLeft', { n: hub.trialLeft }) : '');
@@ -191,7 +204,7 @@ function showSelect(next = null) {
   ui.setText('sel-mode', next === 'ladder' ? t('ladder') : next === 'endless' ? t('endless') : t('changeClsS'));
 }
 function buildTabs() {
-  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex(CLASSES[id].color)}">${CLASSES[id].zh}<small>${CLASSES[id].en}</small></button>`).join('');
+  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMode() && spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex((meta && meta.color) || CLASSES[id].color)}">${zh}<small>${en}</small></button>`; }).join('');
   $('sel-tabs').querySelectorAll('[data-cls]').forEach((b) => { b.onclick = () => { audio.click(); pickClass(b.dataset.cls); }; });
 }
 function kitHtml(C) {
@@ -210,7 +223,7 @@ function pickClass(id, instant = false) {
   S.selCls = id; const C = CLASSES[id];
   $('sel-tabs').querySelectorAll('.sel-tab').forEach((b) => b.classList.toggle('on', b.dataset.cls === id));
   const panel = document.querySelector('.sel-panel'); panel.style.setProperty('--k', hex(C.color));
-  ui.setText('sel-zh', L() ? C.en : C.zh); ui.setText('sel-en', L() ? C.zh : C.en); ui.setText('sel-role', t('role.' + C.role)); ui.setText('sel-desc', nm(C.desc));
+  ui.setText('sel-zh', clsLabel(id)); ui.setText('sel-en', (spriteMode() && spriteMeta(id)) ? (L() ? spriteMeta(id).zh : spriteMeta(id).en) : (L() ? C.zh : C.en)); ui.setText('sel-role', t('role.' + C.role)); ui.setText('sel-desc', clsDesc(id));
   $('sel-stats').innerHTML = STAT_KEYS.map((k) => `<span>${t('st.' + k)}</span><span class="stat-bar">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= C.stats[k] ? 'on' : ''}"></i>`).join('')}</span>`).join('');
   $('sel-kit').innerHTML = kitHtml(C);
   setupDuel(id, { cls: 'brawler', color: 0x6f7a90, diff: 0, hpMul: 50, zh: '木人', en: 'DUMMY' }, { preview: true });
@@ -259,9 +272,9 @@ function startFight() {
 }
 function hudNames() {
   const f = S.foe, C = CLASSES[S.cls];
-  ui.setText('hp-name-a', t('you')); ui.setText('hp-cls-a', L() ? C.en : C.zh);
+  ui.setText('hp-name-a', t('you')); ui.setText('hp-cls-a', clsLabel(S.cls));
   const bossP = !!CLASSES[f.cls].phases; $('hp-name-b').closest('.fighter-hp').classList.toggle('boss', bossP);   // final boss: smaller name, the phase as the tag
-  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', bossP ? phaseTag() : (L() ? CLASSES[f.cls].en : CLASSES[f.cls].zh) + phaseTag());
+  ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', bossP ? phaseTag() : clsLabel(f.cls) + phaseTag());
   ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
   fitNames();
 }
@@ -573,7 +586,7 @@ S.api = {
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
   pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
-  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword'), style: styleFor('sword') }), setRig: (m, persist = false) => setRig(m, persist),
+  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword'), style: styleFor('sword'), sprite: spriteMode() }), setRig: (m, persist = false) => setRig(m, persist), setSprite: (on) => { setSpriteMode(!!on); fa.refresh(); fb.refresh(); },
   setStyle: (m, persist = false) => setStyle(m, persist), charStats: () => ({ a: fa.stats(), b: fb.stats() }),
   renderInfo: () => { const r = stage.renderer, ar = r.info.autoReset; r.info.autoReset = false; r.info.reset(); r.render(scene, camera); const o = { calls: r.info.render.calls, triangles: r.info.render.triangles }; r.info.autoReset = ar; return o; },
   hold: (on = true) => { S.hold = on; }, cam: (o = null) => { S.camOv = o; },
@@ -703,8 +716,12 @@ i18n.onChange(() => {
 syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
-  // P0 PHYS SPIKE: ?phys=1 hands the stage to Planck neon ragdolls (classic path unchanged).
-  const physFlag = flags.get('phys') === '1' || flags.get('phys') === 'true';
+  // PHYS path DEPRECATED (Option 3 pivot): only ?phys=1&dev=1 still boots the Planck ragdoll spike.
+  // Prefer ?sprite=1 for the neon fox SpriteFighter vertical slice. See docs/PHYS-SPIKE.md · docs/SPRITE-PIVOT.md.
+  const physFlag = (flags.get('phys') === '1' || flags.get('phys') === 'true') && (flags.get('dev') === '1' || flags.get('dev') === 'true');
+  if ((flags.get('phys') === '1' || flags.get('phys') === 'true') && !physFlag) {
+    console.info('[neon-stick-duel] ?phys=1 is deprecated — use ?sprite=1 (neon fox) or ?phys=1&dev=1 for the archived ragdoll spike.');
+  }
   if (physFlag) {
     fa.visible = false; fb.visible = false;
     const { runPhysSpike } = await import('./phys/spike.js');

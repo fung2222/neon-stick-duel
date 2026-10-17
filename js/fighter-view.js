@@ -1,18 +1,18 @@
 // Fighter view: picks the renderer per class.
-//   ?sprite=1          Option 3 vertical slice — neon fox SpriteFighter for sword (Phase 1)
-//   ?style=anime|neon  anime cel-shaded vs neon HQ/classic stick
+//   DEFAULT = human-shaped neon SpriteFighter for all 4 kits (Option 3).
+//   ?sprite=0          fall back to anime / neon stick paths
+//   ?style=anime|neon  when sprite off: cel-shaded anime vs HQ/classic stick
 //   ?rig=hq|classic    HQ stick (Swordsman) vs classic stick
 import * as THREE from 'three';
 import { StickFighter } from './stickman.js';
 import { HQFighter, HQ_PROFILES } from './rig/hq-fighter.js';
 import { AnimeFighter } from './anime/fighter.js';
 import { animeCfg } from './anime/configs.js';
-import { SpriteFighter } from './sprite/fox.js';
+import { SpriteFighter } from './sprite/human.js';
 import { hasSprite } from './sprite/meta.js';
 
 export { hasSprite, spriteMeta, SPRITE_CLASSES } from './sprite/meta.js';
 
-// Look per class: 'anime' (cel-shaded) or 'neon' (HQ / classic stick).
 export const STYLE_DEFAULT = { sword: 'anime', mage: 'anime', brawler: 'anime', assassin: 'anime', shogun: 'anime' };
 let styleOv = null;
 export function setStyleMode(m) { styleOv = m === 'anime' || m === 'neon' ? m : null; }
@@ -25,8 +25,8 @@ let override = null;
 export function setRigMode(m) { override = m === 'hq' || m === 'classic' ? m : null; }
 export const rigMode = () => override;
 
-/** Option 3 sprite path (?sprite=1). Only classes in SPRITE_CLASSES (sword / neon fox) use it. */
-let spriteOn = false;
+/** Sprite path default ON. ?sprite=0 disables; ?sprite=1 forces on. */
+let spriteOn = true;
 export function setSpriteMode(on) { spriteOn = !!on; }
 export const spriteMode = () => spriteOn;
 

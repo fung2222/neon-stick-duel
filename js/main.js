@@ -62,8 +62,9 @@ window.__duel = S;  // test hook
 setRigMode(flags.get('rig') || store.get('rig'));   // ?rig=hq|classic, else the pause-screen setting, else per-class default
 // ?style=anime|neon, else the pause-screen setting, else STYLE_DEFAULT; an explicit ?rig=hq without ?style shows the neon HQ rig
 setStyleMode(flags.get('style') || (flags.get('rig') === 'hq' ? 'neon' : store.get('style')));
-// Option 3 vertical slice: ?sprite=1 → neon fox SpriteFighter for Swordsman (other classes keep anime/neon)
-setSpriteMode(flags.get('sprite') === '1' || flags.get('sprite') === 'true');
+// Option 3: human-shaped SpriteFighter is DEFAULT for all 4 kits. ?sprite=0 → anime/neon fallback. ?sprite=1 forces on.
+const spriteFlag = flags.get('sprite');
+setSpriteMode(spriteFlag === '0' || spriteFlag === 'false' ? false : true);
 const fa = new FighterView(scene), fb = new FighterView(scene);
 const viewOf = (f) => (f === S.duel.a ? fa : fb);
 const timers = []; const later = (sec, fn) => timers.push({ t: sec, fn });
@@ -717,7 +718,7 @@ syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   // PHYS path DEPRECATED (Option 3 pivot): only ?phys=1&dev=1 still boots the Planck ragdoll spike.
-  // Prefer ?sprite=1 for the neon fox SpriteFighter vertical slice. See docs/PHYS-SPIKE.md · docs/SPRITE-PIVOT.md.
+  // Human-shaped SpriteFighter is default; ?sprite=0 restores anime/neon. See docs/PHYS-SPIKE.md · docs/SPRITE-PIVOT.md.
   const physFlag = (flags.get('phys') === '1' || flags.get('phys') === 'true') && (flags.get('dev') === '1' || flags.get('dev') === 'true');
   if ((flags.get('phys') === '1' || flags.get('phys') === 'true') && !physFlag) {
     console.info('[neon-stick-duel] ?phys=1 is deprecated — use ?sprite=1 (neon fox) or ?phys=1&dev=1 for the archived ragdoll spike.');

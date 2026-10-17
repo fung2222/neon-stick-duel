@@ -15,6 +15,8 @@ const PART_GEO = {
   shinF: { kind: 'box', hx: 0.08, hy: 0.2, hz: 0.08 },
   thighB: { kind: 'box', hx: 0.09, hy: 0.22, hz: 0.09 },
   shinB: { kind: 'box', hx: 0.08, hy: 0.2, hz: 0.08 },
+  footF: { kind: 'box', hx: 0.16, hy: 0.045, hz: 0.1 },
+  footB: { kind: 'box', hx: 0.16, hy: 0.045, hz: 0.1 },
 };
 
 function neonMat(color, emissive = 0.55) {

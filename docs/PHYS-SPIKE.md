@@ -39,3 +39,7 @@ python3 -m http.server 8811
 
 ## Files
 `js/phys/ragdoll.js` · `neon-view.js` · `spike.js` · shots in `docs/shots/phys/`
+
+## Stand / balance (2026-10-17)
+
+Alive fighters plant: heavy legs+feet (lower COM), grippy ground (fric 1.45), stronger hip/knee/ankle + torso upright motors, narrow leg limits while alive (unlock on KO). Arms stay soft. Idle/walk stable; punch no longer dumps balance (arm-only impulse, tip recovery wins over punch plant).

@@ -1,5 +1,5 @@
-// PHYS P1 — Planck.js 2D neon ragdoll + grab/throw weapons + wall/floor impact damage.
-// Soft Stick Fight joints kept. Limb mesh sizes unchanged.
+// PHYS P1 — Landfall-style active ragdoll (pose SM) + grab/throw + impact.
+// Poses drive joint target angles; KO = soft limp. Limb mesh sizes unchanged.
 import { World, Edge, Box, Circle, RevoluteJoint, WeldJoint, Vec2 } from '../../vendor/planck/planck.mjs';
 
 export const ARENA = 7.5;
@@ -18,12 +18,20 @@ const MASK = {
   weapon: CAT.GROUND | CAT.A | CAT.B | CAT.FIST_A | CAT.FIST_B,
 };
 
+export const POSE = { STAND: 'stand', WALK: 'walk', PUNCH: 'punch', HIT: 'hit', KO: 'ko' };
+
 export const SOFT = {
-  // STAND FIRST: strong hip/torso plant while alive; arms stay soft; KO limp unlocks.
-  gain: 12, hipT: 72, knT: 55, ankT: 42, shT: 22, elT: 18, neckT: 14, wrT: 8,
-  upright: 70, uprightD: 18, walkK: 18, flinchT: 0.08,
-  punchActive: 0.24, punchReach: 1.05, punchDmg: 16,
-  balanceBoost: 2.2,
+  // Pose motors: legs firm, arms softer; light upright assist; KO limp unlocks.
+  gain: 14, hipT: 78, knT: 58, ankT: 44, shT: 28, elT: 22, neckT: 14, wrT: 8,
+  upright: 48, uprightD: 14, walkK: 16, flinchT: 0.22,
+  punchActive: 0.28, punchReach: 1.05, punchDmg: 16,
+  balanceBoost: 1.6, walkHz: 2.4,
+};
+
+/** Base joint targets (Landfall-style active ragdoll poses). */
+export const POSE_STAND = {
+  hipF: 0.1, hipB: -0.06, knF: 0.28, knB: 0.25, ankF: 0.04, ankB: 0.04,
+  shF: -0.4, shB: 0.3, elF: 0.6, elB: 0.55, neck: 0, wrF: 0, wrB: 0,
 };
 
 /** Neon weapon catalogue (original CYBER props — not Landfall clones). */
@@ -122,8 +130,8 @@ export function makeRagdoll(world, x0, face, team) {
     team, face: f, parts, joints: j, alive: true, hp: 100, maxHp: 100,
     punchCd: 0, punchActive: 0, jumpCd: 0, limpT: 0, flinchT: 0, grabCd: 0, throwCd: 0,
     held: null, color: team === 'a' ? 0x00e5ff : 0xff2bd6,
-    // upright plant stance
-    _stance: { hipF: 0.1, hipB: -0.06, knF: 0.28, knB: 0.25, ankF: 0.04, ankB: 0.04, shF: -0.4, shB: 0.3, elF: 0.6, elB: 0.55 },
+    pose: POSE.STAND, poseT: 0, walkPhase: 0,
+    _stance: { ...POSE_STAND },
     _impactCd: 0, _limitsLocked: true,
   };
   for (const body of Object.values(parts)) body.getUserData().ragdoll = doll;
@@ -313,6 +321,77 @@ export function throwWeapon(world, doll, { drop = false } = {}) {
   return w;
 }
 
+
+function walkPoseTargets(phase, face) {
+  // Alternate legs via sine; opposite arm swing. phase in radians.
+  const s = Math.sin(phase);
+  const c = Math.cos(phase);
+  const liftF = Math.max(0, -s);
+  const liftB = Math.max(0, s);
+  return {
+    hipF: POSE_STAND.hipF + s * 0.38,
+    hipB: POSE_STAND.hipB - s * 0.38,
+    knF: POSE_STAND.knF + liftF * 0.55 + 0.04,
+    knB: POSE_STAND.knB + liftB * 0.55 + 0.04,
+    ankF: POSE_STAND.ankF - s * 0.12,
+    ankB: POSE_STAND.ankB + s * 0.12,
+    shF: POSE_STAND.shF - s * 0.35 * face,
+    shB: POSE_STAND.shB + s * 0.3 * face,
+    elF: POSE_STAND.elF + liftB * 0.15,
+    elB: POSE_STAND.elB + liftF * 0.15,
+    neck: 0, wrF: 0, wrB: 0,
+  };
+}
+
+function punchPoseTargets(face) {
+  return {
+    ...POSE_STAND,
+    hipF: POSE_STAND.hipF + 0.04,
+    hipB: POSE_STAND.hipB - 0.02,
+    knF: POSE_STAND.knF + 0.06,
+    knB: POSE_STAND.knB + 0.04,
+    shF: -1.85 * face,
+    elF: 0.18,
+    shB: 0.55 * face,
+    elB: 0.7,
+    neck: -0.08 * face,
+  };
+}
+
+function hitPoseTargets(face) {
+  return {
+    hipF: 0.35, hipB: 0.2, knF: 0.7, knB: 0.65, ankF: 0.1, ankB: 0.1,
+    shF: 0.6 * face, shB: -0.4 * face, elF: 1.1, elB: 1.0,
+    neck: 0.25 * face, wrF: 0.2, wrB: -0.2,
+  };
+}
+
+function resolvePose(doll, intent) {
+  if (!doll.alive) return POSE.KO;
+  if (doll.flinchT > 0) return POSE.HIT;
+  if (doll.punchActive > 0) return POSE.PUNCH;
+  if (Math.abs(intent.mx || 0) > 0.18) return POSE.WALK;
+  return POSE.STAND;
+}
+
+function poseTargets(doll, intent) {
+  const face = doll.face || 1;
+  switch (doll.pose) {
+    case POSE.WALK: return walkPoseTargets(doll.walkPhase, face);
+    case POSE.PUNCH: return punchPoseTargets(face);
+    case POSE.HIT: return hitPoseTargets(face);
+    case POSE.STAND:
+    default: {
+      const st = { ...POSE_STAND };
+      if (intent.guard) {
+        st.shF = -1.15; st.shB = -0.95; st.elF = 1.45; st.elB = 1.25;
+        st.hipF = 0.16; st.hipB = 0.05; st.knF = 0.4; st.knB = 0.38;
+      }
+      return st;
+    }
+  }
+}
+
 export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
   const {
     mx = 0, guard = false, jump = false, punch = false,
@@ -327,11 +406,12 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
   if (doll._impactCd > 0) doll._impactCd -= dt;
   if (doll.punchCd <= 0 && doll.punchActive <= 0) doll._hitLatch = false;
   if (doll.held && doll.held.hitCd > 0) doll.held.hitCd -= dt;
+  doll.poseT += dt;
 
   const J = doll.joints;
   if (!doll.alive) {
+    doll.pose = POSE.KO;
     for (const j of Object.values(J)) { j.enableMotor(false); j.setMaxMotorTorque(0); }
-    // unlock legs for ragdoll flop (once)
     if (doll._limitsLocked) {
       doll._limitsLocked = false;
       for (const key of ['hipF', 'hipB']) if (J[key]?.setLimits) J[key].setLimits(-2.5, 1.8);
@@ -344,88 +424,91 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
     return;
   }
 
-  for (const j of Object.values(J)) j.enableMotor(true);
-
-  const flinch = doll.flinchT > 0;
-  const stiff = guard && !flinch ? 2.2 : 1;
-  const softMul = flinch ? 0.08 : 1;
-  const g = SOFT.gain * (guard && !flinch ? 1.4 : 1) * softMul;
-  const st = doll._stance;
-
-  // Legs: high gain/torque plant. Arms: softer (less alive chaos).
-  const legG = g * 1.35;
-  const legT = stiff * softMul;
-  setMotor(J.hipF, st.hipF + mx * 0.14, legG, SOFT.hipT * legT);
-  setMotor(J.hipB, st.hipB - mx * 0.12, legG, SOFT.hipT * legT);
-  setMotor(J.knF, st.knF + Math.abs(mx) * 0.06, legG, SOFT.knT * legT);
-  setMotor(J.knB, st.knB + Math.abs(mx) * 0.06, legG, SOFT.knT * legT);
-  if (J.ankF) setMotor(J.ankF, st.ankF - mx * 0.04, legG, SOFT.ankT * legT);
-  if (J.ankB) setMotor(J.ankB, st.ankB + mx * 0.04, legG, SOFT.ankT * legT);
-  // no idle wobble — plant for fighting; slight punch reach pose while active
-  const punchReach = doll.punchActive > 0 && !flinch;
-  setMotor(J.shF, guard && !flinch ? -1.2 : (punchReach ? -1.6 * doll.face : st.shF), g * (punchReach ? 1.25 : 0.85), SOFT.shT * stiff * softMul * (punchReach ? 1.35 : 1));
-  setMotor(J.shB, guard && !flinch ? -1.0 : st.shB, g * 0.75, SOFT.shT * stiff * softMul);
-  setMotor(J.elF, guard && !flinch ? 1.5 : (punchReach ? 0.25 : st.elF), g * (punchReach ? 1.5 : 0.85), SOFT.elT * stiff * softMul * (punchReach ? 1.6 : 1));
-  setMotor(J.elB, guard && !flinch ? 1.3 : st.elB, g * 0.75, SOFT.elT * stiff * softMul);
-  setMotor(J.neck, 0, g, SOFT.neckT * softMul);
-  setMotor(J.wrF, 0, g * 0.5, SOFT.wrT * softMul);
-  setMotor(J.wrB, 0, g * 0.5, SOFT.wrT * softMul);
-
-  const torso = doll.parts.torso;
-  const v = torso.getLinearVelocity();
-  const walk = mx * (guard ? 1.1 : 2.4);
-  torso.applyForceToCenter({ x: (walk - v.x) * SOFT.walkK, y: 0 }, true);
-  if (!flinch) {
-    const ang = torso.getAngle();
-    const lean = Math.min(1, Math.abs(ang) / 0.4);
-    const boost = 1 + lean * (SOFT.balanceBoost - 1);
-    torso.applyTorque(-ang * SOFT.upright * stiff * boost - torso.getAngularVelocity() * SOFT.uprightD * boost);
-    // tipping: plant hips against lean
-    // plant legs during punch when upright
-    if (doll.punchActive > 0 && Math.abs(ang) < 0.25) {
-      setMotor(J.hipF, st.hipF, legG * 1.35, SOFT.hipT * 1.3);
-      setMotor(J.hipB, st.hipB, legG * 1.35, SOFT.hipT * 1.3);
-      setMotor(J.knF, st.knF, legG * 1.25, SOFT.knT * 1.25);
-      setMotor(J.knB, st.knB, legG * 1.25, SOFT.knT * 1.25);
-    }
-    // tip recovery: only when falling into lean (same-sign av) to avoid motor osc
-    const av = torso.getAngularVelocity();
-    if (Math.abs(ang) > 0.2 && ang * av > 0) {
-      const yank = Math.min(0.22, Math.abs(ang) * 0.45);
-      setMotor(J.hipF, st.hipF - Math.sign(ang) * yank, legG * 1.2, SOFT.hipT * 1.2);
-      setMotor(J.hipB, st.hipB - Math.sign(ang) * yank, legG * 1.2, SOFT.hipT * 1.2);
-    }
-    // soft spin cap — prevent rare motor blowups without fighting normal recovery
-    if (Math.abs(av) > 12) torso.setAngularVelocity(Math.sign(av) * 12);
-  }
+  // Face foe / move dir before pose (punch targets use face)
   if (foe && foe.alive) {
     const fx = foe.parts.torso.getPosition().x, mx0 = doll.parts.torso.getPosition().x;
     if (Math.abs(fx - mx0) > 0.15) doll.face = fx > mx0 ? 1 : -1;
   } else if (Math.abs(mx) > 0.2) doll.face = mx > 0 ? 1 : -1;
 
+  // Start punch → brief arm pose, then SM returns to stand when punchActive ends
+  if (punch && doll.punchCd <= 0 && doll.flinchT <= 0) {
+    if (doll.held) swingWeapon(doll, foe);
+    else firePunch(doll, foe);
+    doll.punchCd = doll.held ? 0.4 : 0.32;
+  }
+
+  const prev = doll.pose;
+  doll.pose = resolvePose(doll, { mx, guard });
+  if (doll.pose !== prev) doll.poseT = 0;
+
+  if (doll.pose === POSE.WALK) {
+    const spd = Math.min(1.35, 0.55 + Math.abs(mx));
+    doll.walkPhase += dt * Math.PI * 2 * SOFT.walkHz * spd;
+  } else if (doll.pose === POSE.STAND) {
+    // ease phase toward rest so legs don't snap
+    doll.walkPhase *= Math.max(0, 1 - dt * 4);
+  }
+
+  for (const j of Object.values(J)) j.enableMotor(true);
+
+  const flinch = doll.pose === POSE.HIT;
+  const stiff = guard && !flinch ? 2.0 : 1;
+  const softMul = flinch ? 0.12 : 1;
+  const g = SOFT.gain * (guard && !flinch ? 1.3 : 1) * softMul;
+  const targets = poseTargets(doll, { mx, guard });
+  doll._stance = targets;
+
+  const legG = g * 1.35;
+  const legT = stiff * softMul;
+  const armG = g * (doll.pose === POSE.PUNCH ? 1.5 : 0.9);
+  const armT = stiff * softMul * (doll.pose === POSE.PUNCH ? 1.6 : 1);
+
+  setMotor(J.hipF, targets.hipF, legG, SOFT.hipT * legT);
+  setMotor(J.hipB, targets.hipB, legG, SOFT.hipT * legT);
+  setMotor(J.knF, targets.knF, legG, SOFT.knT * legT);
+  setMotor(J.knB, targets.knB, legG, SOFT.knT * legT);
+  if (J.ankF) setMotor(J.ankF, targets.ankF, legG, SOFT.ankT * legT);
+  if (J.ankB) setMotor(J.ankB, targets.ankB, legG, SOFT.ankT * legT);
+  setMotor(J.shF, targets.shF, armG, SOFT.shT * armT);
+  setMotor(J.shB, targets.shB, g * 0.85, SOFT.shT * stiff * softMul);
+  setMotor(J.elF, targets.elF, armG, SOFT.elT * armT);
+  setMotor(J.elB, targets.elB, g * 0.85, SOFT.elT * stiff * softMul);
+  setMotor(J.neck, targets.neck ?? 0, g, SOFT.neckT * softMul);
+  setMotor(J.wrF, targets.wrF ?? 0, g * 0.5, SOFT.wrT * softMul);
+  setMotor(J.wrB, targets.wrB ?? 0, g * 0.5, SOFT.wrT * softMul);
+
+  const torso = doll.parts.torso;
+  const v = torso.getLinearVelocity();
+  const walk = mx * (guard ? 1.0 : 2.3);
+  torso.applyForceToCenter({ x: (walk - v.x) * SOFT.walkK, y: 0 }, true);
+
+  // Light upright assist (Landfall-ish — pose does most of the standing)
+  if (!flinch) {
+    const ang = torso.getAngle();
+    const av = torso.getAngularVelocity();
+    const lean = Math.min(1, Math.abs(ang) / 0.45);
+    const boost = 1 + lean * (SOFT.balanceBoost - 1);
+    torso.applyTorque(-ang * SOFT.upright * stiff * boost - av * SOFT.uprightD * boost);
+    if (Math.abs(av) > 12) torso.setAngularVelocity(Math.sign(av) * 12);
+  }
+
   if (jump && doll.jumpCd <= 0) {
     const p = torso.getPosition();
     if (p.y < 1.7) {
       torso.applyLinearImpulse({ x: mx * 0.7, y: 4.8 }, torso.getWorldCenter(), true);
-      setMotor(J.knF, 1.8, 20, 40); setMotor(J.knB, 1.8, 20, 40);
+      setMotor(J.knF, 1.5, 18, 48); setMotor(J.knB, 1.5, 18, 48);
       doll.jumpCd = 0.55;
     }
   }
 
   if (grab && world && weapons) grabWeapon(world, doll, weapons);
   if ((throwIt || drop) && world && doll.held) throwWeapon(world, doll, { drop: !!drop && !throwIt });
-
-  if (punch && doll.punchCd <= 0) {
-    if (doll.held) swingWeapon(doll, foe);
-    else firePunch(doll, foe);
-    doll.punchCd = doll.held ? 0.4 : 0.32;
-  }
 }
 
 function firePunch(doll, foe = null) {
   const fist = doll.parts.fistF;
   let dir = doll.face;
-  let aimY = 0.35;
+  let aimY = 0.25;
   if (foe && foe.alive) {
     const fp = fist.getPosition();
     const tp = foe.parts.torso.getPosition();
@@ -433,17 +516,15 @@ function firePunch(doll, foe = null) {
     const len = Math.hypot(dx, dy) || 1;
     dir = Math.sign(dx) || dir;
     doll.face = dir;
-    aimY = Math.max(-0.2, Math.min(0.9, dy / len));
-    // light step-in — heavy shove dumps balance
-    doll.parts.torso.applyLinearImpulse({ x: dir * 0.35, y: 0.05 }, doll.parts.torso.getWorldCenter(), true);
+    aimY = Math.max(-0.15, Math.min(0.7, dy / len));
+    doll.parts.torso.applyLinearImpulse({ x: dir * 0.25, y: 0.04 }, doll.parts.torso.getWorldCenter(), true);
   }
-  setMotor(doll.joints.shF, -2.0 * dir, 18, 42);
-  setMotor(doll.joints.elF, 0.2, 16, 36);
-  // arm-driven punch only — no torso shove (that dumped balance)
-  fist.applyLinearImpulse({ x: dir * 1.8, y: aimY * 0.9 }, fist.getWorldCenter(), true);
-  doll.parts.uArmF.applyLinearImpulse({ x: dir * 0.45, y: aimY * 0.2 }, doll.parts.uArmF.getWorldCenter(), true);
-  doll.parts.lArmF.applyLinearImpulse({ x: dir * 0.45, y: aimY * 0.25 }, doll.parts.lArmF.getWorldCenter(), true);
+  // Pose SM holds the punch arm targets; light fist nudge for contact speed
+  fist.applyLinearImpulse({ x: dir * 1.4, y: aimY * 0.7 }, fist.getWorldCenter(), true);
+  doll.parts.uArmF.applyLinearImpulse({ x: dir * 0.35, y: aimY * 0.15 }, doll.parts.uArmF.getWorldCenter(), true);
   doll.punchActive = SOFT.punchActive;
+  doll.pose = POSE.PUNCH;
+  doll.poseT = 0;
   doll._hitLatch = false;
 }
 
@@ -455,8 +536,8 @@ function swingWeapon(doll, foe = null) {
     const dx = foe.parts.torso.getPosition().x - doll.parts.torso.getPosition().x;
     if (Math.abs(dx) > 0.1) { dir = Math.sign(dx); doll.face = dir; }
   }
-  setMotor(doll.joints.shF, -2.4 * dir, 24, 70);
-  setMotor(doll.joints.elF, 0.1, 20, 50);
+  doll.pose = POSE.PUNCH;
+  doll.poseT = 0;
   w.body.applyAngularImpulse(dir * -1.6);
   w.body.applyLinearImpulse({ x: dir * 3.2, y: 0.6 }, w.body.getWorldCenter(), true);
   doll.parts.torso.applyLinearImpulse({ x: dir * 0.2, y: 0.05 }, doll.parts.torso.getWorldCenter(), true);
@@ -492,6 +573,9 @@ export function applyHit(doll, dmg, fromX = null) {
   if (!doll.alive) return false;
   doll.hp = Math.max(0, doll.hp - dmg);
   doll.flinchT = SOFT.flinchT;
+  doll.pose = POSE.HIT;
+  doll.poseT = 0;
+  doll.punchActive = 0;
   const torso = doll.parts.torso;
   const tx = torso.getPosition().x;
   const kdir = fromX != null ? Math.sign(tx - fromX) || doll.face : doll.face;
@@ -500,6 +584,7 @@ export function applyHit(doll, dmg, fromX = null) {
   doll.parts.head.applyLinearImpulse({ x: kdir * 0.4, y: 0.3 }, doll.parts.head.getWorldCenter(), true);
   if (doll.hp <= 0) {
     doll.alive = false; doll.hp = 0;
+    doll.pose = POSE.KO;
     for (const j of Object.values(doll.joints)) { j.enableMotor(false); j.setMaxMotorTorque(0); }
     for (const b of Object.values(doll.parts)) b.setAngularDamping(0.08);
     // KO flop may flail
@@ -522,7 +607,7 @@ export function stepWorld(ctx, dt = DT) {
 
 export function torsoPose(doll) {
   const p = doll.parts.torso.getPosition();
-  return { x: p.x, y: p.y, angle: doll.parts.torso.getAngle(), alive: doll.alive, hp: doll.hp, maxHp: doll.maxHp, held: doll.held?.id || null };
+  return { x: p.x, y: p.y, angle: doll.parts.torso.getAngle(), alive: doll.alive, hp: doll.hp, maxHp: doll.maxHp, held: doll.held?.id || null, pose: doll.pose };
 }
 
 export function snapshotParts(doll) {

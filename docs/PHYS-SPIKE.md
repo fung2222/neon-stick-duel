@@ -43,3 +43,12 @@ python3 -m http.server 8811
 ## Stand / balance (2026-10-17)
 
 Alive fighters plant: heavy legs+feet (lower COM), grippy ground (fric 1.45), stronger hip/knee/ankle + torso upright motors, narrow leg limits while alive (unlock on KO). Arms stay soft. Idle/walk stable; punch no longer dumps balance (arm-only impulse, tip recovery wins over punch plant).
+
+## Active ragdoll / pose SM (Landfall-style)
+
+Alive fighters follow a pose state machine: **stand → walk → punch → hit → KO**.
+- **Walk**: joint target angles cycle with alternate legs (`walkPhase`)
+- **Punch**: brief arm pose targets, then return to stand
+- **Hit**: short reactive pose + soft motors, then stand
+- **KO**: motors off, soft limp (limits unlock)
+- Light upright assist on torso; weapons / impact unchanged

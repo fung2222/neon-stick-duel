@@ -39,13 +39,18 @@ export async function runPhysSpike(ctx) {
     state: 'menu', demo: !!flags.demo, phys: true, physVer: 1,
     api: {
       punch: () => { S._forcePunch = true; },
+      forceHit: (who = 'a', dmg = 12) => {
+        const d = who === 'a' ? phys.a : phys.b;
+        applyHit(d, dmg, (who === 'a' ? phys.b : phys.a).parts.torso.getPosition().x);
+      },
+      forceMx: (v) => { S._forceMx = v; },
       jump: () => { S._forceJump = true; },
       grab: () => { S._forceGrab = true; },
       throw: () => { S._forceThrow = true; },
       setHp: (who, hp) => {
         const d = who === 'a' ? phys.a : phys.b; d.hp = Math.max(0, hp);
         if (d.hp <= 0 && d.alive) {
-          d.alive = false;
+          d.alive = false; d.pose = 'ko';
           for (const j of Object.values(d.joints)) { j.enableMotor(false); j.setMaxMotorTorque(0); }
         }
       },
@@ -54,6 +59,7 @@ export async function runPhysSpike(ctx) {
         weapons: snapshotWeapons(phys.weapons),
         heldA: phys.a.held?.id || null, heldB: phys.b.held?.id || null,
         over: S.over, time: S.time, hpA: phys.a.hp, hpB: phys.b.hp,
+        poseA: phys.a.pose, poseB: phys.b.pose,
       }),
       start: () => startFight(),
     },
@@ -73,7 +79,7 @@ export async function runPhysSpike(ctx) {
     tag.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:40;padding:6px 14px;border:1px solid #00e5ff;color:#7ff6ff;font:700 11px Orbitron,sans-serif;letter-spacing:.12em;background:rgba(5,1,15,.75);pointer-events:none';
     document.body.appendChild(tag);
   }
-  tag.textContent = 'PHYS P1 · ?phys=1 · punch-fix';
+  tag.textContent = 'PHYS P1 · ?phys=1 · active ragdoll';
 
   const ctl = createControls({
     active: () => S.state === 'play' && !flags.demo && !ui.modalOpen,
@@ -112,8 +118,8 @@ export async function runPhysSpike(ctx) {
 
   const kicker = document.querySelector('#screen-start .tagline');
   if (kicker) kicker.innerHTML = L()
-    ? 'PHYS P1 — soft ragdoll · grab/throw neon weapons · wall/floor impact.<br>Skill1=GRAB · Skill2=THROW · ATTACK=punch/swing. (Classic: remove ?phys=1)'
-    : 'PHYS P1 — 軟關節布娃娃 · 拾取／投擲霓虹武器 · 撞牆／落地受傷。<br>技能1＝拾取 · 技能2＝投擲 · 攻擊＝拳／揮。 （返經典：拎走 ?phys=1）';
+    ? 'PHYS P1 — Landfall-style active ragdoll (stand/walk/punch/hit/KO) · grab/throw.<br>Skill1=GRAB · Skill2=THROW · ATTACK=punch/swing. (Classic: remove ?phys=1)'
+    : 'PHYS P1 — Landfall 式主動布娃娃（站／走／拳／受擊／KO）· 拾取／投擲。<br>技能1＝拾取 · 技能2＝投擲 · 攻擊＝拳／揮。 （返經典：拎走 ?phys=1）';
 
   function showMenu() {
     S.state = 'menu'; S.over = null;
@@ -309,7 +315,7 @@ export async function runPhysSpike(ctx) {
 
     const pad = ctl.read();
     const intentA = {
-      mx: pad.mx, guard: pad.guard,
+      mx: (S._forceMx != null ? S._forceMx : pad.mx), guard: pad.guard,
       punch: S._forcePunch || false,
       jump: S._forceJump || false,
       grab: S._forceGrab || false,

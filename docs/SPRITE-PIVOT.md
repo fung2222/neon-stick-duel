@@ -6,8 +6,7 @@
 **Status of this doc:** survey + architecture + phases.
 
 ## Status (implementation)
-- **Phase 0–1 (2026-10-17):** DONE — `?phys=1` deprecated (`&dev=1` only).
-- **Phase 1b (2026-10-17):** DONE — human-shaped `SpriteFighter` **default** for all 4 kits (`js/sprite/human.js`). Pose dialects: blade / loose (mage) / street (brawler) / fluid (assassin). `?sprite=0` restores anime. Shots in `docs/shots/sprite/`.
+- **FULL RESTART (2026-10-17):** ship as cyber mini-SF. Deleted `js/phys/**`, `js/anime/**`, `js/rig/**`, `js/stickman.js`, `vendor/planck`. Sprite-only `FighterView` + human neon cast (4 kits + shogun). Hitstop 3–8f, launch juice, attack streaks. Phys archived as git tag `phys-spike-archive`.
 
 Live today: https://fung2222.github.io/neon-stick-duel/ · repo `fung2222/neon-stick-duel` · Silver tier in `cyber-arcade/games.json`.
 

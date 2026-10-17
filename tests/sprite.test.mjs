@@ -9,12 +9,13 @@ for (const id of CLASS_IDS) {
   ok(!!spriteMeta(id).style, `${id} has pose dialect`);
   ok(CLASSES[id].zh === spriteMeta(id).zh, `${id} keeps class name`);
 }
-ok(!hasSprite('shogun'), 'boss stays non-sprite (anime)');
+ok(hasSprite('shogun'), 'boss has sprite body');
+ok(spriteMeta('shogun').style === 'oni', 'shogun is oni dialect');
 ok(spriteMeta('mage').style === 'loose', 'mage is loose dialect');
 ok(spriteMeta('brawler').style === 'street', 'brawler is street dialect');
 ok(spriteMeta('assassin').style === 'fluid', 'assassin is fluid dialect');
 ok(spriteMeta('sword').style === 'blade', 'sword is blade dialect');
-ok(Object.keys(SPRITE_CLASSES).length === 4, 'four kits');
+ok(Object.keys(SPRITE_CLASSES).length === 5, 'four kits + boss');
 
 if (failed) { console.error(failed + '/' + n + ' failed'); process.exit(1); }
 console.log('ALL PASS', n);

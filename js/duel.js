@@ -1,4 +1,4 @@
-// NEON STICK DUEL v2 — pure fighting simulation (no DOM / three.js), unit-tested in tests/duel.test.mjs.
+// NEON STICK DUEL — pure fighting simulation (no DOM / three.js), unit-tested in tests/duel.test.mjs.
 // Side-on 1D arena (x metres, y up). Free movement from an intent (in.mx -1..1, in.guard) plus buffered commands:
 //   atk (combo chain / air combo) · s1 · s2 (cooldown skills) · ult (meter) · jump · dodge
 // Systems: frame data (startup/active/recover), chain + skill cancel windows, juggles with decay + cap, knockdown,
@@ -18,7 +18,7 @@ export const TUNE = {
   downT: 0.55, riseT: 0.28, downInv: 0.9, jugCap: 6, prorate: 0.075, prorateMin: 0.42, prorateUlt: 0.6,
   djMul: 0.9, djMin: 0.1, djAir: true,            // double jump: 0.9 × jump speed (≈ 81 % height), not before 0.1 s of airtime; djAir = also out of an air attack's recovery
   turnDelay: 0.12,                   // grounded fighters stuck facing away (guard / block / hit) turn to the foe after this
-  stopMin: 2 / 60, stopMax: 6 / 60,  // hit-stop 2–6 frames by hit strength
+  stopMin: 3 / 60, stopMax: 8 / 60,  // hit-stop 3–8 frames — mini-SF crunch
 };
 /** final boss tuning (only fighters whose class has `phases` use it; the four player classes never touch this) */
 export const BOSS_TUNE = {
@@ -29,11 +29,11 @@ export const BOSS_TUNE = {
   // basic hit-stun ×0.8 (still stuns: every basic string still interrupts it; it just recovers sooner)
   launchMul: 0.7, jugCap: 4, stunMul: 0.8,
 };
-/** hit-stop (s) from hit strength: 2 frames for chip-light hits → 6 frames for heavy launchers / spikes / finishers */
+/** hit-stop (s) from hit strength: 3 frames light → 8 frames heavy launchers / spikes / finishers */
 export function hitStopOf(dmg, spec) {
   const heavy = (spec.launch || 0) >= 8 || !!spec.spike || (spec.kb || 0) >= 5;
   const k = Math.min(1, Math.max(0, (dmg - 25) / 75)) * 0.75 + (heavy ? 0.25 : 0) + (spec.kind === 'skill' ? 0.1 : 0);
-  return Math.round((2 + 4 * Math.min(1, k))) / 60;
+  return Math.round((3 + 5 * Math.min(1, k))) / 60;
 }
 
 let PID = 1;

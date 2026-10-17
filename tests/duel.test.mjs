@@ -203,13 +203,13 @@ test('double jump: once per airtime, lower than the first, resets on landing; th
     for (let i = 0; i < 60 * 40 && !d.over; i++) { for (const [me, op, m] of [[d.a, d.b, ma], [d.b, d.a, mb]]) { const c = aiThink(d, me, op, { diff: 0.7 }, m, DT, rng); if (c) act(me, c); } step(d, DT); for (const e of d.events) if (e.type === 'jump' && e.dbl) ai++; d.events.length = 0; } }
   assert.ok(ai >= 3, 'AI double jumps ' + ai);
 });
-test('hit-stop is 2–6 frames by hit strength', () => {
+test('hit-stop is 3–8 frames by hit strength', () => {
   const f = (dmg, o = {}) => Math.round(hitStopOf(dmg, o) * 60);
-  assert.equal(f(20), 2); assert.ok(f(44) >= 2 && f(44) <= 3); assert.ok(f(72, { launch: 9.6 }) >= 4); assert.equal(f(150, { launch: 8, kb: 8 }), 6);
-  for (let dmg = 1; dmg < 300; dmg += 7) { const k = f(dmg, { launch: dmg % 2 ? 10 : 0 }); assert.ok(k >= 2 && k <= 6, dmg + ' → ' + k); }
+  assert.equal(f(20), 3); assert.ok(f(44) >= 3 && f(44) <= 5); assert.ok(f(72, { launch: 9.6 }) >= 5); assert.equal(f(150, { launch: 8, kb: 8 }), 8);
+  for (let dmg = 1; dmg < 300; dmg += 7) { const k = f(dmg, { launch: dmg % 2 ? 10 : 0 }); assert.ok(k >= 3 && k <= 8, dmg + ' → ' + k); }
   const d = makeDuel('sword', 'brawler', {}, { hpMul: 10 }); close(d, 1.0); act(d.a, 'atk'); let stop = 0;
   for (let i = 0; i < 30; i++) { step(d, DT); for (const e of d.events) if (e.type === 'hit') stop = e.stop; d.events.length = 0; }
-  assert.ok(stop >= 2 / 60 && stop <= 6 / 60, 'slash stop ' + stop);
+  assert.ok(stop >= 3 / 60 && stop <= 8 / 60, 'slash stop ' + stop);
 });
 test('balance: every matchup 40–60 % at diff 0.7 (400 fights each, deterministic seeds)', () => {
   const res = matrix(400, 0.7);

@@ -1,3 +1,7 @@
+# HANDOFF — NEON STICK DUEL
+
+> **FULL RESTART 2026-10-17 (Asia/Hong_Kong):** cyber mini Street Fighter / KOF. Deleted phys ragdoll, anime, HQ/classic stick, Planck. Sprite-only human neon cast (4 kits + shogun). Hitstop 3–8f, launch juice, attack streaks. Hub / bilingual / ladder / endless kept. Author **嘉豐**. Live: https://fung2222.github.io/neon-stick-duel/
+
 # NEON STICK DUEL 霓虹火柴人對打 — Handoff
 
 Status: **web build v2.7 — four classes, all anime cel-shaded by default: Swordsman (phase 1, §12), Mage (phase 2, §13; v2.5 face + contrast pass §13.1), Brawler (phase 3, §14) and Assassin (phase 4, §15); final boss 塔主・零 / KAGE-SHŌGUN anime body + forms done (§16 steps 1–4: sim, ō-yoroi body, kenjutsu forms, tests + shots; interim kept as fallback), HQ rig, double jump + auto-face, controller-style touch pad, stage ladder + endless tower** · live https://fung2222.github.io/neon-stick-duel/ · demo `?demo=1` · **Option 3 Phase 0–1 (2026-10-17):** `?phys=1` deprecated (needs `&dev=1`); human-shaped `SpriteFighter` **default** for all 4 kits (`js/sprite/human.js`; `?sprite=0` → anime). Freer dialects: blade / loose / street / fluid. docs/SPRITE-PIVOT.md · not yet packaged for Android.

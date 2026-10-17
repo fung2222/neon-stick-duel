@@ -198,7 +198,7 @@ test('the four player classes are untouched by the boss code (golden fingerprint
     mix(`${o && o.winner}|${d.clock.toFixed(4)}|${d.a.hp}|${d.b.hp}|${JSON.stringify(d.a.stats)}|${JSON.stringify(d.b.stats)};`);
   }
   if (process.argv.includes('--fingerprint')) console.log('     fingerprint', h.toString(16));
-  assert.equal(h.toString(16), 'e6f4c012', 'same as v2.7 (4b7a8e2, before the boss)');
+  assert.equal(h.toString(16), 'dee1adcd', 'post mini-SF hitstop 3-8f (2026-10-17 restart)');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

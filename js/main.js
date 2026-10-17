@@ -1,6 +1,5 @@
-// NEON STICK DUEL v2 — 3D cyberpunk class fighter. Four classes, joystick + arcade buttons, 10-fight ladder, endless tower.
-// Game rules live in duel.js (pure sim, fixed DT), ai.js, classes.js, modes.js. This file is the shell: screens, input,
-// fixed-step loop, rendering sync, effects, HUD, saves, hub contract (trial caps + ads).
+// NEON STICK DUEL — cyber mini Street Fighter / KOF. Human neon sprites, hitstop, launch, clear attacks.
+// Sim: duel.js · kits: classes.js · AI: ai.js · modes: ladder + endless. This file: shell / view / FX / hub.
 import * as THREE from 'three';
 import { i18n, t, flags, createStore, createStage, ThemeController, U, Particles, Shockwaves, FxState, NeonCity, CyberUI, Platform, createAds } from 'cyber-kit';
 import { GAME_ID, DT, makeDuel, act, step, CLASSES, CLASS_IDS, ARENA_HALF, actionable } from './duel.js';
@@ -8,7 +7,7 @@ import { STAT_KEYS } from './classes.js';
 import { aiThink } from './ai.js';
 import { TRIAL, LADDER, ladderFoe, endlessFoe, fightScore, migrateSave } from './modes.js';
 import './strings.js';
-import { FighterView, setRigMode, rigFor, setStyleMode, styleFor, setSpriteMode, spriteMode, spriteMeta } from './fighter-view.js';
+import { FighterView, spriteMeta } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { BossFx } from './boss-fx.js';
@@ -19,14 +18,14 @@ import { POST } from './config.js';
 const $ = (id) => document.getElementById(id);
 const L = () => (i18n.lang === 'en' ? 1 : 0);
 const nm = (o) => (Array.isArray(o) ? o[L()] : L() ? o.en : o.zh);
-/** Display name for a class — neon fox label when ?sprite=1 and the class has a sprite body. */
+/** Display name for a class (sprite roster). */
 const clsLabel = (id) => {
-  const meta = spriteMode() && spriteMeta(id);
+  const meta = spriteMeta(id);
   if (meta) return L() ? meta.en : meta.zh;
   const C = CLASSES[id]; return C ? (L() ? C.en : C.zh) : id;
 };
 const clsDesc = (id) => {
-  const meta = spriteMode() && spriteMeta(id);
+  const meta = spriteMeta(id);
   if (meta) return nm(meta.desc);
   return nm(CLASSES[id].desc);
 };
@@ -59,12 +58,6 @@ const S = {
   preview: null, freezeFoe: false, comboShown: 0, cmdLog: [], interstitials: 0, adBreaks: 0, rewardedAsks: 0, migrated,
 };
 window.__duel = S;  // test hook
-setRigMode(flags.get('rig') || store.get('rig'));   // ?rig=hq|classic, else the pause-screen setting, else per-class default
-// ?style=anime|neon, else the pause-screen setting, else STYLE_DEFAULT; an explicit ?rig=hq without ?style shows the neon HQ rig
-setStyleMode(flags.get('style') || (flags.get('rig') === 'hq' ? 'neon' : store.get('style')));
-// Option 3: human-shaped SpriteFighter is DEFAULT for all 4 kits. ?sprite=0 → anime/neon fallback. ?sprite=1 forces on.
-const spriteFlag = flags.get('sprite');
-setSpriteMode(spriteFlag === '0' || spriteFlag === 'false' ? false : true);
 const fa = new FighterView(scene), fb = new FighterView(scene);
 const viewOf = (f) => (f === S.duel.a ? fa : fb);
 const timers = []; const later = (sec, fn) => timers.push({ t: sec, fn });
@@ -159,7 +152,7 @@ const BREATH = new THREE.Color(0xdfe6ff);
 const _zA = new THREE.Vector3(), _zB = new THREE.Vector3();
 
 // ------------------------------------------------------------------ duel setup
-function colorOf(f) { const d = S.duel; if (f === d.a) { const m = spriteMode() && spriteMeta(f.cls); return (m && m.color) || CLASSES[f.cls].color; } return S.foe?.color ?? 0xff2bd6; }
+function colorOf(f) { const d = S.duel; if (f === d.a) { const m = spriteMeta(f.cls); return (m && m.color) || CLASSES[f.cls].color; } return S.foe?.color ?? 0xff2bd6; }
 function setupDuel(clsA, foe, { oa = {}, preview = false } = {}) {
   S.foe = foe; clearProjMeshes();
   S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss, time: foe.time || 0 });
@@ -205,7 +198,7 @@ function showSelect(next = null) {
   ui.setText('sel-mode', next === 'ladder' ? t('ladder') : next === 'endless' ? t('endless') : t('changeClsS'));
 }
 function buildTabs() {
-  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMode() && spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex((meta && meta.color) || CLASSES[id].color)}">${zh}<small>${en}</small></button>`; }).join('');
+  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex((meta && meta.color) || CLASSES[id].color)}">${zh}<small>${en}</small></button>`; }).join('');
   $('sel-tabs').querySelectorAll('[data-cls]').forEach((b) => { b.onclick = () => { audio.click(); pickClass(b.dataset.cls); }; });
 }
 function kitHtml(C) {
@@ -224,7 +217,7 @@ function pickClass(id, instant = false) {
   S.selCls = id; const C = CLASSES[id];
   $('sel-tabs').querySelectorAll('.sel-tab').forEach((b) => b.classList.toggle('on', b.dataset.cls === id));
   const panel = document.querySelector('.sel-panel'); panel.style.setProperty('--k', hex(C.color));
-  ui.setText('sel-zh', clsLabel(id)); ui.setText('sel-en', (spriteMode() && spriteMeta(id)) ? (L() ? spriteMeta(id).zh : spriteMeta(id).en) : (L() ? C.zh : C.en)); ui.setText('sel-role', t('role.' + C.role)); ui.setText('sel-desc', clsDesc(id));
+  ui.setText('sel-zh', clsLabel(id)); ui.setText('sel-en', spriteMeta(id) ? (L() ? spriteMeta(id).zh : spriteMeta(id).en) : (L() ? C.zh : C.en)); ui.setText('sel-role', t('role.' + C.role)); ui.setText('sel-desc', clsDesc(id));
   $('sel-stats').innerHTML = STAT_KEYS.map((k) => `<span>${t('st.' + k)}</span><span class="stat-bar">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= C.stats[k] ? 'on' : ''}"></i>`).join('')}</span>`).join('');
   $('sel-kit').innerHTML = kitHtml(C);
   setupDuel(id, { cls: 'brawler', color: 0x6f7a90, diff: 0, hpMul: 50, zh: '木人', en: 'DUMMY' }, { preview: true });
@@ -349,7 +342,7 @@ function handleEvents() {
     const me = e.who === d.a;
     switch (e.type) {
       case 'move': {
-        if (vol && e.kind !== 'ult' && viewOf(e.who).rig === 'classic') audio.swing(e.who.cls, e.kind);   // HQ / anime rigs cue the swing when the blade accelerates (tick)
+        // swing SFX cued from takeSwingCue when the active frame begins
         const bm = e.who.C.phases && e.who.C.moves[e.key || e.who.mk];   // final boss: move-name callout over the head (not for the ult: it has the cut-in)
         if (bm && bm.callout && (bm.kind !== 'ult' || bm.sub) && !menuish) bossCall(e.who, bm);
         break;
@@ -359,18 +352,19 @@ function handleEvents() {
         // sparks at the real contact point (where the weapon meets the body), streaks along the weapon's motion
         const zan = !e.proj && av.zan();   // Assassin 居合: the blades are already going home — X cuts flash on the foe's body
         const cp = !e.proj && !zan ? av.contactPoint(e.who, ROOF_Y) : null, pos = cp || (zan ? new THREE.Vector3(e.who.x, ROOF_Y + e.who.y + 1.15, 0.3) : new THREE.Vector3(e.x, ROOF_Y + e.y, 0.3));
-        dv.onHit(e); if (dv.rig === 'classic') dv.flash();
+        dv.onHit(e); dv.flash();
         if (vol) audio.hit(e.heavy, att.cls);
-        const k = Math.min(1, (e.stop || 0.05) * 60 / 6), kdir = Math.sign(e.who.x - att.x) || att.facing;
-        spark(pos, col, 1.3 + 1.2 * k);
-        particles.burst(pos, col, Math.round(16 + 34 * k), { speed: 4 + 3.5 * k, up: 1.5, life: 0.4, size: 0.65 + 0.4 * k, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
-        const sv = av.tipVel.lengthSq() > 4 && cp ? av.tipVel.clone().normalize() : new THREE.Vector3(kdir, 0.25, 0).normalize();
-        if (cp) slash(pos, sv, col, k);
+        const k = Math.min(1, (e.stop || 0.05) * 60 / 8), kdir = Math.sign(e.who.x - att.x) || att.facing;
+        const launched = (e.launch || 0) >= 6;
+        spark(pos, col, 1.4 + 1.3 * k + (launched ? 0.4 : 0));
+        particles.burst(pos, col, Math.round(18 + 40 * k), { speed: 4.2 + 4 * k, up: 1.6 + (launched ? 2.2 : 0), life: 0.42, size: 0.7 + 0.45 * k, color2: new THREE.Color(1, 1, 1), bright: SPARK_BRIGHT });
+        const sv = av.tipVel.lengthSq() > 4 && cp ? av.tipVel.clone().normalize() : new THREE.Vector3(kdir, launched ? 0.85 : 0.25, 0).normalize();
+        if (cp || launched) slash(pos, sv, col, k + (launched ? 0.35 : 0));
         if (zan) { slash(pos, _zA.set(1, 0.9, 0).normalize(), col, k); slash(pos, _zB.set(1, -0.9, 0).normalize(), col, k); }
-        for (let i = 0; i < 8 + 10 * k; i++) particles.emit(pos, sv.clone().multiplyScalar(5 + Math.random() * 7 * (0.6 + k)).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.3) * 3, (Math.random() - 0.5) * 2)), i % 3 ? col : new THREE.Color(1, 1, 1), { life: 0.18 + Math.random() * 0.14, size: 0.55, grav: -4, drag: 3, bright: SPARK_BRIGHT });
-        if (e.heavy) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: 3, h: 0.5, dur: 0.45, a: 1.4 });
-        fx.kick({ trauma: 0.06 + 0.24 * k, aberr: e.heavy ? 0.45 : 0.15, fovKick: e.heavy ? 0.4 : 0 });
-        camKick(kdir * (0.05 + 0.13 * k), -(0.02 + 0.06 * k) * (e.spike ? 2 : 1));
+        for (let i = 0; i < 10 + 12 * k; i++) particles.emit(pos, sv.clone().multiplyScalar(5 + Math.random() * 8 * (0.6 + k)).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.2) * 3 + (launched ? 2 : 0), (Math.random() - 0.5) * 2)), i % 3 ? col : new THREE.Color(1, 1, 1), { life: 0.2 + Math.random() * 0.16, size: 0.58, grav: launched ? -2 : -4, drag: 3, bright: SPARK_BRIGHT });
+        if (e.heavy || launched) waves.spawn(new THREE.Vector3(e.x, ROOF_Y + 0.05, 0), col, { r0: 0.2, r1: launched ? 3.6 : 3, h: launched ? 0.7 : 0.5, dur: 0.48, a: 1.45 });
+        fx.kick({ trauma: 0.08 + 0.28 * k + (launched ? 0.12 : 0), aberr: e.heavy || launched ? 0.5 : 0.18, fovKick: e.heavy || launched ? 0.45 : 0 });
+        camKick(kdir * (0.06 + 0.14 * k), -(0.025 + 0.07 * k) * (e.spike ? 2 : launched ? 1.4 : 1));
         if (!menuish) { const [sx, sy] = xy(e.x, e.y + 0.3); ui.popup(sx, sy, String(e.dmg), '', e.heavy ? 'big' : ''); }
         if (att === d.a && inPlay) { if (!S.demo) S.score += e.dmg * 0.5; if ((e.chain || 0) >= 2) showCombo(e.chain); Platform.haptic(e.heavy ? 'medium' : 'light'); }
         else if (e.who === d.a && inPlay) { ui.flash('rgba(255,43,90,0.14)', 140); Platform.haptic(e.heavy ? 'heavy' : 'medium'); }
@@ -560,15 +554,7 @@ ui.on('btn-restart-tower', restartTower);
 ui.on('btn-fight', confirmClass); ui.on('btn-sel-back', () => { audio.back(); showMenu(); });
 ui.on('btn-pause', pause); ui.on('btn-mute', () => { audio.init(); ui.setMuted(audio.toggleMute()); });
 ui.on('btn-resume', resume);
-function paintRig() {
-  const b = $('btn-rig'); if (b) b.textContent = t('rigBtn', { v: t(rigFor('sword') !== 'classic' ? 'rigHQ' : 'rigClassic') });
-  const s = $('btn-style'); if (s) s.textContent = t('styleBtn', { v: t(styleFor('sword') === 'anime' ? 'styleAnime' : 'styleNeon') });
-}
-function setRig(mode, persist = true) { setRigMode(mode); if (persist) store.set('rig', mode); fa.refresh(); fb.refresh(); paintRig(); }
-function setStyle(mode, persist = true) { setStyleMode(mode); if (persist) store.set('style', mode); if (mode === 'anime' && rigFor('sword') === 'classic') setRigMode(null); fa.refresh(); fb.refresh(); paintRig(); }
-ui.on('btn-rig', () => { audio.click(); setRig(rigFor('sword') !== 'classic' ? 'classic' : 'hq'); });
-ui.on('btn-style', () => { audio.click(); setStyle(styleFor('sword') === 'anime' ? 'neon' : 'anime'); });
-i18n.onChange(paintRig); paintRig(); ui.on('btn-quit', () => { audio.back(); showMenu(); });
+ui.on('btn-quit', () => { audio.back(); showMenu(); });
 ui.on('btn-res-main', resultMain); ui.on('btn-res-menu', resultMenu); ui.on('btn-revive', revive);
 ui.on('btn-hub', () => returnToHub(hub)); ui.on('btn-trial-menu', () => { audio.back(); showMenu(); });
 ui.on('btn-arcade-menu', () => { audio.back(); returnToHub(hub, { openStore: false }); });
@@ -587,8 +573,7 @@ S.api = {
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
   startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
   pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
-  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sword: rigFor('sword'), style: styleFor('sword'), sprite: spriteMode() }), setRig: (m, persist = false) => setRig(m, persist), setSprite: (on) => { setSpriteMode(!!on); fa.refresh(); fb.refresh(); },
-  setStyle: (m, persist = false) => setStyle(m, persist), charStats: () => ({ a: fa.stats(), b: fb.stats() }),
+  pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sprite: true }), charStats: () => ({ a: fa.stats(), b: fb.stats() }),
   renderInfo: () => { const r = stage.renderer, ar = r.info.autoReset; r.info.autoReset = false; r.info.reset(); r.render(scene, camera); const o = { calls: r.info.render.calls, triangles: r.info.render.triangles }; r.info.autoReset = ar; return o; },
   hold: (on = true) => { S.hold = on; }, cam: (o = null) => { S.camOv = o; },
   manual: (on = true) => { S.manual = on; S.mt = S.mt || performance.now() / 1000; },
@@ -695,7 +680,7 @@ ui.mountHowto({
   privacyUrl: './privacy.html',
   onOpen: () => { try { audio.click(); } catch (_) {} },
   getContent: () => ({
-    kicker: 'NEON STICK DUEL',
+    kicker: 'NEON STICK DUEL · mini SF',
     title: t('kit.howto'),
     sections: [
       { heading: t('kit.rules'), body: t('help.rules') },
@@ -717,18 +702,6 @@ i18n.onChange(() => {
 syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
-  // PHYS path DEPRECATED (Option 3 pivot): only ?phys=1&dev=1 still boots the Planck ragdoll spike.
-  // Human-shaped SpriteFighter is default; ?sprite=0 restores anime/neon. See docs/PHYS-SPIKE.md · docs/SPRITE-PIVOT.md.
-  const physFlag = (flags.get('phys') === '1' || flags.get('phys') === 'true') && (flags.get('dev') === '1' || flags.get('dev') === 'true');
-  if ((flags.get('phys') === '1' || flags.get('phys') === 'true') && !physFlag) {
-    console.info('[neon-stick-duel] ?phys=1 is deprecated — use ?sprite=1 (neon fox) or ?phys=1&dev=1 for the archived ragdoll spike.');
-  }
-  if (physFlag) {
-    fa.visible = false; fb.visible = false;
-    const { runPhysSpike } = await import('./phys/spike.js');
-    await runPhysSpike({ stage, scene, camera, roof, city, ui, audio, particles, waves, fx, store, hub, flags, fa, fb, THREE });
-    return;
-  }
   showMenu(); frameCamera(0, 0, true); ui.loaded();
   if (S.demo) { S.cls = CLASS_IDS.includes(flags.get('cls')) ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });

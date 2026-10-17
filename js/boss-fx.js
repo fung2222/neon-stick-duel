@@ -6,7 +6,7 @@
 //   · mirror        — a silver oval "mirror" in front of the boss while Mirror Guard can parry
 //   · data blades   — per 'dblade' projectile: ground ring (danger radius incl. body width) + countdown fill + light column,
 //                     the blade falls in the last 0.22 s and sticks in the floor
-//   · decoys        — Glitch Step after-images (AnimeFighter ghosts, tinted red, mirrored to face the player) + glitch bursts
+//   · decoys        — Glitch Step after-images (sprite ghosts, tinted red) + glitch bursts
 //   · phase 2       — six thin data-blade shards fanned behind the boss (placeholder for the step-2 instanced data blades)
 import * as THREE from 'three';
 import { ROOF_Y } from './world.js';

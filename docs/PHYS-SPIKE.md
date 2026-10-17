@@ -52,3 +52,7 @@ Alive fighters follow a pose state machine: **stand → walk → punch → hit �
 - **Hit**: short reactive pose + soft motors, then stand
 - **KO**: motors off, soft limp (limits unlock)
 - Light upright assist on torso; weapons / impact unchanged
+
+## Punch phases (kung-fu)
+
+Bare-fist attack on `?phys=1`: **windup** (chamber / arm pulls back) → **thrust** (extend + hit window) → **recover** (return to stand). Hit detection only during thrust.

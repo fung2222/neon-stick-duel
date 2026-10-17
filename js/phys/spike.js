@@ -59,7 +59,7 @@ export async function runPhysSpike(ctx) {
         weapons: snapshotWeapons(phys.weapons),
         heldA: phys.a.held?.id || null, heldB: phys.b.held?.id || null,
         over: S.over, time: S.time, hpA: phys.a.hp, hpB: phys.b.hp,
-        poseA: phys.a.pose, poseB: phys.b.pose,
+        poseA: phys.a.pose, poseB: phys.b.pose, punchPhaseA: phys.a.punchPhase, punchPhaseB: phys.b.punchPhase,
       }),
       start: () => startFight(),
     },

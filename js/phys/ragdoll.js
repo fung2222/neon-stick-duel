@@ -24,7 +24,9 @@ export const SOFT = {
   // Pose motors: legs firm, arms softer; light upright assist; KO limp unlocks.
   gain: 14, hipT: 78, knT: 58, ankT: 44, shT: 28, elT: 22, neckT: 14, wrT: 8,
   upright: 48, uprightD: 14, walkK: 16, flinchT: 0.22,
-  punchActive: 0.28, punchReach: 1.05, punchDmg: 16,
+  punchReach: 1.05, punchDmg: 16,
+  // Kung-fu punch phases (seconds)
+  punchWindup: 0.12, punchThrust: 0.16, punchRecover: 0.14,
   balanceBoost: 1.6, walkHz: 2.4,
 };
 
@@ -128,7 +130,7 @@ export function makeRagdoll(world, x0, face, team) {
 
   const doll = {
     team, face: f, parts, joints: j, alive: true, hp: 100, maxHp: 100,
-    punchCd: 0, punchActive: 0, jumpCd: 0, limpT: 0, flinchT: 0, grabCd: 0, throwCd: 0,
+    punchCd: 0, punchActive: 0, punchPhase: null, punchPhaseT: 0, jumpCd: 0, limpT: 0, flinchT: 0, grabCd: 0, throwCd: 0,
     held: null, color: team === 'a' ? 0x00e5ff : 0xff2bd6,
     pose: POSE.STAND, poseT: 0, walkPhase: 0,
     _stance: { ...POSE_STAND },
@@ -343,18 +345,50 @@ function walkPoseTargets(phase, face) {
   };
 }
 
-function punchPoseTargets(face) {
-  return {
+/** Kung-fu punch: windup (chamber) → thrust (extend) → recover. */
+function punchPoseTargets(face, phase = 'thrust') {
+  const base = {
     ...POSE_STAND,
-    hipF: POSE_STAND.hipF + 0.04,
+    hipF: POSE_STAND.hipF + 0.05,
     hipB: POSE_STAND.hipB - 0.02,
-    knF: POSE_STAND.knF + 0.06,
-    knB: POSE_STAND.knB + 0.04,
-    shF: -1.85 * face,
-    elF: 0.18,
-    shB: 0.55 * face,
-    elB: 0.7,
-    neck: -0.08 * face,
+    knF: POSE_STAND.knF + 0.08,
+    knB: POSE_STAND.knB + 0.05,
+    // rear guard hand stays up
+    shB: 0.35 * face,
+    elB: 1.05,
+    neck: -0.06 * face,
+    wrF: 0, wrB: 0,
+  };
+  if (phase === 'windup') {
+    // Chamber: fist pulls back near ribs, elbow bent
+    return {
+      ...base,
+      hipF: base.hipF - 0.06 * face,
+      shF: 0.85 * face,   // shoulder back
+      elF: 1.85,          // elbow cocked
+      wrF: 0.15,
+      neck: 0.12 * face,
+    };
+  }
+  if (phase === 'recover') {
+    // Ease fist back toward stand / guard
+    return {
+      ...base,
+      shF: -0.55 * face,
+      elF: 0.85,
+      shB: 0.25 * face,
+      elB: 0.75,
+      neck: 0,
+    };
+  }
+  // thrust — full extension forward
+  return {
+    ...base,
+    hipF: base.hipF + 0.08,
+    shF: -1.75 * face,  // shoulder snaps forward
+    elF: 0.2,           // nearly straight (stay inside elbow limits)
+    wrF: -0.1,
+    neck: -0.12 * face,
   };
 }
 
@@ -369,7 +403,7 @@ function hitPoseTargets(face) {
 function resolvePose(doll, intent) {
   if (!doll.alive) return POSE.KO;
   if (doll.flinchT > 0) return POSE.HIT;
-  if (doll.punchActive > 0) return POSE.PUNCH;
+  if (doll.punchPhase || doll.punchActive > 0) return POSE.PUNCH;
   if (Math.abs(intent.mx || 0) > 0.18) return POSE.WALK;
   return POSE.STAND;
 }
@@ -378,7 +412,7 @@ function poseTargets(doll, intent) {
   const face = doll.face || 1;
   switch (doll.pose) {
     case POSE.WALK: return walkPoseTargets(doll.walkPhase, face);
-    case POSE.PUNCH: return punchPoseTargets(face);
+    case POSE.PUNCH: return punchPoseTargets(face, doll.punchPhase || 'thrust');
     case POSE.HIT: return hitPoseTargets(face);
     case POSE.STAND:
     default: {
@@ -398,13 +432,36 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
     grab = false, throwIt = false, drop = false,
   } = intent || {};
   if (doll.punchCd > 0) doll.punchCd -= dt;
-  if (doll.punchActive > 0) doll.punchActive -= dt;
   if (doll.jumpCd > 0) doll.jumpCd -= dt;
   if (doll.flinchT > 0) doll.flinchT -= dt;
   if (doll.grabCd > 0) doll.grabCd -= dt;
   if (doll.throwCd > 0) doll.throwCd -= dt;
   if (doll._impactCd > 0) doll._impactCd -= dt;
-  if (doll.punchCd <= 0 && doll.punchActive <= 0) doll._hitLatch = false;
+  // Advance kung-fu punch phases: windup → thrust → recover → done
+  if (doll.punchPhase) {
+    doll.punchPhaseT += dt;
+    const w = SOFT.punchWindup, th = SOFT.punchThrust, r = SOFT.punchRecover;
+    if (doll.punchPhase === 'windup' && doll.punchPhaseT >= w) {
+      doll.punchPhase = 'thrust';
+      doll.punchPhaseT = 0;
+      doll.punchActive = th; // hit window = thrust only
+      doll._hitLatch = false;
+      thrustPunchImpulse(doll);
+    } else if (doll.punchPhase === 'thrust' && doll.punchPhaseT >= th) {
+      doll.punchPhase = 'recover';
+      doll.punchPhaseT = 0;
+      doll.punchActive = 0;
+    } else if (doll.punchPhase === 'recover' && doll.punchPhaseT >= r) {
+      doll.punchPhase = null;
+      doll.punchPhaseT = 0;
+      doll.punchActive = 0;
+    } else if (doll.punchPhase === 'thrust') {
+      doll.punchActive = Math.max(0, th - doll.punchPhaseT);
+    }
+  } else {
+    doll.punchActive = 0;
+  }
+  if (doll.punchCd <= 0 && !doll.punchPhase) doll._hitLatch = false;
   if (doll.held && doll.held.hitCd > 0) doll.held.hitCd -= dt;
   doll.poseT += dt;
 
@@ -430,11 +487,15 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
     if (Math.abs(fx - mx0) > 0.15) doll.face = fx > mx0 ? 1 : -1;
   } else if (Math.abs(mx) > 0.2) doll.face = mx > 0 ? 1 : -1;
 
-  // Start punch → brief arm pose, then SM returns to stand when punchActive ends
-  if (punch && doll.punchCd <= 0 && doll.flinchT <= 0) {
-    if (doll.held) swingWeapon(doll, foe);
-    else firePunch(doll, foe);
-    doll.punchCd = doll.held ? 0.4 : 0.32;
+  // Start punch → windup → thrust → recover (or weapon swing)
+  if (punch && doll.punchCd <= 0 && doll.flinchT <= 0 && !doll.punchPhase) {
+    if (doll.held) {
+      swingWeapon(doll, foe);
+      doll.punchCd = 0.4;
+    } else {
+      firePunch(doll, foe);
+      doll.punchCd = SOFT.punchWindup + SOFT.punchThrust + SOFT.punchRecover + 0.06;
+    }
   }
 
   const prev = doll.pose;
@@ -460,8 +521,12 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
 
   const legG = g * 1.35;
   const legT = stiff * softMul;
-  const armG = g * (doll.pose === POSE.PUNCH ? 1.5 : 0.9);
-  const armT = stiff * softMul * (doll.pose === POSE.PUNCH ? 1.6 : 1);
+  const punching = doll.pose === POSE.PUNCH;
+  const thrusting = doll.punchPhase === 'thrust';
+  const winding = doll.punchPhase === 'windup';
+  // Firm but solver-safe — too much torque blows the elbow past limits
+  const armG = g * (thrusting ? 1.55 : winding ? 1.4 : punching ? 1.15 : 0.9);
+  const armT = stiff * softMul * (thrusting ? 1.55 : winding ? 1.45 : punching ? 1.2 : 1);
 
   setMotor(J.hipF, targets.hipF, legG, SOFT.hipT * legT);
   setMotor(J.hipB, targets.hipB, legG, SOFT.hipT * legT);
@@ -506,26 +571,36 @@ export function driveRagdoll(doll, intent, dt, world, weapons, foe = null) {
 }
 
 function firePunch(doll, foe = null) {
-  const fist = doll.parts.fistF;
-  let dir = doll.face;
-  let aimY = 0.25;
+  // Face foe, then chamber (windup). Thrust impulse fires when phase advances.
   if (foe && foe.alive) {
-    const fp = fist.getPosition();
-    const tp = foe.parts.torso.getPosition();
-    const dx = tp.x - fp.x, dy = tp.y - fp.y;
-    const len = Math.hypot(dx, dy) || 1;
-    dir = Math.sign(dx) || dir;
-    doll.face = dir;
-    aimY = Math.max(-0.15, Math.min(0.7, dy / len));
-    doll.parts.torso.applyLinearImpulse({ x: dir * 0.25, y: 0.04 }, doll.parts.torso.getWorldCenter(), true);
+    const dx = foe.parts.torso.getPosition().x - doll.parts.torso.getPosition().x;
+    if (Math.abs(dx) > 0.1) doll.face = Math.sign(dx);
   }
-  // Pose SM holds the punch arm targets; light fist nudge for contact speed
-  fist.applyLinearImpulse({ x: dir * 1.4, y: aimY * 0.7 }, fist.getWorldCenter(), true);
-  doll.parts.uArmF.applyLinearImpulse({ x: dir * 0.35, y: aimY * 0.15 }, doll.parts.uArmF.getWorldCenter(), true);
-  doll.punchActive = SOFT.punchActive;
+  doll.punchPhase = 'windup';
+  doll.punchPhaseT = 0;
+  doll.punchActive = 0; // no hit until thrust
   doll.pose = POSE.PUNCH;
   doll.poseT = 0;
   doll._hitLatch = false;
+  doll._punchAimY = 0.25;
+  if (foe && foe.alive) {
+    const fp = doll.parts.fistF.getPosition();
+    const tp = foe.parts.torso.getPosition();
+    const dy = tp.y - fp.y;
+    const len = Math.hypot(tp.x - fp.x, dy) || 1;
+    doll._punchAimY = Math.max(-0.15, Math.min(0.7, dy / len));
+  }
+}
+
+/** Snap fist forward at windup→thrust (kung-fu extension). */
+function thrustPunchImpulse(doll) {
+  const dir = doll.face || 1;
+  const aimY = doll._punchAimY ?? 0.25;
+  const fist = doll.parts.fistF;
+  doll.parts.torso.applyLinearImpulse({ x: dir * 0.18, y: 0.02 }, doll.parts.torso.getWorldCenter(), true);
+  fist.applyLinearImpulse({ x: dir * 1.6, y: aimY * 0.7 }, fist.getWorldCenter(), true);
+  doll.parts.uArmF.applyLinearImpulse({ x: dir * 0.4, y: aimY * 0.15 }, doll.parts.uArmF.getWorldCenter(), true);
+  doll.parts.lArmF.applyLinearImpulse({ x: dir * 0.45, y: aimY * 0.18 }, doll.parts.lArmF.getWorldCenter(), true);
 }
 
 function swingWeapon(doll, foe = null) {
@@ -538,11 +613,13 @@ function swingWeapon(doll, foe = null) {
   }
   doll.pose = POSE.PUNCH;
   doll.poseT = 0;
+  doll.punchPhase = 'thrust';
+  doll.punchPhaseT = 0;
   w.body.applyAngularImpulse(dir * -1.6);
   w.body.applyLinearImpulse({ x: dir * 3.2, y: 0.6 }, w.body.getWorldCenter(), true);
   doll.parts.torso.applyLinearImpulse({ x: dir * 0.2, y: 0.05 }, doll.parts.torso.getWorldCenter(), true);
   w.hitCd = 0;
-  doll.punchActive = SOFT.punchActive;
+  doll.punchActive = SOFT.punchThrust;
 }
 
 /** Distance probe so punches connect even if Box2D contact is fussy. */
@@ -576,6 +653,8 @@ export function applyHit(doll, dmg, fromX = null) {
   doll.pose = POSE.HIT;
   doll.poseT = 0;
   doll.punchActive = 0;
+  doll.punchPhase = null;
+  doll.punchPhaseT = 0;
   const torso = doll.parts.torso;
   const tx = torso.getPosition().x;
   const kdir = fromX != null ? Math.sign(tx - fromX) || doll.face : doll.face;
@@ -607,7 +686,7 @@ export function stepWorld(ctx, dt = DT) {
 
 export function torsoPose(doll) {
   const p = doll.parts.torso.getPosition();
-  return { x: p.x, y: p.y, angle: doll.parts.torso.getAngle(), alive: doll.alive, hp: doll.hp, maxHp: doll.maxHp, held: doll.held?.id || null, pose: doll.pose };
+  return { x: p.x, y: p.y, angle: doll.parts.torso.getAngle(), alive: doll.alive, hp: doll.hp, maxHp: doll.maxHp, held: doll.held?.id || null, pose: doll.pose, punchPhase: doll.punchPhase };
 }
 
 export function snapshotParts(doll) {

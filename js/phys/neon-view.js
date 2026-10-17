@@ -126,3 +126,59 @@ export class NeonRagdollView {
     this.scene.remove(this.group);
   }
 }
+
+/** Neon weapon meshes synced from snapshotWeapons(). */
+export class NeonWeaponView {
+  constructor(scene, roofY = 3) {
+    this.scene = scene;
+    this.roofY = roofY;
+    this.group = new THREE.Group();
+    scene.add(this.group);
+    this.meshes = new Map();
+  }
+
+  sync(list) {
+    const live = new Set();
+    for (const w of list) {
+      live.add(w.id);
+      let m = this.meshes.get(w.id);
+      if (!m) {
+        const mat = neonMat(w.color, 0.7);
+        m = new THREE.Mesh(
+          new RoundedBoxGeometry(w.hx * 2, w.hy * 2, Math.max(0.06, w.hy * 1.2), 2, 0.03),
+          mat,
+        );
+        // tip glow
+        const tip = new THREE.Mesh(
+          new THREE.SphereGeometry(Math.max(0.05, w.hy * 1.1), 10, 8),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(w.color).multiplyScalar(1.6), toneMapped: false }),
+        );
+        tip.position.x = w.hx * 0.92;
+        m.add(tip);
+        this.group.add(m);
+        this.meshes.set(w.id, m);
+      }
+      m.position.set(w.x, this.roofY + w.y, 0.05);
+      m.rotation.z = w.a;
+      m.material.emissiveIntensity = w.held ? 0.85 : 0.55;
+    }
+    for (const [id, m] of this.meshes) {
+      if (!live.has(id)) {
+        this.group.remove(m);
+        m.geometry?.dispose();
+        m.material?.dispose();
+        this.meshes.delete(id);
+      }
+    }
+  }
+
+  dispose() {
+    for (const m of this.meshes.values()) {
+      this.group.remove(m);
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    this.meshes.clear();
+    this.scene.remove(this.group);
+  }
+}

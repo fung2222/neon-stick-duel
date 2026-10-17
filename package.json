@@ -1,1 +1,7 @@
-{"type":"module","private":true}
+{
+  "type": "module",
+  "private": true,
+  "imports": {
+    "planck": "./vendor/planck/planck.mjs"
+  }
+}

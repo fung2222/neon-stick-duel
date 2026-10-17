@@ -703,6 +703,14 @@ i18n.onChange(() => {
 syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
+  // P0 PHYS SPIKE: ?phys=1 hands the stage to Planck neon ragdolls (classic path unchanged).
+  const physFlag = flags.get('phys') === '1' || flags.get('phys') === 'true';
+  if (physFlag) {
+    fa.visible = false; fb.visible = false;
+    const { runPhysSpike } = await import('./phys/spike.js');
+    await runPhysSpike({ stage, scene, camera, roof, city, ui, audio, particles, waves, fx, store, hub, flags, fa, fb, THREE });
+    return;
+  }
   showMenu(); frameCamera(0, 0, true); ui.loaded();
   if (S.demo) { S.cls = CLASS_IDS.includes(flags.get('cls')) ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });

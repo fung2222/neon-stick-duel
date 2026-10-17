@@ -676,6 +676,19 @@ function tick(dt, now) {
   city.update(now, dt, camera); frameCamera(dt, now); fx.applyPost(stage, now); ui.tick(dt); if (!S.skipR) stage.render(dt);
 }
 i18n.bindToggle($('btn-lang')); i18n.bindToggle($('btn-lang2'));
+
+ui.mountHowto({
+  onOpen: () => { try { audio.click(); } catch (_) {} },
+  getContent: () => ({
+    kicker: 'NEON STICK DUEL',
+    title: t('kit.howto'),
+    sections: [
+      { heading: t('kit.rules'), body: t('help.rules') },
+      { heading: t('kit.controls'), body: t('help.controls') },
+    ],
+  }),
+});
+
 i18n.onChange(() => {
   syncGlitch(); refreshMenu();
   if (S.state === 'select') { buildTabs(); pickClass(S.selCls, true); ui.setText('sel-mode', S.selNext === 'ladder' ? t('ladder') : S.selNext === 'endless' ? t('endless') : t('changeClsS')); }

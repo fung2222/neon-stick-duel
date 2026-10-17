@@ -49,4 +49,7 @@ i18n.add({
   trialTitle: ['試玩完結', 'TRIAL COMPLETE'], trialLadder: ['試玩只開放階梯第 1–3 戰', 'Trial: ladder fights 1–3 only'], trialEndless: ['試玩只開放無盡塔第 1–3 層', 'Trial: endless floors 1–3 only'],
   trialBody: ['試玩包括四個職業、階梯第 1–3 戰同無盡塔頭 3 層。返大廳解鎖銀級，就可以玩晒十連戰、頭目同無限無盡塔（包括日後加入銀級嘅所有新遊戲）。', 'The trial includes all four classes, ladder fights 1–3 and the first 3 endless floors. Unlock Silver in the hub to get the full 10-fight ladder, the bosses and the unlimited tower (plus every future game added to Silver).'],
   toHub: ['返大廳解鎖', 'UNLOCK IN HUB'], toHubS: ['BACK TO ARCADE', '返回大廳'], silver: ['銀級遊戲', 'SILVER GAME'],
+
+  'help.rules': ['<ul><li>1v1 霓虹棍對打：近戰連段、防禦、必殺。</li><li>揀角色／舞台；試玩同無盡挑戰都有。</li><li>讀招、抓空隙、打爆對手血條獲勝。</li></ul>', '<ul><li>1v1 neon stick fighting: combos, guard, supers.</li><li>Pick fighters / stages; trial and endless challenges available.</li><li>Read attacks, punish gaps, empty the foe\'s bar to win.</li></ul>'],
+  'help.controls': ['<ul><li>移動／攻擊／防禦：螢幕虛擬掣或鍵盤（見主畫面提示）</li><li>暫停 <kbd>P</kbd> · 靜音 <kbd>M</kbd></li></ul>', '<ul><li>Move / attack / guard: on-screen pad or keyboard (see home hints)</li><li>Pause <kbd>P</kbd> · Mute <kbd>M</kbd></li></ul>'],
 });

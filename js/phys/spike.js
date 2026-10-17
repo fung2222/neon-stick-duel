@@ -44,14 +44,17 @@ export async function runPhysSpike(ctx) {
         applyHit(d, dmg, (who === 'a' ? phys.b : phys.a).parts.torso.getPosition().x);
       },
       forceMx: (v) => { S._forceMx = v; },
-      /** Freeze a punch phase for screenshots: 'windup'|'thrust'|'recover'|null */
+      /** Freeze punch clip at a phase for screenshots: 'windup'|'thrust'|'recover'|null */
       holdPunchPhase: (who, phase) => {
         const d = who === 'a' ? phys.a : phys.b;
-        if (!phase) { d.punchPhase = null; d.punchPhaseT = 0; d.punchActive = 0; return; }
-        d.pose = 'punch'; d.punchPhase = phase; d.punchPhaseT = 0.01;
-        d.punchActive = phase === 'thrust' ? 0.5 : 0;
-        // pin phase by large remaining time via negative tick workaround: refresh each frame
-        S._holdPunch = { who, phase };
+        if (!phase) {
+          d.punchClipT = -1; d.punchPhase = null; d.punchActive = 0; S._holdPunch = null; return;
+        }
+        // Seek authored clip times (see pose-clips CLIP_PUNCH)
+        const seek = phase === 'windup' ? 0.34 : phase === 'thrust' ? 0.56 : 0.75;
+        d.pose = 'punch'; d.punchClipT = seek; d.punchImpulseDone = true;
+        d.punchPhase = phase; d.punchActive = phase === 'thrust' ? 0.4 : 0;
+        S._holdPunch = { who, phase, seek };
       },
       jump: () => { S._forceJump = true; },
       grab: () => { S._forceGrab = true; },
@@ -68,7 +71,7 @@ export async function runPhysSpike(ctx) {
         weapons: snapshotWeapons(phys.weapons),
         heldA: phys.a.held?.id || null, heldB: phys.b.held?.id || null,
         over: S.over, time: S.time, hpA: phys.a.hp, hpB: phys.b.hp,
-        poseA: phys.a.pose, poseB: phys.b.pose, punchPhaseA: phys.a.punchPhase, punchPhaseB: phys.b.punchPhase,
+        poseA: phys.a.pose, poseB: phys.b.pose, punchPhaseA: phys.a.punchPhase, punchPhaseB: phys.b.punchPhase, punchClipTA: phys.a.punchClipT, punchClipTB: phys.b.punchClipT,
       }),
       start: () => startFight(),
     },
@@ -88,7 +91,7 @@ export async function runPhysSpike(ctx) {
     tag.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:40;padding:6px 14px;border:1px solid #00e5ff;color:#7ff6ff;font:700 11px Orbitron,sans-serif;letter-spacing:.12em;background:rgba(5,1,15,.75);pointer-events:none';
     document.body.appendChild(tag);
   }
-  tag.textContent = 'PHYS P1 · ?phys=1 · active ragdoll';
+  tag.textContent = 'PHYS P1 · ?phys=1 · anim-follow';
 
   const ctl = createControls({
     active: () => S.state === 'play' && !flags.demo && !ui.modalOpen,
@@ -333,9 +336,10 @@ export async function runPhysSpike(ctx) {
     S._forcePunch = false; S._forceJump = false; S._forceGrab = false; S._forceThrow = false;
     if (S._holdPunch) {
       const d = S._holdPunch.who === 'a' ? phys.a : phys.b;
-      d.punchPhase = S._holdPunch.phase;
-      d.punchPhaseT = 0.05;
       d.pose = 'punch';
+      d.punchClipT = S._holdPunch.seek;
+      d.punchPhase = S._holdPunch.phase;
+      d.punchImpulseDone = true;
       d.punchActive = S._holdPunch.phase === 'thrust' ? 0.3 : 0;
     }
 

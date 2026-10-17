@@ -58,3 +58,11 @@ Alive fighters follow a pose state machine: **stand → walk → punch → hit �
 Bare-fist attack on `?phys=1`: **windup** (chamber — lead fist pulls **behind** torso, elbow cocked) → **thrust** (arm snaps **forward**, elbow opens, hit window) → **recover** (return to raised guard). Stand uses a raised guard (not arms hanging). Phases are long enough to read at 30–60fps. Hit detection only during thrust.
 
 Shots: `docs/shots/phys/phys-before-*.png` (old hang) vs `phys-after-{stand,windup,thrust,recover}-412x915.png`.
+
+## Animation-following (pose clips)
+
+`js/phys/pose-clips.js` authors hidden joint poses. Each frame the ragdoll **samples the clip** and motors follow those targets (no blind angle tweaks in `driveRagdoll`).
+
+- **Stand:** `POSE_GUARD` raised fists
+- **Punch:** `CLIP_PUNCH` — guard → chamber (windup) → thrust hold → recover
+- Hit window = `PUNCH_HIT` on the clip timeline

@@ -291,7 +291,441 @@ function drawHand(ctx, x, y, ang, open, color, glow, inv) {
   ctx.restore();
 }
 
+
+/** Tapered hard-edge armor limb (filled plate, not a neon stick). */
+function plateLimb(ctx, x, y, ang, len, w0, w1, armor, edge, energy) {
+  const x2 = x + Math.sin(ang) * len, y2 = y - Math.cos(ang) * len;
+  const nx = Math.cos(ang), ny = Math.sin(ang);
+  ctx.save();
+  // dark silhouette underlay so charcoal reads on night sky
+  ctx.strokeStyle = '#0a0c10';
+  ctx.lineWidth = Math.max(w0, w1) + 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+  // soft cyan sheath (accent only)
+  ctx.globalAlpha *= 0.14;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = Math.max(w0, w1) + 6;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.globalAlpha /= 0.14;
+  // hard plate body — solid charcoal fill
+  const g = ctx.createLinearGradient(x - nx * w0, y - ny * w0, x + nx * w0, y + ny * w0);
+  g.addColorStop(0, edge);
+  g.addColorStop(0.45, armor);
+  g.addColorStop(1, '#8a94a4');
+  ctx.fillStyle = g;
+  ctx.strokeStyle = '#0e1218';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(x - nx * w0 * 0.5, y - ny * w0 * 0.5);
+  ctx.lineTo(x2 - nx * w1 * 0.5, y2 - ny * w1 * 0.5);
+  ctx.lineTo(x2 + nx * w1 * 0.5, y2 + ny * w1 * 0.5);
+  ctx.lineTo(x + nx * w0 * 0.5, y + ny * w0 * 0.5);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // thin energy panel seam (not the whole limb)
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.0; ctx.globalAlpha *= 0.7;
+  ctx.beginPath();
+  ctx.moveTo(x + Math.sin(ang) * len * 0.15, y - Math.cos(ang) * len * 0.15);
+  ctx.lineTo(x + Math.sin(ang) * len * 0.85, y - Math.cos(ang) * len * 0.85);
+  ctx.stroke();
+  ctx.globalAlpha /= 0.7;
+  // rim highlight
+  ctx.strokeStyle = '#c0c8d4'; ctx.lineWidth = 1.1; ctx.globalAlpha *= 0.55;
+  ctx.beginPath();
+  ctx.moveTo(x - nx * w0 * 0.42, y - ny * w0 * 0.42);
+  ctx.lineTo(x2 - nx * w1 * 0.42, y2 - ny * w1 * 0.42);
+  ctx.stroke();
+  ctx.globalAlpha /= 0.55;
+  ctx.restore();
+  return { x: x2, y: y2 };
+}
+
+function cableJoint(ctx, x, y, r, energy) {
+  // exposed actuator joint with cyan cable ring
+  ctx.save();
+  ctx.fillStyle = '#0a0c10';
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.6;
+  ctx.shadowColor = energy; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = energy; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.stroke();
+  // tiny cable stubs
+  for (let i = 0; i < 3; i++) {
+    const a = -0.6 + i * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+    ctx.lineTo(x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function mechFoot(ctx, x, y, ang, armor, energy) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.fillStyle = armor;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.6;
+  // angular armored boot
+  ctx.beginPath();
+  ctx.moveTo(-6, -3); ctx.lineTo(16, -1); ctx.lineTo(20, 4); ctx.lineTo(14, 9); ctx.lineTo(-7, 8); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // cyan sole rail
+  ctx.strokeStyle = energy; ctx.lineWidth = 2;
+  ctx.shadowColor = energy; ctx.shadowBlur = 5;
+  ctx.beginPath(); ctx.moveTo(-4, 8); ctx.lineTo(15, 8); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function mechHand(ctx, x, y, ang, armor, energy, inv) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.globalAlpha = inv;
+  ctx.fillStyle = armor;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = energy; ctx.shadowBlur = 5;
+  // claw gauntlet
+  ctx.beginPath();
+  ctx.moveTo(-8, -5); ctx.lineTo(10, -7); ctx.lineTo(12, 6); ctx.lineTo(-9, 8); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#080a0e';
+  ctx.fillRect(-3, -2, 9, 3);
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.2;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath(); ctx.moveTo(i * 3.5, -4); ctx.lineTo(i * 4.5, -12); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/**
+ * Charcoal + fluorescent cyan biomechanical combat mech (sword / SWORDSMAN).
+ * Tall slender ~1:6–1:7, sharp pauldrons, layered torso plates, horn crest,
+ * exposed joint cables, fin-like back protrusions. Not a stick skeleton.
+ */
+function drawSwordMech(ctx, pose, meta, flash, inv, t) {
+  ctx.clearRect(0, 0, CW, CH);
+  const armor = hexCss(meta.color);
+  const plate = hexCss(meta.trim);
+  const energy = hexCss(meta.accent || 0x00e8ff);
+  const o = ORIGIN;
+
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  if (pose.roll) ctx.rotate(pose.roll);
+  ctx.globalAlpha = inv;
+
+  // ground energy ring
+  ctx.save();
+  ctx.globalAlpha = 0.14 * inv;
+  const rg = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
+  rg.addColorStop(0, energy); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.ellipse(0, 2, 38, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // Tall slender proportions (~1:6.5): hip → shoulder ~92, small head
+  const hipX = pose.lean * 8, hipY = -16;
+  const torsoH = 92;
+  const shX = hipX + pose.lean * 26, shY = hipY - torsoH;
+
+  // —— BACK FINS (behind everything) ——
+  ctx.save();
+  const finSway = Math.sin(t * 2.2) * 3 + pose.cloak * 10;
+  ctx.fillStyle = plate;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.4;
+  ctx.shadowColor = energy; ctx.shadowBlur = 4;
+  // upper dorsal fin
+  ctx.beginPath();
+  ctx.moveTo(hipX - 4, shY + 18);
+  ctx.lineTo(hipX - 28 - finSway * 0.3, shY + 8);
+  ctx.lineTo(hipX - 18 - finSway * 0.2, shY + 36);
+  ctx.lineTo(hipX - 2, shY + 28);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // lower hip fin
+  ctx.beginPath();
+  ctx.moveTo(hipX - 2, hipY - 40);
+  ctx.lineTo(hipX - 22 - finSway * 0.25, hipY - 18);
+  ctx.lineTo(hipX - 10, hipY + 2);
+  ctx.lineTo(hipX + 2, hipY - 28);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // thin energy edge on fins
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = energy; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(hipX - 4, shY + 18); ctx.lineTo(hipX - 28 - finSway * 0.3, shY + 8);
+  ctx.stroke();
+  ctx.restore();
+
+  // —— LEGS ——
+  const thighL = 48, shinL = 44;
+  const kB = plateLimb(ctx, hipX - 9, hipY, pose.thB, thighL, 14, 11, plate, armor, energy);
+  const fB = plateLimb(ctx, kB.x, kB.y, pose.thB + pose.shB, shinL, 11, 8.5, armor, plate, energy);
+  cableJoint(ctx, kB.x, kB.y, 4.2, energy);
+  mechFoot(ctx, fB.x, fB.y, pose.thB + pose.shB, plate, energy);
+
+  const kF = plateLimb(ctx, hipX + 9, hipY, pose.thF, thighL, 15, 12, armor, plate, energy);
+  const fF = plateLimb(ctx, kF.x, kF.y, pose.thF + pose.shF, shinL, 12, 9, armor, plate, energy);
+  cableJoint(ctx, kF.x, kF.y, 4.5, energy);
+  mechFoot(ctx, fF.x, fF.y, pose.thF + pose.shF, armor, energy);
+
+  // —— PELVIS / HIP BLOCK ——
+  ctx.save();
+  ctx.fillStyle = plate;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(hipX - 16, hipY - 10);
+  ctx.lineTo(hipX - 18, hipY + 2);
+  ctx.lineTo(hipX - 6, hipY + 8);
+  ctx.lineTo(hipX + 6, hipY + 8);
+  ctx.lineTo(hipX + 18, hipY + 2);
+  ctx.lineTo(hipX + 16, hipY - 10);
+  ctx.lineTo(hipX + 8, hipY - 14);
+  ctx.lineTo(hipX - 8, hipY - 14);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // cyan hip rail
+  ctx.strokeStyle = energy; ctx.lineWidth = 2.2;
+  ctx.shadowColor = energy; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.moveTo(hipX - 12, hipY - 2); ctx.lineTo(hipX + 12, hipY - 2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = energy;
+  ctx.beginPath(); ctx.arc(hipX, hipY - 2, 2.8, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // —— LAYERED TORSO PLATES ——
+  ctx.save();
+  ctx.translate(hipX, hipY);
+  ctx.rotate(pose.lean);
+  const tw = 11, sw = 24;
+  // base chassis
+  const body = ctx.createLinearGradient(0, -6, 0, -torsoH);
+  body.addColorStop(0, plate);
+  body.addColorStop(0.45, armor);
+  body.addColorStop(1, '#3a4250');
+  ctx.fillStyle = body;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.7;
+  ctx.beginPath();
+  ctx.moveTo(-tw, -6);
+  ctx.lineTo(-tw - 3, -torsoH * 0.45);
+  ctx.lineTo(-sw + 4, -torsoH * 0.55);
+  ctx.lineTo(-sw, -torsoH + 8);
+  ctx.lineTo(-10, -torsoH + 2);
+  ctx.lineTo(10, -torsoH + 2);
+  ctx.lineTo(sw, -torsoH + 8);
+  ctx.lineTo(sw - 4, -torsoH * 0.55);
+  ctx.lineTo(tw + 3, -torsoH * 0.45);
+  ctx.lineTo(tw, -6);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // hard-edge chest plate overlay
+  ctx.fillStyle = plate;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(-14, -torsoH * 0.72);
+  ctx.lineTo(-16, -torsoH * 0.48);
+  ctx.lineTo(-4, -torsoH * 0.42);
+  ctx.lineTo(4, -torsoH * 0.42);
+  ctx.lineTo(16, -torsoH * 0.48);
+  ctx.lineTo(14, -torsoH * 0.72);
+  ctx.lineTo(0, -torsoH * 0.78);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // abs / mid plate seams
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.1; ctx.globalAlpha = 0.9 * inv;
+  ctx.strokeRect(-8, -torsoH * 0.38, 16, 22);
+  ctx.beginPath(); ctx.moveTo(0, -torsoH * 0.38); ctx.lineTo(0, -torsoH * 0.38 + 22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-8, -torsoH * 0.38 + 11); ctx.lineTo(8, -torsoH * 0.38 + 11); ctx.stroke();
+  ctx.globalAlpha = inv;
+
+  // central energy core
+  ctx.fillStyle = energy;
+  ctx.shadowColor = energy; ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 4.5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#e8ffff';
+  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+
+  // collar / throat ring
+  ctx.strokeStyle = energy; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(0, -torsoH + 6, 9, 4, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  // —— SHARP GEOMETRIC PAULDRONS ——
+  function pauldron(sx, sy, mirror) {
+    const m = mirror ? -1 : 1;
+    ctx.save();
+    ctx.fillStyle = armor;
+    ctx.strokeStyle = energy;
+    ctx.lineWidth = 1.6;
+    ctx.shadowColor = energy; ctx.shadowBlur = 5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - 4);
+    ctx.lineTo(sx + m * 8, sy - 14);
+    ctx.lineTo(sx + m * 28, sy - 8);
+    ctx.lineTo(sx + m * 32, sy + 6);
+    ctx.lineTo(sx + m * 18, sy + 14);
+    ctx.lineTo(sx + m * 4, sy + 10);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // energy ridge on shoulder edge
+    ctx.strokeStyle = energy; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx + m * 8, sy - 14);
+    ctx.lineTo(sx + m * 28, sy - 8);
+    ctx.lineTo(sx + m * 32, sy + 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+  pauldron(shX - 18, shY + 4, true);
+  pauldron(shX + 18, shY + 4, false);
+
+  // —— BACK ARM ——
+  const uaL = 36, faL = 34;
+  const eB = plateLimb(ctx, shX - 16, shY + 10, pose.uaB, uaL, 12, 9.5, plate, armor, energy);
+  const hB = plateLimb(ctx, eB.x, eB.y, pose.uaB + pose.faB, faL, 9.5, 7.5, armor, plate, energy);
+  cableJoint(ctx, eB.x, eB.y, 3.8, energy);
+  mechHand(ctx, hB.x, hB.y, pose.uaB + pose.faB, plate, energy, inv);
+
+  // —— NECK + SMALL HEAD WITH HORN CREST ——
+  const hx = shX + pose.lean * 5, hy = shY - 22 + pose.head * 8;
+  // neck cables
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(shX - 3, shY); ctx.lineTo(hx - 2, hy + 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(shX + 3, shY); ctx.lineTo(hx + 2, hy + 10); ctx.stroke();
+  ctx.fillStyle = plate;
+  ctx.beginPath();
+  ctx.moveTo(shX - 5, shY - 2); ctx.lineTo(hx - 3, hy + 11);
+  ctx.lineTo(hx + 3, hy + 11); ctx.lineTo(shX + 5, shY - 2);
+  ctx.closePath(); ctx.fill();
+
+  ctx.save();
+  ctx.translate(hx, hy);
+  ctx.rotate(pose.head * 0.35);
+  // horn crest (back)
+  ctx.fillStyle = plate;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-4, -6);
+  ctx.lineTo(-2, -22 - pose.hair * 6);
+  ctx.lineTo(3, -18);
+  ctx.lineTo(6, -8);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.8;
+  ctx.shadowColor = energy; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.moveTo(-2, -8); ctx.lineTo(-1, -20 - pose.hair * 6); ctx.stroke();
+  ctx.shadowBlur = 0;
+  // small angular head (not human skull)
+  ctx.fillStyle = armor;
+  ctx.strokeStyle = energy;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-9, 2);
+  ctx.lineTo(-10, -6);
+  ctx.lineTo(-4, -12);
+  ctx.lineTo(5, -11);
+  ctx.lineTo(10, -4);
+  ctx.lineTo(8, 6);
+  ctx.lineTo(-6, 7);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // visor slit
+  ctx.fillStyle = energy;
+  ctx.shadowColor = energy; ctx.shadowBlur = 8;
+  ctx.fillRect(-7, -3, 14, 3.2);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#e8ffff';
+  ctx.fillRect(-4, -2.2, 8, 1.4);
+  // cheek vents
+  ctx.strokeStyle = energy; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-8, 3); ctx.lineTo(-4, 5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 3); ctx.lineTo(4, 5); ctx.stroke();
+  ctx.restore();
+
+  // —— FRONT ARM ——
+  const eF = plateLimb(ctx, shX + 16, shY + 8, pose.uaF, 38, 13, 10, armor, plate, energy);
+  const hF = plateLimb(ctx, eF.x, eF.y, pose.uaF + pose.faF, 36, 10, 8, armor, plate, energy);
+  cableJoint(ctx, eF.x, eF.y, 4.2, energy);
+  mechHand(ctx, hF.x, hF.y, pose.uaF + pose.faF, armor, energy, inv);
+
+  // —— ENERGY BLADE ——
+  const bang = pose.uaF + pose.faF + pose.weap;
+  const len = 112;
+  const baseX = hF.x + Math.sin(bang) * 12;
+  const baseY = hF.y - Math.cos(bang) * 12;
+  const tipX = hF.x + Math.sin(bang) * len;
+  const tipY = hF.y - Math.cos(bang) * len;
+  drawStreak(ctx, baseX, baseY, tipX, tipY, energy, energy, pose.streak || 0, inv);
+  ctx.save();
+  ctx.strokeStyle = energy; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.globalAlpha = 0.22 * inv;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+  ctx.globalAlpha = inv;
+  ctx.strokeStyle = '#e8ffff'; ctx.lineWidth = 4.2;
+  ctx.shadowColor = energy; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+  // crossguard — angular mech hilt
+  const gx = Math.cos(bang) * 11, gy = Math.sin(bang) * 11;
+  ctx.lineWidth = 2.8;
+  ctx.beginPath(); ctx.moveTo(baseX - gx, baseY - gy); ctx.lineTo(baseX + gx, baseY + gy); ctx.stroke();
+  ctx.fillStyle = plate;
+  ctx.beginPath(); ctx.arc(baseX, baseY, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = energy; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(baseX, baseY, 4.5, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  if (pose.guard) {
+    ctx.save();
+    ctx.translate(shX + 44, shY + 4);
+    ctx.strokeStyle = energy; ctx.lineWidth = 2; ctx.globalAlpha = 0.6 * inv;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(a) * 32, y = Math.sin(a) * 32;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.stroke();
+    ctx.restore();
+  }
+
+  if (flash > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.55, flash * 5) * inv;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-CW, -CH, CW * 2, CH * 2);
+    ctx.restore();
+  }
+
+  ctx.restore();
+  return {
+    tip: { x: tipX, y: tipY },
+    base: { x: baseX, y: baseY },
+    hand: { x: hF.x, y: hF.y },
+    head: { x: hx, y: hy },
+  };
+}
+
 function drawHuman(ctx, pose, meta, flash, inv, t, cls, phaseLook = 1) {
+  // Sword / SWORDSMAN: charcoal+cyan biomechanical mech (other kits unchanged).
+  if (cls === 'sword') return drawSwordMech(ctx, pose, meta, flash, inv, t);
+
   ctx.clearRect(0, 0, CW, CH);
   const fill = hexCss(meta.color), trim = hexCss(meta.trim), accent = hexCss(meta.accent || meta.trim);
   const glow = fill;

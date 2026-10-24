@@ -2,9 +2,9 @@
 export const SPRITE_CLASSES = {
   sword: {
     zh: '劍士', en: 'SWORDSMAN',
-    color: 0x00e5ff, trim: 0xe9fbff, accent: 0x7adfff,
+    color: 0x5a6574, trim: 0x2a313c, accent: 0x00e8ff,
     style: 'blade',
-    desc: ['霓虹劍士 · 流暢斬擊連段', 'Neon swordsman · fluid slash combos'],
+    desc: ['機甲劍士 · 炭黑裝甲 + 青能脈', 'Mech swordsman · charcoal armor + cyan veins'],
   },
   mage: {
     zh: '魔法師', en: 'MAGE',

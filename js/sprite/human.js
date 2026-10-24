@@ -13,7 +13,7 @@ const PX = 95;
 const hexCss = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
 
 /** Freer per-class pose dialects from sim state — exaggerated for SF readability.
- *  Sword/blade idle·move·attack·defend·hit·victory tuned to Roy-approved pose refs. */
+ *  Sword/blade idle·move·attack·defend·hit·victory tuned to Roy poses-v2 refs. */
 function poseOf(f, walkPhase, breath) {
   const C = CLASSES[f.cls] || CLASSES.sword;
   const dialect = (SPRITE_CLASSES[f.cls] || {}).style || 'blade';
@@ -24,17 +24,18 @@ function poseOf(f, walkPhase, breath) {
   let weap = -0.4, hair = breath * 0.08, cloak = breath * 0.06, roll = 0, guard = false;
   let handOpen = dialect === 'loose' ? 0.7 : 0.15;
   let streak = 0; // 0..1 motion arc strength during active frames
+  let bladeHand = 'F', bladeLen = 108; // sword mech: which hand holds energy blade
 
   if (dialect === 'loose') { uaF = 0.35; faF = 0.7; uaB = 0.15; faB = 0.85; weap = 0.2; lean = -0.02 + breath * 0.04; handOpen = 0.85; }
   if (dialect === 'street') { uaF = 0.7; faF = 0.9; uaB = 0.55; faB = 0.85; thF = 0.25; thB = -0.2; lean = 0.08; weap = 0; }
   if (dialect === 'fluid') { uaF = 0.4; faF = 0.55; uaB = -0.35; faB = 0.4; lean = -0.06; weap = -0.8; cloak = 0.15 + breath * 0.1; }
   if (dialect === 'oni') { uaF = 0.55; faF = 0.35; uaB = -0.15; faB = 0.4; thF = 0.2; thB = -0.18; lean = 0.06; weap = -0.55; }
-  // blade idle (Roy ref fb33cbf): upright side stance, arms hang near body, soft knee bend
+  // blade idle (poses-v2): upright profile, feet slightly apart, arms hang lightly bent, no blade
   if (dialect === 'blade') {
-    lean = 0.02 + breath * 0.015; head = -0.04 + breath * 0.01;
-    uaF = 0.18; faF = 0.38; uaB = -0.12; faB = 0.42;
-    thF = 0.06; shF = 0.08; thB = -0.1; shB = 0.08;
-    weap = -0.35; handOpen = 0.12;
+    lean = 0.015 + breath * 0.012; head = -0.02 + breath * 0.01;
+    uaF = 0.72; faF = 0.78; uaB = 0.55; faB = 0.72;
+    thF = 0.1; shF = 0.06; thB = -0.12; shB = 0.06;
+    weap = -0.2; handOpen = 0.18; bladeHand = null; bladeLen = 0;
   }
 
   if (st === 'walk') {
@@ -50,10 +51,11 @@ function poseOf(f, walkPhase, breath) {
     } else if (dialect === 'oni') {
       uaF = 0.5 - 0.2 * k; uaB = -0.1 + 0.2 * k; lean = 0.1 * Math.sign(f.vx * f.facing || 1); weap = -0.7;
     } else if (dialect === 'blade') {
-      // move (Roy ref 589cce2): long stride, counter-swing arms, forward lean
-      thF = 0.72 * k; shF = 0.38 * k; thB = -0.72 * k; shB = -0.38 * k;
-      uaF = 0.55 - 0.55 * k; faF = 0.55; uaB = -0.15 + 0.55 * k; faB = 0.5;
-      lean = 0.14 * Math.sign(f.vx * f.facing || 1); head = -0.06; weap = -0.45; handOpen = 0.1;
+      // move (poses-v2): advance stride, near fist forward, far arm trails cyan blade low/back ~45°
+      thF = 0.68 * k; shF = 0.34 * k; thB = -0.7 * k; shB = -0.36 * k;
+      uaF = 0.32 + 0.12 * k; faF = 0.4; uaB = 1.05 - 0.1 * k; faB = 0.62;
+      lean = 0.16 * Math.sign(f.vx * f.facing || 1); head = -0.05;
+      weap = 1.15; handOpen = 0.08; bladeHand = 'B'; bladeLen = 78;
     } else {
       uaF = 0.35 - 0.3 * k; uaB = -0.25 + 0.3 * k; lean = 0.08 * Math.sign(f.vx * f.facing || 1);
     }
@@ -64,9 +66,10 @@ function poseOf(f, walkPhase, breath) {
     else if (dialect === 'fluid') { uaF = 1.0; faF = 0.7; uaB = 0.85; faB = 0.6; weap = 0.6; lean = -0.12; }
     else if (dialect === 'oni') { uaF = 1.15; faF = 0.7; uaB = 0.95; faB = 0.65; weap = 0.5; lean = -0.1; thF = 0.35; thB = -0.28; }
     else if (dialect === 'blade') {
-      // defend (Roy ref 7148ac8): far palm guard high, near fist at torso, staggered stance
-      uaF = 0.5; faF = 0.9; uaB = 0.95; faB = 0.75; handOpen = 0.9;
-      weap = 0.55; lean = -0.05; head = -0.02; thF = 0.34; shF = 0.12; thB = -0.28; shB = 0.1;
+      // defend (poses-v2): arms crossed/guard across chest, fists clenched, planted stance, no blade
+      uaF = 0.28; faF = 0.32; uaB = 0.4; faB = 0.36; handOpen = 0.05;
+      weap = 0; lean = 0.06; head = -0.12; thF = 0.28; shF = 0.1; thB = -0.24; shB = 0.1;
+      bladeHand = null; bladeLen = 0;
     } else { uaF = 1.1; faF = 0.85; uaB = 0.9; faB = 0.8; weap = 0.7; lean = -0.08; thF = 0.3; thB = -0.22; }
   } else if (st === 'jump') {
     if (f.djT < 0.42) {
@@ -83,9 +86,10 @@ function poseOf(f, walkPhase, breath) {
     thF = 1.15; thB = 0.95; uaF = -0.35; uaB = 0.35; cloak = 0.4;
   } else if (st === 'hit') {
     if (dialect === 'blade') {
-      // hit (Roy ref 986afc4): torso arched back, arms flung open, staggered plant
-      lean = -0.55; head = 0.42; uaF = -0.7; faF = 0.45; uaB = -0.95; faB = 0.35;
-      thF = 0.38; shF = 0.15; thB = -0.42; shB = 0.12; weap = -1.15; hair = 0.45; handOpen = 0.55;
+      // hit (poses-v2): chest forward/up recoil, near arm flung back fingers splayed, staggered legs
+      lean = -0.5; head = 0.4; uaF = -1.15; faF = 0.25; uaB = 0.35; faB = 0.55;
+      thF = 0.48; shF = 0.28; thB = -0.32; shB = 0.12; weap = 0; hair = 0.42; handOpen = 0.95;
+      bladeHand = null; bladeLen = 0;
     } else {
       lean = -0.45; uaF = -0.4; uaB = -0.7; thF = 0.5; thB = -0.3; head = 0.35; weap = -1.2; hair = 0.4;
     }
@@ -104,10 +108,10 @@ function poseOf(f, walkPhase, breath) {
     else if (dialect === 'fluid') { uaF = 0.2; weap = -2.2; lean = -0.1; cloak = 0.35; }
     else if (dialect === 'oni') { uaF = -0.2; weap = -2.1; lean = -0.05; }
     else if (dialect === 'blade') {
-      // victory (Roy ref 523e813): near fist raised straight up, far arm down, heroic plant
-      uaF = -0.95; faF = 0.05; uaB = 0.18; faB = 0.4; handOpen = 0.08;
-      lean = 0.02; head = -0.08; thF = 0.14; shF = 0.08; thB = -0.14; shB = 0.08;
-      weap = -0.2; hair = 0.12;
+      // victory (poses-v2): near hand on hip, far arm raised with cyan blade diagonal up-away
+      uaF = 0.88; faF = 0.98; uaB = -0.55; faB = 0.38; handOpen = 0.08;
+      lean = 0.05; head = -0.12; thF = 0.12; shF = 0.06; thB = -0.12; shB = 0.06;
+      weap = -0.12; hair = 0.1; bladeHand = 'B'; bladeLen = 92;
     }
     else { uaF = -0.15; faF = 0.15; weap = -2.35; lean = -0.04; }
   } else if (st === 'atk' && m) {
@@ -117,12 +121,15 @@ function poseOf(f, walkPhase, breath) {
     lean = atk.lean; head = atk.head; uaF = atk.uaF; faF = atk.faF; uaB = atk.uaB; faB = atk.faB;
     thF = atk.thF; shF = atk.shF; thB = atk.thB; shB = atk.shB; weap = atk.weap;
     handOpen = atk.handOpen; hair = atk.hair; cloak = atk.cloak; roll = atk.roll || 0;
+    // non-a1 blade moves default to near-hand full blade unless applyAttack overrides
+    bladeHand = atk.bladeHand !== undefined ? atk.bladeHand : (dialect === 'blade' ? 'F' : bladeHand);
+    bladeLen = atk.bladeLen !== undefined ? atk.bladeLen : (dialect === 'blade' ? 108 : bladeLen);
     streak = phase === 1 ? 1 : phase === 0 ? 0.25 : 0.05;
   } else if (st === 'phase') {
     lean = -0.15; uaF = -0.6; uaB = -0.5; weap = -2.0; hair = 0.5; cloak = 0.5; thF = 0.4; thB = -0.3;
   }
 
-  return { lean, head, uaF, faF, uaB, faB, thF, shF, thB, shB, weap, hair, cloak, roll, guard, handOpen, dialect, streak };
+  return { lean, head, uaF, faF, uaB, faB, thF, shF, thB, shB, weap, hair, cloak, roll, guard, handOpen, dialect, streak, bladeHand, bladeLen };
 }
 
 function applyAttack(dialect, mk, phase) {
@@ -231,16 +238,22 @@ function applyAttack(dialect, mk, phase) {
     return p;
   }
 
-  // blade — Roy attack ref b7a097f (active = forward thrust / punch silhouette)
+  // blade — poses-v2 attack (active = short cyan thrust, wide stable lunge)
   if (mk === 'a1' || mk === 'air1') {
-    if (phase === 0) { p.uaF = -0.35; p.faF = 0.55; p.uaB = 0.55; p.faB = 0.85; p.weap = -1.6; p.lean = -0.12; p.thF = 0.35; p.thB = -0.2; p.cloak = 0.25; }
-    else if (phase === 1) {
-      // front arm fully extended forward, rear fist cocked at hip, wide low stance
-      p.uaF = 0.72; p.faF = 0.05; p.uaB = 0.95; p.faB = 1.05; p.weap = 0.15;
-      p.lean = 0.22; p.thF = -0.12; p.shF = 0.08; p.thB = 0.48; p.shB = 0.12;
-      p.hair = 0.22; p.cloak = 0.35; p.head = -0.05; p.handOpen = 0.08;
+    p.bladeHand = 'F';
+    if (phase === 0) {
+      p.uaF = -0.25; p.faF = 0.5; p.uaB = 0.7; p.faB = 0.9; p.weap = -0.8;
+      p.lean = -0.08; p.thF = 0.3; p.thB = -0.25; p.cloak = 0.2; p.bladeLen = 70;
+    } else if (phase === 1) {
+      // near arm fully extended at shoulder height, short blade horizontal; far fist at hip; wide lunge
+      p.uaF = 0.62; p.faF = 0.02; p.uaB = 0.92; p.faB = 1.02; p.weap = 0.02;
+      p.lean = 0.2; p.thF = 0.32; p.shF = 0.14; p.thB = -0.52; p.shB = 0.16;
+      p.hair = 0.18; p.cloak = 0.3; p.head = -0.1; p.handOpen = 0.06; p.bladeLen = 56;
     }
-    else { p.uaF = 0.85; p.faF = 0.25; p.uaB = 0.55; p.faB = 0.7; p.weap = 0.35; p.lean = 0.1; p.thF = 0.1; p.thB = -0.15; }
+    else {
+      p.uaF = 0.78; p.faF = 0.2; p.uaB = 0.7; p.faB = 0.85; p.weap = 0.2;
+      p.lean = 0.1; p.thF = 0.18; p.thB = -0.28; p.bladeLen = 64;
+    }
   } else if (mk === 'a2') {
     if (phase === 0) { p.uaF = 1.4; p.weap = 0.85; p.lean = 0.1; }
     else if (phase === 1) { p.uaF = -0.35; p.weap = -2.2; p.lean = -0.2; p.thB = 0.4; p.cloak = 0.35; p.hair = 0.25; }
@@ -427,7 +440,7 @@ function mechFoot(ctx, x, y, ang, armor, energy) {
   ctx.restore();
 }
 
-function mechHand(ctx, x, y, ang, armor, energy, inv) {
+function mechHand(ctx, x, y, ang, armor, energy, inv, open = 0.1) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(ang);
@@ -444,8 +457,10 @@ function mechHand(ctx, x, y, ang, armor, energy, inv) {
   ctx.fillStyle = '#080a0e';
   ctx.fillRect(-3, -2, 9, 3);
   ctx.strokeStyle = energy; ctx.lineWidth = 1.2;
+  const spread = open > 0.55 ? 1.55 : 1;
+  const reach = open > 0.55 ? -16 : -12;
   for (let i = -1; i <= 1; i++) {
-    ctx.beginPath(); ctx.moveTo(i * 3.5, -4); ctx.lineTo(i * 4.5, -12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i * 3.5 * spread, -4); ctx.lineTo(i * 4.5 * spread, reach); ctx.stroke();
   }
   ctx.restore();
 }
@@ -500,11 +515,13 @@ function drawSwordMech(ctx, pose, meta, flash, inv, t) {
   // —— FAR ARM (behind torso) ——
   const ARM = 0.95; // side idle: arms hang near body (sample), attacks still swing via pose
   const uaL = 36, faL = 34;
-  const eB = plateLimb(ctx, shX - 2, shY + 8, pose.uaB + ARM, uaL, 7.5, 6, plate, deep, energy);
-  const hB = plateLimb(ctx, eB.x, eB.y, pose.uaB + pose.faB + ARM, faL, 6.5, 5, deep, plate, energy);
+  const angUB = pose.uaB + ARM;
+  const angFB = pose.uaB + pose.faB + ARM;
+  const eB = plateLimb(ctx, shX - 2, shY + 8, angUB, uaL, 7.5, 6, plate, deep, energy);
+  const hB = plateLimb(ctx, eB.x, eB.y, angFB, faL, 6.5, 5, deep, plate, energy);
   cableJoint(ctx, eB.x, eB.y, 2.8, energy);
   cableJoint(ctx, shX - 2, shY + 8, 2.4, energy);
-  mechHand(ctx, hB.x, hB.y, pose.uaB + pose.faB + ARM, plate, energy, inv * 0.85);
+  mechHand(ctx, hB.x, hB.y, angFB, plate, energy, inv * 0.85, pose.handOpen);
 
   // —— SIDE PELVIS ——
   ctx.save();
@@ -721,47 +738,60 @@ function drawSwordMech(ctx, pose, meta, flash, inv, t) {
   ctx.fill();
   ctx.restore();
 
-  // —— NEAR ARM + ENERGY BLADE ——
-  const eF = plateLimb(ctx, shX + 8, shY + 6, pose.uaF + ARM, 38, 8.5, 6.5, armor, plate, energy);
-  const hF = plateLimb(ctx, eF.x, eF.y, pose.uaF + pose.faF + ARM, 36, 7, 5.5, armor, plate, energy);
+  // —— NEAR ARM ——
+  const angUF = pose.uaF + ARM;
+  const angFF = pose.uaF + pose.faF + ARM;
+  const eF = plateLimb(ctx, shX + 8, shY + 6, angUF, 38, 8.5, 6.5, armor, plate, energy);
+  const hF = plateLimb(ctx, eF.x, eF.y, angFF, 36, 7, 5.5, armor, plate, energy);
   cableJoint(ctx, eF.x, eF.y, 3.0, energy);
   cableJoint(ctx, shX + 8, shY + 6, 2.6, energy);
-  mechHand(ctx, hF.x, hF.y, pose.uaF + pose.faF + ARM, armor, energy, inv);
+  mechHand(ctx, hF.x, hF.y, angFF, armor, energy, inv, pose.handOpen);
 
-  const bang = pose.uaF + pose.faF + ARM + pose.weap;
-  const len = 108;
-  const baseX = hF.x + Math.sin(bang) * 12;
-  const baseY = hF.y - Math.cos(bang) * 12;
-  const tipX = hF.x + Math.sin(bang) * len;
-  const tipY = hF.y - Math.cos(bang) * len;
-  drawStreak(ctx, baseX, baseY, tipX, tipY, energy, energy, pose.streak || 0, inv);
-  ctx.save();
-  ctx.strokeStyle = energy; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.globalAlpha = 0.18 * inv;
-  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
-  ctx.globalAlpha = inv;
-  ctx.strokeStyle = '#e8ffff'; ctx.lineWidth = 3.4;
-  ctx.shadowColor = energy; ctx.shadowBlur = 11;
-  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = energy; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
-  const gx = Math.cos(bang) * 9, gy = Math.sin(bang) * 9;
-  ctx.lineWidth = 2.2;
-  ctx.beginPath(); ctx.moveTo(baseX - gx, baseY - gy); ctx.lineTo(baseX + gx, baseY + gy); ctx.stroke();
-  ctx.fillStyle = plate;
-  ctx.beginPath(); ctx.arc(baseX, baseY, 3.6, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = energy; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.arc(baseX, baseY, 3.6, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
+  // —— ENERGY BLADE (near F, far B, or hidden) — poses-v2 hand assignment ——
+  const bladeHand = pose.bladeHand === undefined ? 'F' : pose.bladeHand;
+  const len = Math.max(0, pose.bladeLen === undefined ? 108 : pose.bladeLen);
+  let tipX = hF.x, tipY = hF.y, baseX = hF.x, baseY = hF.y, bang = angFF;
+  if (bladeHand && len > 4) {
+    const hand = bladeHand === 'B' ? hB : hF;
+    const armAng = bladeHand === 'B' ? angFB : angFF;
+    bang = armAng + pose.weap;
+    const hilt = Math.min(12, len * 0.22);
+    baseX = hand.x + Math.sin(bang) * hilt;
+    baseY = hand.y - Math.cos(bang) * hilt;
+    tipX = hand.x + Math.sin(bang) * len;
+    tipY = hand.y - Math.cos(bang) * len;
+    drawStreak(ctx, baseX, baseY, tipX, tipY, energy, energy, pose.streak || 0, inv);
+    ctx.save();
+    // soft outer glow
+    ctx.strokeStyle = energy; ctx.lineWidth = Math.max(5, len * 0.09); ctx.lineCap = 'round'; ctx.globalAlpha = 0.18 * inv;
+    ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+    ctx.globalAlpha = inv;
+    // bright core (short thrusts stay readable)
+    ctx.strokeStyle = '#e8ffff'; ctx.lineWidth = len < 70 ? 2.6 : 3.4;
+    ctx.shadowColor = energy; ctx.shadowBlur = 11;
+    ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = energy; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(tipX, tipY); ctx.stroke();
+    const gx = Math.cos(bang) * 8, gy = Math.sin(bang) * 8;
+    ctx.lineWidth = 2.0;
+    ctx.beginPath(); ctx.moveTo(baseX - gx, baseY - gy); ctx.lineTo(baseX + gx, baseY + gy); ctx.stroke();
+    ctx.fillStyle = plate;
+    ctx.beginPath(); ctx.arc(baseX, baseY, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = energy; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(baseX, baseY, 3.2, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
 
   if (pose.guard) {
+    // subtle crossed-guard aura (poses-v2 crossed arms carry the read; keep VFX light)
     ctx.save();
-    ctx.translate(shX + 36, shY + 6);
-    ctx.strokeStyle = energy; ctx.lineWidth = 2; ctx.globalAlpha = 0.55 * inv;
+    ctx.translate(shX + 22, shY + 10);
+    ctx.strokeStyle = energy; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.32 * inv;
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
-      const x = Math.cos(a) * 28, y = Math.sin(a) * 28;
+      const x = Math.cos(a) * 22, y = Math.sin(a) * 18;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath(); ctx.stroke();

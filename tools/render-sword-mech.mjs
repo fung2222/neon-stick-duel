@@ -2,7 +2,7 @@
  * Export sword biomech PNG previews + 6-pose sheet from drawSwordMech
  * (no browser). Usage: node tools/render-sword-mech.mjs
  *
- * Pose angles mirror Roy-approved idle/move/attack/defend/hit/victory refs.
+ * Pose angles mirror Roy poses-v2 idle/move/attack/defend/hit/victory refs.
  */
 import { createCanvas } from 'canvas';
 import fs from 'fs';
@@ -31,41 +31,49 @@ const META = {
 
 function basePose(extra = {}) {
   return {
-    lean: 0.02, head: -0.04,
-    uaF: 0.18, faF: 0.38, uaB: -0.12, faB: 0.42,
-    thF: 0.06, shF: 0.08, thB: -0.1, shB: 0.08,
-    weap: -0.35, hair: 0.03, cloak: 0.02,
-    roll: 0, guard: false, handOpen: 0.12, dialect: 'blade', streak: 0,
+    lean: 0.015, head: -0.02,
+    uaF: 0.72, faF: 0.78, uaB: 0.55, faB: 0.72,
+    thF: 0.1, shF: 0.06, thB: -0.12, shB: 0.06,
+    weap: -0.2, hair: 0.03, cloak: 0.02,
+    roll: 0, guard: false, handOpen: 0.18, dialect: 'blade', streak: 0,
+    bladeHand: null, bladeLen: 0,
     ...extra,
   };
 }
 
-/** Snapshots matching poseOf(blade) for the six approved refs. */
+/** Snapshots matching poseOf(blade) for Roy poses-v2 refs. */
 function poses() {
   const k = 1; // mid-stride peak for move
   return {
     idle: basePose(),
     move: basePose({
-      thF: 0.72 * k, shF: 0.38 * k, thB: -0.72 * k, shB: -0.38 * k,
-      uaF: 0.55 - 0.55 * k, faF: 0.55, uaB: -0.15 + 0.55 * k, faB: 0.5,
-      lean: 0.14, head: -0.06, weap: -0.45,
+      thF: 0.68 * k, shF: 0.34 * k, thB: -0.7 * k, shB: -0.36 * k,
+      uaF: 0.32 + 0.12 * k, faF: 0.4, uaB: 1.05 - 0.1 * k, faB: 0.62,
+      lean: 0.16, head: -0.05, weap: 1.15, handOpen: 0.08,
+      bladeHand: 'B', bladeLen: 78,
     }),
     attack: (() => {
       const p = applyAttack('blade', 'a1', 1);
-      return { ...basePose(), ...p, guard: false, dialect: 'blade', streak: 1, handOpen: p.handOpen ?? 0.08 };
+      return {
+        ...basePose(), ...p, guard: false, dialect: 'blade', streak: 1,
+        handOpen: p.handOpen ?? 0.06,
+        bladeHand: p.bladeHand ?? 'F', bladeLen: p.bladeLen ?? 56,
+      };
     })(),
     defend: basePose({
-      guard: true, uaF: 0.5, faF: 0.9, uaB: 0.95, faB: 0.75, handOpen: 0.9,
-      weap: 0.55, lean: -0.05, head: -0.02, thF: 0.34, shF: 0.12, thB: -0.28, shB: 0.1,
+      guard: true, uaF: 0.28, faF: 0.32, uaB: 0.4, faB: 0.36, handOpen: 0.05,
+      weap: 0, lean: 0.06, head: -0.12, thF: 0.28, shF: 0.1, thB: -0.24, shB: 0.1,
+      bladeHand: null, bladeLen: 0,
     }),
     hit: basePose({
-      lean: -0.55, head: 0.42, uaF: -0.7, faF: 0.45, uaB: -0.95, faB: 0.35,
-      thF: 0.38, shF: 0.15, thB: -0.42, shB: 0.12, weap: -1.15, hair: 0.45, handOpen: 0.55,
+      lean: -0.5, head: 0.4, uaF: -1.15, faF: 0.25, uaB: 0.35, faB: 0.55,
+      thF: 0.48, shF: 0.28, thB: -0.32, shB: 0.12, weap: 0, hair: 0.42, handOpen: 0.95,
+      bladeHand: null, bladeLen: 0,
     }),
     victory: basePose({
-      uaF: -0.95, faF: 0.05, uaB: 0.18, faB: 0.4, handOpen: 0.08,
-      lean: 0.02, head: -0.08, thF: 0.14, shF: 0.08, thB: -0.14, shB: 0.08,
-      weap: -0.2, hair: 0.12,
+      uaF: 0.88, faF: 0.98, uaB: -0.55, faB: 0.38, handOpen: 0.08,
+      lean: 0.05, head: -0.12, thF: 0.12, shF: 0.06, thB: -0.12, shB: 0.06,
+      weap: -0.12, hair: 0.1, bladeHand: 'B', bladeLen: 92,
     }),
   };
 }
@@ -153,13 +161,23 @@ function renderPoseSheet(all, scale = SCALE) {
 }
 
 const all = poses();
-const idle = renderSingle(all.idle, 1.2, 'sword-biomech-idle.png', 3);
+const idle = renderSingle(all.idle, 1.2, 'sword-biomech-idle-v2.png', 3);
+renderSingle(all.idle, 1.2, 'sword-biomech-idle.png', 3);
 const match = renderSingle(all.idle, 1.2, 'sword-match-sample.png', 3);
 const side = renderSingle(all.idle, 1.2, 'sword-sideview-v1.png', 3);
-const atk = renderSingle(all.attack, 0.8, 'sword-biomech-attack.png', 3);
+const atk = renderSingle(all.attack, 0.8, 'sword-biomech-attack-v2.png', 3);
+renderSingle(all.attack, 0.8, 'sword-biomech-attack.png', 3);
 for (const name of ['move', 'defend', 'hit', 'victory']) {
+  renderSingle(all[name], 1.2, `sword-biomech-${name}-v2.png`, 3);
   renderSingle(all[name], 1.2, `sword-biomech-${name}.png`, 3);
 }
 const sheet = renderPoseSheet(all, 2);
+// also versioned sheet name
+const sheetV2 = path.join(OUT, 'sword-pose-sheet-v2.png');
+fs.copyFileSync(sheet.outPath, sheetV2);
+const docsV2 = path.join(ROOT, 'docs', 'shots', 'sword-pose-sheet-v2.png');
+fs.copyFileSync(sheet.outPath, docsV2);
+console.log(`copied ${sheetV2}`);
+console.log(`copied ${docsV2}`);
 try { fs.unlinkSync(stubPath); } catch {}
-console.log(JSON.stringify({ idle, match, attack: atk, sideview: side, sheet, scale: SCALE, cw: CW, ch: CH }, null, 2));
+console.log(JSON.stringify({ idle, match, attack: atk, sideview: side, sheet, sheetV2, docsV2, scale: SCALE, cw: CW, ch: CH }, null, 2));

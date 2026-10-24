@@ -80,6 +80,7 @@ function render(pose, t, outName) {
 
 const idle = render(idlePose(), 1.2, 'sword-biomech-idle.png');
 const match = render(idlePose(), 1.2, 'sword-match-sample.png');
+const side = render(idlePose(), 1.2, 'sword-sideview-v1.png');
 const atk = render(attackPose(), 0.8, 'sword-biomech-attack.png');
 try { fs.unlinkSync(stubPath); } catch {}
-console.log(JSON.stringify({ idle, match, attack: atk, scale: SCALE, cw: CW, ch: CH }, null, 2));
+console.log(JSON.stringify({ idle, match, attack: atk, sideview: side, scale: SCALE, cw: CW, ch: CH }, null, 2));

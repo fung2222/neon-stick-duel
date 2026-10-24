@@ -18,11 +18,11 @@ const U = (o) => ({ kind: 'ult', stop: 0.06, stun: 0.5, kb: 0.6, launch: 0, unbl
 
 export const CLASSES = {
   sword: {
-    id: 'sword', zh: '劍士', en: 'SWORDSMAN', color: 0x00e5ff, trim: 0xe9fbff, cloth: 0x13233f,
+    id: 'sword', zh: '劍士', en: 'SWORDSMAN', color: 0x5a6574, trim: 0x2a313c, cloth: 0x0e1218,
     role: 'melee', hp: 980, walk: 3.0, weight: 1.0, reach: 1.7, prefer: 1.5,
     stats: { atk: 4, def: 3, spd: 3, rng: 2 },
-    outfit: { weapon: 'blade', body: 'coat' },
-    desc: ['均衡近戰 · 突刺貼身、昇龍挑空', 'Balanced melee · lunge in, launch with the rising dragon'],
+    outfit: { weapon: 'blade', body: 'mech' },
+    desc: ['機甲劍士 · 炭黑裝甲 + 青能脈', 'Mech swordsman · charcoal armor + cyan veins'],
     combo: ['a1', 'a2', 'a3', 'a4'], airCombo: ['air1', 'air2'],
     moves: {
       a1: B({ name: ['橫斬', 'Slash'], t: [0.08, 0.08, 0.2], dmg: 44, box: [0, 1.65, 0.5, 2.0], vx: 2.6, chain: 0.42, pose: ['swA0', 'swA1', 'swA1f'] }),

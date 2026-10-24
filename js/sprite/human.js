@@ -297,17 +297,17 @@ function plateLimb(ctx, x, y, ang, len, w0, w1, armor, edge, energy) {
   const x2 = x + Math.sin(ang) * len, y2 = y - Math.cos(ang) * len;
   const nx = Math.cos(ang), ny = Math.sin(ang);
   ctx.save();
-  // dark silhouette underlay so charcoal reads on night sky
-  ctx.strokeStyle = '#0a0c10';
-  ctx.lineWidth = Math.max(w0, w1) + 4;
+  // dark silhouette underlay so charcoal reads on night sky / bloom
+  ctx.strokeStyle = '#05070b';
+  ctx.lineWidth = Math.max(w0, w1) + 5.5;
   ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
-  // soft cyan sheath (accent only)
-  ctx.globalAlpha *= 0.14;
+  // soft cyan sheath (accent only — keep dim so charcoal body stays dominant)
+  ctx.globalAlpha *= 0.18;
   ctx.strokeStyle = energy;
-  ctx.lineWidth = Math.max(w0, w1) + 6;
+  ctx.lineWidth = Math.max(w0, w1) + 7;
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
-  ctx.globalAlpha /= 0.14;
+  ctx.globalAlpha /= 0.18;
   // hard plate body — solid charcoal fill
   const g = ctx.createLinearGradient(x - nx * w0, y - ny * w0, x + nx * w0, y + ny * w0);
   g.addColorStop(0, edge);
@@ -550,13 +550,13 @@ function drawSwordMech(ctx, pose, meta, flash, inv, t) {
   ctx.beginPath(); ctx.moveTo(-8, -torsoH * 0.38 + 11); ctx.lineTo(8, -torsoH * 0.38 + 11); ctx.stroke();
   ctx.globalAlpha = inv;
 
-  // central energy core
+  // central energy core (bright cyan so charcoal chassis reads as "mech")
   ctx.fillStyle = energy;
-  ctx.shadowColor = energy; ctx.shadowBlur = 10;
-  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 4.5, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = energy; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 5.2, 6.2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#e8ffff';
-  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -torsoH * 0.58, 2.4, 3, 0, 0, Math.PI * 2); ctx.fill();
 
   // collar / throat ring
   ctx.strokeStyle = energy; ctx.lineWidth = 2;
@@ -1039,8 +1039,14 @@ export class SpriteFighter {
     const C = CLASSES[clsId] || CLASSES.sword;
     const meta = SPRITE_CLASSES[clsId] || SPRITE_CLASSES.sword;
     this.cls = clsId; this.C = C; this.scaleK = scale;
-    this.meta = { ...meta, color: color ?? meta.color };
-    this.ring.material.color.set(this.meta.color);
+    // Sword biomech: charcoal armor+trim are fixed; optional color only tints cyan energy/accent
+    // (foe/attract used to pass CLASSES.sword cyan into meta.color and wash out the mech).
+    if (clsId === 'sword') {
+      this.meta = { ...meta, color: meta.color, trim: meta.trim, accent: color ?? meta.accent };
+    } else {
+      this.meta = { ...meta, color: color ?? meta.color };
+    }
+    this.ring.material.color.set(this.meta.accent || this.meta.color);
     this.group.scale.setScalar((clsId === 'shogun' ? 1.28 : 1.12) * scale);
     this._lastAtk = '';
     this.hasDataBlades = clsId === 'shogun' && this.phaseLook >= 2;

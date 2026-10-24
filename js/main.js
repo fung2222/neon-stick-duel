@@ -153,20 +153,31 @@ const _zA = new THREE.Vector3(), _zB = new THREE.Vector3();
 
 // ------------------------------------------------------------------ duel setup
 function colorOf(f) { const d = S.duel; if (f === d.a) { const m = spriteMeta(f.cls); return (m && m.color) || CLASSES[f.cls].color; } return S.foe?.color ?? 0xff2bd6; }
+function kitAccent(cls, fallback) {
+  const m = spriteMeta(cls);
+  // Neon chrome (HUD / roof): sword uses cyan accent, not charcoal armor fill
+  if (m && cls === 'sword') return m.accent || 0x00e8ff;
+  return (m && m.color) || fallback || CLASSES[cls].color;
+}
 function setupDuel(clsA, foe, { oa = {}, preview = false } = {}) {
   S.foe = foe; clearProjMeshes();
   S.duel = makeDuel(clsA, foe.cls, oa, { hpMul: foe.hpMul || 1, dmgMul: foe.dmgMul || 1, ultGain: foe.ultGain || 1, scale: foe.scale || 1, boss: !!foe.boss, time: foe.time || 0 });
   S.memA = {}; S.memB = {}; S.acc = 0; S.comboShown = 0; bossFx.reset();
   fa.setClass(clsA, oa.color ?? null, 1); fb.setClass(foe.cls, foe.color, foe.scale || 1); fb.setPhaseLook(1); fb.setCloak(false);
   fa.visible = true; fb.visible = true;
-  document.documentElement.style.setProperty('--me', hex(oa.color ?? CLASSES[clsA].color));
-  document.documentElement.style.setProperty('--foe', hex(foe.color));
-  roof.setAccent(oa.color ?? CLASSES[clsA].color, foe.color);
+  const meChrome = oa.color ?? kitAccent(clsA);
+  const foeChrome = foe.color || kitAccent(foe.cls);
+  document.documentElement.style.setProperty('--me', hex(meChrome));
+  document.documentElement.style.setProperty('--foe', hex(foeChrome));
+  roof.setAccent(meChrome, foeChrome);
 }
 function attractDuel() {
-  const a = CLASS_IDS[Math.floor(Math.random() * 4)], b = CLASS_IDS[Math.floor(Math.random() * 4)];
+  // Always put biomech sword on side A so the menu attract shows the new look (was fully random → often no sword).
+  const a = 'sword';
+  const b = CLASS_IDS[Math.floor(Math.random() * 4)];
   S.attract = { diffA: 0.62, diffB: 0.62 };
-  setupDuel(a, { cls: b, color: b === a ? 0xff2bd6 : CLASSES[b].color, diff: 0.62, zh: CLASSES[b].zh, en: CLASSES[b].en });
+  const foeTint = b === 'sword' ? 0xff2bd6 : (spriteMeta(b)?.color ?? CLASSES[b].color);
+  setupDuel(a, { cls: b, color: foeTint, diff: 0.62, zh: CLASSES[b].zh, en: CLASSES[b].en });
 }
 function setState(s) {
   S.state = s;
@@ -198,7 +209,7 @@ function showSelect(next = null) {
   ui.setText('sel-mode', next === 'ladder' ? t('ladder') : next === 'endless' ? t('endless') : t('changeClsS'));
 }
 function buildTabs() {
-  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex((meta && meta.color) || CLASSES[id].color)}">${zh}<small>${en}</small></button>`; }).join('');
+  $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex(kitAccent(id, CLASSES[id].color))}">${zh}<small>${en}</small></button>`; }).join('');
   $('sel-tabs').querySelectorAll('[data-cls]').forEach((b) => { b.onclick = () => { audio.click(); pickClass(b.dataset.cls); }; });
 }
 function kitHtml(C) {
@@ -216,7 +227,7 @@ function kitHtml(C) {
 function pickClass(id, instant = false) {
   S.selCls = id; const C = CLASSES[id];
   $('sel-tabs').querySelectorAll('.sel-tab').forEach((b) => b.classList.toggle('on', b.dataset.cls === id));
-  const panel = document.querySelector('.sel-panel'); panel.style.setProperty('--k', hex(C.color));
+  const panel = document.querySelector('.sel-panel'); panel.style.setProperty('--k', hex(kitAccent(id, C.color)));
   ui.setText('sel-zh', clsLabel(id)); ui.setText('sel-en', spriteMeta(id) ? (L() ? spriteMeta(id).zh : spriteMeta(id).en) : (L() ? C.zh : C.en)); ui.setText('sel-role', t('role.' + C.role)); ui.setText('sel-desc', clsDesc(id));
   $('sel-stats').innerHTML = STAT_KEYS.map((k) => `<span>${t('st.' + k)}</span><span class="stat-bar">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= C.stats[k] ? 'on' : ''}"></i>`).join('')}</span>`).join('');
   $('sel-kit').innerHTML = kitHtml(C);

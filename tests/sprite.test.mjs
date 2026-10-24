@@ -15,6 +15,11 @@ ok(spriteMeta('mage').style === 'loose', 'mage is loose dialect');
 ok(spriteMeta('brawler').style === 'street', 'brawler is street dialect');
 ok(spriteMeta('assassin').style === 'fluid', 'assassin is fluid dialect');
 ok(spriteMeta('sword').style === 'blade', 'sword is blade dialect');
+ok(spriteMeta('sword').color === 0x5a6574, 'sword charcoal armor');
+ok(spriteMeta('sword').trim === 0x2a313c, 'sword dark plate');
+ok(spriteMeta('sword').accent === 0x00e8ff, 'sword cyan accent');
+ok(CLASSES.sword.color === 0x5a6574, 'CLASSES.sword matches charcoal');
+
 ok(Object.keys(SPRITE_CLASSES).length === 5, 'four kits + boss');
 
 if (failed) { console.error(failed + '/' + n + ' failed'); process.exit(1); }

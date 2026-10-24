@@ -12,7 +12,8 @@ const PX = 95;
 
 const hexCss = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
 
-/** Freer per-class pose dialects from sim state — exaggerated for SF readability. */
+/** Freer per-class pose dialects from sim state — exaggerated for SF readability.
+ *  Sword/blade idle·move·attack·defend·hit·victory tuned to Roy-approved pose refs. */
 function poseOf(f, walkPhase, breath) {
   const C = CLASSES[f.cls] || CLASSES.sword;
   const dialect = (SPRITE_CLASSES[f.cls] || {}).style || 'blade';
@@ -28,6 +29,13 @@ function poseOf(f, walkPhase, breath) {
   if (dialect === 'street') { uaF = 0.7; faF = 0.9; uaB = 0.55; faB = 0.85; thF = 0.25; thB = -0.2; lean = 0.08; weap = 0; }
   if (dialect === 'fluid') { uaF = 0.4; faF = 0.55; uaB = -0.35; faB = 0.4; lean = -0.06; weap = -0.8; cloak = 0.15 + breath * 0.1; }
   if (dialect === 'oni') { uaF = 0.55; faF = 0.35; uaB = -0.15; faB = 0.4; thF = 0.2; thB = -0.18; lean = 0.06; weap = -0.55; }
+  // blade idle (Roy ref fb33cbf): upright side stance, arms hang near body, soft knee bend
+  if (dialect === 'blade') {
+    lean = 0.02 + breath * 0.015; head = -0.04 + breath * 0.01;
+    uaF = 0.18; faF = 0.38; uaB = -0.12; faB = 0.42;
+    thF = 0.06; shF = 0.08; thB = -0.1; shB = 0.08;
+    weap = -0.35; handOpen = 0.12;
+  }
 
   if (st === 'walk') {
     const k = Math.sin(walkPhase);
@@ -41,6 +49,11 @@ function poseOf(f, walkPhase, breath) {
       uaF = 0.35 - 0.4 * k; uaB = -0.2 + 0.35 * k; lean = 0.05 * Math.sign(f.vx * f.facing || 1); cloak = 0.25 + 0.15 * k;
     } else if (dialect === 'oni') {
       uaF = 0.5 - 0.2 * k; uaB = -0.1 + 0.2 * k; lean = 0.1 * Math.sign(f.vx * f.facing || 1); weap = -0.7;
+    } else if (dialect === 'blade') {
+      // move (Roy ref 589cce2): long stride, counter-swing arms, forward lean
+      thF = 0.72 * k; shF = 0.38 * k; thB = -0.72 * k; shB = -0.38 * k;
+      uaF = 0.55 - 0.55 * k; faF = 0.55; uaB = -0.15 + 0.55 * k; faB = 0.5;
+      lean = 0.14 * Math.sign(f.vx * f.facing || 1); head = -0.06; weap = -0.45; handOpen = 0.1;
     } else {
       uaF = 0.35 - 0.3 * k; uaB = -0.25 + 0.3 * k; lean = 0.08 * Math.sign(f.vx * f.facing || 1);
     }
@@ -50,7 +63,11 @@ function poseOf(f, walkPhase, breath) {
     else if (dialect === 'street') { uaF = 1.25; faF = 1.1; uaB = 1.1; faB = 1.0; thF = 0.4; thB = -0.3; }
     else if (dialect === 'fluid') { uaF = 1.0; faF = 0.7; uaB = 0.85; faB = 0.6; weap = 0.6; lean = -0.12; }
     else if (dialect === 'oni') { uaF = 1.15; faF = 0.7; uaB = 0.95; faB = 0.65; weap = 0.5; lean = -0.1; thF = 0.35; thB = -0.28; }
-    else { uaF = 1.1; faF = 0.85; uaB = 0.9; faB = 0.8; weap = 0.7; lean = -0.08; thF = 0.3; thB = -0.22; }
+    else if (dialect === 'blade') {
+      // defend (Roy ref 7148ac8): far palm guard high, near fist at torso, staggered stance
+      uaF = 0.5; faF = 0.9; uaB = 0.95; faB = 0.75; handOpen = 0.9;
+      weap = 0.55; lean = -0.05; head = -0.02; thF = 0.34; shF = 0.12; thB = -0.28; shB = 0.1;
+    } else { uaF = 1.1; faF = 0.85; uaB = 0.9; faB = 0.8; weap = 0.7; lean = -0.08; thF = 0.3; thB = -0.22; }
   } else if (st === 'jump') {
     if (f.djT < 0.42) {
       roll = -Math.PI * 2 * Math.min(1, f.djT / 0.42);
@@ -65,7 +82,13 @@ function poseOf(f, walkPhase, breath) {
     roll = -Math.sign(f.dodgeDir * f.facing || 1) * Math.PI * 2 * Math.min(1, f.t / 0.3);
     thF = 1.15; thB = 0.95; uaF = -0.35; uaB = 0.35; cloak = 0.4;
   } else if (st === 'hit') {
-    lean = -0.45; uaF = -0.4; uaB = -0.7; thF = 0.5; thB = -0.3; head = 0.35; weap = -1.2; hair = 0.4;
+    if (dialect === 'blade') {
+      // hit (Roy ref 986afc4): torso arched back, arms flung open, staggered plant
+      lean = -0.55; head = 0.42; uaF = -0.7; faF = 0.45; uaB = -0.95; faB = 0.35;
+      thF = 0.38; shF = 0.15; thB = -0.42; shB = 0.12; weap = -1.15; hair = 0.45; handOpen = 0.55;
+    } else {
+      lean = -0.45; uaF = -0.4; uaB = -0.7; thF = 0.5; thB = -0.3; head = 0.35; weap = -1.2; hair = 0.4;
+    }
   } else if (st === 'air') {
     // launched — limbs spread, readable juggle silhouette
     lean = -0.22; thF = 0.95; thB = 0.45; uaF = -0.55; uaB = 0.7; weap = -0.85; hair = 0.35; head = 0.2;
@@ -80,6 +103,12 @@ function poseOf(f, walkPhase, breath) {
     else if (dialect === 'street') { uaF = -0.3; faF = 0.2; uaB = 0.9; lean = 0.05; }
     else if (dialect === 'fluid') { uaF = 0.2; weap = -2.2; lean = -0.1; cloak = 0.35; }
     else if (dialect === 'oni') { uaF = -0.2; weap = -2.1; lean = -0.05; }
+    else if (dialect === 'blade') {
+      // victory (Roy ref 523e813): near fist raised straight up, far arm down, heroic plant
+      uaF = -0.95; faF = 0.05; uaB = 0.18; faB = 0.4; handOpen = 0.08;
+      lean = 0.02; head = -0.08; thF = 0.14; shF = 0.08; thB = -0.14; shB = 0.08;
+      weap = -0.2; hair = 0.12;
+    }
     else { uaF = -0.15; faF = 0.15; weap = -2.35; lean = -0.04; }
   } else if (st === 'atk' && m) {
     const [su, ac] = m.t, tt = f.t;
@@ -202,11 +231,16 @@ function applyAttack(dialect, mk, phase) {
     return p;
   }
 
-  // blade — flowing swordplay
+  // blade — Roy attack ref b7a097f (active = forward thrust / punch silhouette)
   if (mk === 'a1' || mk === 'air1') {
-    if (phase === 0) { p.uaF = -0.5; p.faF = 0.2; p.weap = -2.05; p.lean = -0.15; p.thF = 0.3; p.cloak = 0.25; }
-    else if (phase === 1) { p.uaF = 1.45; p.faF = 0.12; p.weap = 0.25; p.lean = 0.26; p.thF = -0.2; p.thB = 0.35; p.hair = 0.28; p.cloak = 0.4; }
-    else { p.uaF = 1.05; p.faF = 0.35; p.weap = 0.5; p.lean = 0.1; }
+    if (phase === 0) { p.uaF = -0.35; p.faF = 0.55; p.uaB = 0.55; p.faB = 0.85; p.weap = -1.6; p.lean = -0.12; p.thF = 0.35; p.thB = -0.2; p.cloak = 0.25; }
+    else if (phase === 1) {
+      // front arm fully extended forward, rear fist cocked at hip, wide low stance
+      p.uaF = 0.72; p.faF = 0.05; p.uaB = 0.95; p.faB = 1.05; p.weap = 0.15;
+      p.lean = 0.22; p.thF = -0.12; p.shF = 0.08; p.thB = 0.48; p.shB = 0.12;
+      p.hair = 0.22; p.cloak = 0.35; p.head = -0.05; p.handOpen = 0.08;
+    }
+    else { p.uaF = 0.85; p.faF = 0.25; p.uaB = 0.55; p.faB = 0.7; p.weap = 0.35; p.lean = 0.1; p.thF = 0.1; p.thB = -0.15; }
   } else if (mk === 'a2') {
     if (phase === 0) { p.uaF = 1.4; p.weap = 0.85; p.lean = 0.1; }
     else if (phase === 1) { p.uaF = -0.35; p.weap = -2.2; p.lean = -0.2; p.thB = 0.4; p.cloak = 0.35; p.hair = 0.25; }

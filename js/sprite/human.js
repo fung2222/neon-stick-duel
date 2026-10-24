@@ -1,4 +1,5 @@
-// Neon humanoid SpriteFighter — procedural 2D canvas → billboard.
+// Neon humanoid SpriteFighter — 2D canvas → billboard.
+// Sword: bitmap pose frames (assets/sword/*.png). Other classes: procedural.
 // Mini Street Fighter / KOF readability: big windup → clear active → settle.
 // Cast: sword / mage / brawler / assassin / shogun (boss).
 import * as THREE from 'three';
@@ -9,6 +10,65 @@ export { SPRITE_CLASSES, hasSprite, spriteMeta };
 const CW = 384, CH = 384;
 const ORIGIN = { x: 192, y: 308 };
 const PX = 95;
+
+/** Sword class — real bitmap pose frames (Roy poses-v2). Loaded once. */
+const SWORD_FRAME_NAMES = ['idle', 'move', 'attack', 'defend', 'hit', 'victory'];
+const SWORD_IMG = Object.create(null);
+let _swordImgsLeft = SWORD_FRAME_NAMES.length;
+const swordImgsReady = () => _swordImgsLeft <= 0;
+(function loadSwordBitmaps() {
+  for (const name of SWORD_FRAME_NAMES) {
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = img.onerror = () => { _swordImgsLeft = Math.max(0, _swordImgsLeft - 1); };
+    img.src = `./assets/sword/${name}.png`;
+    SWORD_IMG[name] = img;
+  }
+})();
+
+/** Map fighter sim state → sword bitmap frame key. */
+function swordFrameOf(f) {
+  const st = f.st;
+  if (st === 'walk') return 'move';
+  if (st === 'guard' || st === 'block') return 'defend';
+  if (st === 'hit' || st === 'stun' || st === 'air') return 'hit';
+  if (st === 'down' || (st === 'ko' && f.y < 0.3)) return 'hit';
+  if (st === 'win') return 'victory';
+  if (st === 'atk') return 'attack';
+  // jump / dodge / rise / phase / idle / ko standing → idle (readable default)
+  return 'idle';
+}
+
+/** Approximate ORIGIN-relative anchors per frame (for trail / tip FX). */
+function swordBitmapAnchors(frame) {
+  // y negative = up from feet (same space as drawSwordMech after translate)
+  if (frame === 'attack') return { tip: { x: 118, y: -92 }, base: { x: 62, y: -88 }, hand: { x: 55, y: -86 }, head: { x: 6, y: -210 } };
+  if (frame === 'move') return { tip: { x: -48, y: -70 }, base: { x: -22, y: -78 }, hand: { x: 28, y: -100 }, head: { x: 4, y: -200 } };
+  if (frame === 'victory') return { tip: { x: 42, y: -270 }, base: { x: 28, y: -150 }, hand: { x: -18, y: -95 }, head: { x: 4, y: -210 } };
+  if (frame === 'defend') return { tip: { x: 18, y: -110 }, base: { x: 10, y: -100 }, hand: { x: 14, y: -105 }, head: { x: 2, y: -215 } };
+  if (frame === 'hit') return { tip: { x: -20, y: -90 }, base: { x: -10, y: -85 }, hand: { x: -35, y: -70 }, head: { x: 8, y: -200 } };
+  return { tip: { x: 12, y: -70 }, base: { x: 8, y: -65 }, hand: { x: 10, y: -68 }, head: { x: 2, y: -220 } };
+}
+
+/** Blit sword bitmap into CW×CH; facing handled by mesh scale.x flip. */
+function drawSwordBitmap(ctx, frame, flash, inv) {
+  ctx.clearRect(0, 0, CW, CH);
+  const img = SWORD_IMG[frame] || SWORD_IMG.idle;
+  ctx.save();
+  ctx.globalAlpha = inv;
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, 0, 0, CW, CH);
+  }
+  if (flash > 0) {
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.globalAlpha = Math.min(0.55, flash * 5) * inv;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, CW, CH);
+  }
+  ctx.restore();
+  return swordBitmapAnchors(frame);
+}
+
 
 const hexCss = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
 
@@ -816,9 +876,9 @@ function drawSwordMech(ctx, pose, meta, flash, inv, t) {
 }
 
 
-function drawHuman(ctx, pose, meta, flash, inv, t, cls, phaseLook = 1) {
-  // Sword / SWORDSMAN: charcoal+cyan biomechanical mech (other kits unchanged).
-  if (cls === 'sword') return drawSwordMech(ctx, pose, meta, flash, inv, t);
+function drawHuman(ctx, pose, meta, flash, inv, t, cls, phaseLook = 1, swordFrame = 'idle') {
+  // Sword / SWORDSMAN: bitmap pose frames (drawSwordMech kept unused for sword).
+  if (cls === 'sword') return drawSwordBitmap(ctx, swordFrame || 'idle', flash, inv);
 
   ctx.clearRect(0, 0, CW, CH);
   const fill = hexCss(meta.color), trim = hexCss(meta.trim), accent = hexCss(meta.accent || meta.trim);
@@ -1197,7 +1257,8 @@ export class SpriteFighter {
     // hold flash a hair longer during sim hitstop so white crush reads
     const flashShow = this.flashT + (frozen && this.flashT > 0 ? 0.04 : 0);
     const inv = (f.inv > 0 && f.st !== 'dodge' && f.st !== 'down') ? 0.55 + Math.sin(t * 40) * 0.35 : 1;
-    this.anchors = drawHuman(this.ctx, pose, this.meta, flashShow, inv, t, this.cls, this.phaseLook);
+    const swordFrame = this.cls === 'sword' ? swordFrameOf(f) : null;
+    this.anchors = drawHuman(this.ctx, pose, this.meta, flashShow, inv, t, this.cls, this.phaseLook, swordFrame);
     this.tex.needsUpdate = true;
 
     const face = f.facing >= 0 ? 1 : -1;

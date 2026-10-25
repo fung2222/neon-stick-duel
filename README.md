@@ -3,6 +3,9 @@
 > 賽博迷你格鬥 · cyber mini Street Fighter / KOF · 人形霓虹角色 · Hitstop · 挑空 · 清楚招式 · 階梯十連戰 + 無盡天台塔
 
 **作者 Author:** 嘉豐  
+
+> **Product split 2026-10-25:** 機甲雷台 is a **standalone Google Play fighter** (SF/KOF-style, heavy sprites, landscape, two-hand) — **not** a one-hand casual hub snack. Hub stays short cyberpunk mini-games. See [`docs/PRODUCT-SPLIT.md`](docs/PRODUCT-SPLIT.md) · [`AGENT.md`](AGENT.md).
+
 **試玩 Play:** https://fung2222.github.io/neon-stick-duel/ · **自動示範 Demo:** https://fung2222.github.io/neon-stick-duel/?demo=1
 
 ![NEON STICK DUEL](docs/shots/sprite/sword-dragon-1280x800-en.png)

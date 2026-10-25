@@ -54,7 +54,7 @@ i18n.add({
   trialTitle: ['試玩完結', 'TRIAL COMPLETE'], trialLadder: ['試玩只開放階梯第 1–3 戰', 'Trial: ladder fights 1–3 only'], trialEndless: ['試玩只開放無盡塔第 1–3 層', 'Trial: endless floors 1–3 only'],
   trialBody: ['試玩包括四個職業、階梯第 1–3 戰同無盡塔頭 3 層。返大廳解鎖銀級，就可以玩晒十連戰、頭目同無限無盡塔（包括日後加入銀級嘅所有新遊戲）。', 'The trial includes all four classes, ladder fights 1–3 and the first 3 endless floors. Unlock Silver in the hub to get the full 10-fight ladder, the bosses and the unlimited tower (plus every future game added to Silver).'],
   toHub: ['返大廳解鎖', 'UNLOCK IN HUB'], toHubS: ['BACK TO ARCADE', '返回大廳'], silver: ['銀級遊戲', 'SILVER GAME'],
-  // landscape lock (overlay shows both languages; keys kept for i18n parity)
+  // landscape (v0.5.5: overlay removed; keys kept for i18n parity)
   orientZh: ['請將手機橫放', '請將手機橫放'], orientEn: ['Please rotate to landscape', 'Please rotate to landscape'],
   orientHint: ['將視窗拉闊至橫向亦可', 'Widen the window also works'],
 

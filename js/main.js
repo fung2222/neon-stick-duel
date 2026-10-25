@@ -610,21 +610,16 @@ function showTrial() {
 function pause() { if (S.state !== 'play' && S.state !== 'intro') return; S.pausedFrom = S.state; setState('paused'); audio.duckMusic(); }
 function resume() { if (S.state !== 'paused') return; S.introT = Math.max(S.introT, 0.4); setState('intro'); audio.unduckMusic(); }
 
-// ------------------------------------------------------------------ landscape lock (force landscape; block upright play)
-const landscape = installLandscapeGate({
-  onChange(blocked) {
-    if (blocked && (S.state === 'play' || S.state === 'intro')) pause();
-  },
-});
+// ------------------------------------------------------------------ auto-landscape (lock + CSS fallback; never blocks play)
+const landscape = installLandscapeGate();
 
 // ------------------------------------------------------------------ input
 const ctl = createControls({
 
-  active: () => S.state === 'play' && !S.demo && !ui.modalOpen && !landscape.isBlocked(),
-  anyGesture() { audio.init(); audio.startMusic(); landscape.tryLock(); },
+  active: () => S.state === 'play' && !S.demo && !ui.modalOpen,
+  anyGesture() { audio.init(); audio.startMusic(); landscape.tryFullscreenAndLock(); },
   onCmd(cmd) { if (S.duel && !S.duel.over) act(S.duel.a, cmd); },
   onAction(a) {
-    if (landscape.isBlocked()) { landscape.tryLock(); return; }
     if (ui.modalOpen) { if (a === 'pause') ui.closeModal(); return; }
     if (a === 'primary') {
       if (S.state === 'menu') { audio.click(); showSelect('ladder'); }
@@ -801,7 +796,7 @@ i18n.onChange(() => {
 syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
-  landscape.sync(); landscape.tryLock();
+  landscape.sync(); landscape.tryFullscreenAndLock();
   showMenu(); frameCamera(0, 0, true); ui.loaded();
   if (S.demo) { S.cls = CLASS_IDS.includes(flags.get('cls')) ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });

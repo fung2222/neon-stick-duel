@@ -216,58 +216,24 @@
 }
 
 
-/* ---------------- landscape lock (portrait play disabled) */
-.orient-lock {
-  display: none;
-  position: fixed; inset: 0; z-index: 90;
-  align-items: center; justify-content: center;
-  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-  background: radial-gradient(ellipse at 50% 40%, rgba(20, 8, 48, .97), rgba(5, 1, 15, .98) 70%);
-  pointer-events: auto;
+/* ---------------- auto-landscape (v0.5.5)
+   No blocking "please rotate" overlay. On mobile portrait when
+   screen.orientation.lock is unavailable (iOS Safari), html.css-landscape
+   + a body rotate(90deg) makes the game UI logical-landscape while the
+   phone stays upright. window.innerWidth/Height are proxied in js/orient.js.
+*/
+html.css-landscape {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05010f;
   touch-action: none;
-  user-select: none; -webkit-user-select: none;
 }
-.orient-lock.on,
-html.need-landscape .orient-lock,
-body.need-landscape .orient-lock { display: flex; }
-@media (orientation: portrait) {
-  .orient-lock { display: flex; }
+html.css-landscape body {
+  /* size + transform applied inline by js/orient.js for exact px fit */
+  background: #05010f;
+  touch-action: none;
 }
-.orient-card {
-  text-align: center; max-width: 420px;
-  padding: 28px 22px 24px;
-  background: rgba(10, 4, 30, .72);
-  border: 1px solid rgba(0, 229, 255, .45);
-  box-shadow: 0 0 28px rgba(0, 229, 255, .18), inset 0 0 24px rgba(255, 43, 214, .08);
-  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
-}
-.orient-ico {
-  color: #00e5ff;
-  filter: drop-shadow(0 0 10px rgba(0, 229, 255, .55));
-  margin-bottom: 14px;
-  animation: orientSpin 2.4s ease-in-out infinite;
-}
-@keyframes orientSpin {
-  0%, 100% { transform: rotate(0deg); }
-  40% { transform: rotate(90deg); }
-  60% { transform: rotate(90deg); }
-}
-.orient-zh {
-  font-family: var(--font-zh, "Noto Sans TC", "PingFang HK", sans-serif);
-  font-weight: 900; font-size: clamp(22px, 6vw, 32px);
-  letter-spacing: 6px; color: #fff;
-  text-shadow: 0 0 12px #00e5ff, 0 0 24px rgba(255, 43, 214, .35);
-  margin-bottom: 8px;
-}
-.orient-en {
-  font-family: 'Orbitron', var(--font-zh, sans-serif);
-  font-weight: 700; font-size: clamp(12px, 3.2vw, 15px);
-  letter-spacing: 3px; color: #9ffcff;
-  text-shadow: 0 0 8px rgba(0, 229, 255, .45);
-  margin-bottom: 14px;
-}
-.orient-hint {
-  font-family: var(--font-zh, sans-serif);
-  font-size: 12px; letter-spacing: 1px; line-height: 1.5;
-  color: #aab8e8; opacity: .9;
-}
+
+/* Legacy overlay kept in DOM for older caches; always hidden in v0.5.5+ */
+.orient-lock { display: none !important; pointer-events: none !important; }

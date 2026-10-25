@@ -131,7 +131,14 @@ export function padGeometry(w, h, sa = { t: 0, r: 0, b: 0, l: 0 }) {
   return { land, k, zone, joySize, joyRest: { left: Math.round(jx - joySize / 2), top: Math.round(jy - joySize / 2 - zt) }, btns };
 }
 export function layoutPad() {
-  const g = padGeometry(window.innerWidth, window.innerHeight, safeInsets());
+  let sa = safeInsets();
+  // When CSS landscape fallback is active (iOS / no orientation.lock), body is
+  // rotate(90deg) CW and innerWidth/Height are proxied to logical landscape.
+  // Remap notch / home-indicator insets into that logical frame.
+  if (document.documentElement.classList.contains('css-landscape')) {
+    sa = { t: sa.r, r: sa.b, b: sa.l, l: sa.t };
+  }
+  const g = padGeometry(window.innerWidth, window.innerHeight, sa);
   const $ = (id) => document.getElementById(id);
   const zone = $('joy-zone'), joy = $('joy');
   if (!zone || !joy) return g;

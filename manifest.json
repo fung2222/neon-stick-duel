@@ -1,0 +1,20 @@
+{
+  "name": "機甲雷台 MECH THUNDER ARENA",
+  "short_name": "機甲雷台",
+  "description": "Future biomechanical mech tournament — neon cyber fighting.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05010f",
+  "theme_color": "#05010f",
+  "lang": "zh-Hant-HK",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' fill='%2305010f'/%3E%3Ccircle cx='48' cy='28' r='12' fill='none' stroke='%2300e5ff' stroke-width='6'/%3E%3Cpath d='M48 40v36l-16 32M48 76l16 32M48 52l32-8' fill='none' stroke='%2300e5ff' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M80 44l36-32' stroke='%23ff2bd6' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

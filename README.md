@@ -41,7 +41,7 @@
 `?demo=1` · `?cls=mage&floor=12` · `?fps=1` · `?quality=low` · `?adsim=1` · `?reset=1` · `?mute=1` · `?bloom=0.4` · `?lang=en`
 
 ## 技術 Tech
-Three.js billboards + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.3 · 純模擬 `js/duel.js`（固定 1/60 s）· 程序繪製人形霓虹精靈 `js/sprite/human.js` · 冇 build step。
+自動橫向（`screen.orientation.lock` + iOS CSS rotate fallback，見 `docs/ORIENTATION.md`）· Three.js billboards + [cyber-kit](https://github.com/fung2222/cyber-kit) v0.3 · 純模擬 `js/duel.js`（固定 1/60 s）· 程序繪製人形霓虹精靈 `js/sprite/human.js` · 冇 build step。
 
 ## 開發 Development
 ```bash

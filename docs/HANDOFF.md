@@ -494,3 +494,12 @@ Verified 2026-10-15 (steps 2–4): `anime-shogun` 13 · boss 15 · anime 7 · ma
 4. **Tests + shots**: `tests/anime-shogun.test.mjs` (13 — channels, contact keys, nodachi in the box at ladder scale, ult ticks, Iai flash, data-blade fan/Rain, mask calm→broken, warpT, config fallback, power chain, no snaps, **gameplay guard** against the shipped boss table). `tests/anime_shogun_shots.py` → `/workspace/shots/duel-boss/`: `shogun-turnaround.png`, `shogun-phase-card.png` (Ⅰ seigan cyan / Ⅱ jōdan cracked red), `shogun-vs-sword-412x915.png`, `shogun-combo.mp4` (~8 s, 412×915 padded to 412×916, H.264 High yuv420p, deterministic clock, frame count asserted), `shogun-perf.json`. Interim fallback: `animeCfg('shogun')` → `SHOGUN_INTERIM` when the real entry is missing; `AnimeFighter.setClass` catches a build throw and rebuilds interim. Re-run `boss.test.mjs` + `boss.mjs` — §16.4 numbers must not move.
 
 **Honest limits**: the kabuto horns read a bit antenna-like at phone size; the mask crack is clearest in a 3/4 close-up (at 412×915 the calm cyan slit is the main read); the six data blades are thin and can sit behind the jinbaori / body in some camera angles (they land clearly on the Rain markers); the Iai visual tip reaches ~3.8 m into a 5.6 m sim box (the screen-wide cut is a hitbox, not a 5.6 m mesh); SwiftShader shots can't prove device frame times.
+
+
+## Orientation (v0.5.5+)
+
+Auto-landscape on open — **no** blocking 「請將手機橫放」 card. See `docs/ORIENTATION.md`.
+
+- `screen.orientation.lock('landscape')` + Capacitor `ScreenOrientation` + PWA `manifest.json` `"orientation":"landscape"`
+- iOS Safari: CSS `rotate(90deg)` fallback (`html.css-landscape`) with proxied `innerWidth`/`innerHeight`
+- `isBlocked()` always false; play never gated on orientation

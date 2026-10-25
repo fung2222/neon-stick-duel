@@ -38,7 +38,13 @@ const stage = createStage({ canvas: $('scene'), ...POST, onFatal: (m) => ui.fata
 ui.glowToggle(stage);   // cyber-kit v0.3.0: GLOW LOW/HIGH button in the pause screen (shared preference, LOW = crisp default)
 const { scene, camera } = stage;
 const theme = new ThemeController(); theme.set(1, true);
-const city = new NeonCity(stage, { floor: 'reflect', innerRadius: 16, buildings: 260, billboard: { zh: '機甲雷台', en: 'M E C H   T H U N D E R', pos: [-18, 20, -44], width: 26 }, dustArea: 26, dustHeight: 12 });
+const city = new NeonCity(stage, { floor: 'none', buildings: 0, rain: false, dust: false, traffic: false, signs: false });
+// Static arena BG lives on Rooftop; hide NeonCity skyline/sky so the approved backdrop reads clean.
+city.group.visible = false;
+// Keep a fog object (NeonCity.update writes it every frame) but kill density so the static BG stays crisp.
+if (scene.fog) scene.fog.density = 0;
+U.uFogDensity.value = 0;
+scene.background = new THREE.Color(0x0a0c0e);
 const roof = new Rooftop(scene);
 const particles = new Particles(scene, 2400, { floorY: ROOF_Y + 0.02 });
 stage.onResize((w, h, pr) => particles.resize(h, pr));

@@ -9,6 +9,13 @@ i18n.add({
   tagline: ['未來世界，全人類已進化為生化機甲。<br>每年一度嘅機甲雷台大賽——爭奪第一榮譽。<br>霓虹賽博風，階梯十連戰同無盡天台塔。', 'A future where every human upgraded into a biomechanical mech.<br>Each year the Mech Thunder Arena crowns #1 honor.<br>Neon cyber style — ladder + endless tower.'],
   ladder: ['階梯模式', 'STAGE LADDER'], ladderS: ['第 {n}/10 戰 · {name}', 'FIGHT {n}/10 · {name}'],
   endless: ['無盡天台塔', 'ENDLESS TOWER'], endlessS: ['第 {f} 層', 'FLOOR {f}'],
+  action: ['動作測試', 'ACTION TEST'], actionS: ['自由練招 · 無時限', 'FREE MOVES · NO TIMER'],
+  actionBanner: ['動作測試', 'ACTION TEST'], actionBannerS: ['ACTION TEST', '動作測試'],
+  actionHint: ['木人樁唔會打返 · 隨便練招', 'Dummy does not attack · try every move'],
+  actionReset: ['重置', 'RESET'], actionResetS: ['RESET', '重置'],
+  actionTag: ['動作測試', 'ACTION TEST'],
+  actionPose: ['姿勢', 'POSE'],
+  selAction: ['開始測試', 'START TEST'], selActionS: ['TEST · ENTER', '開始測試'],
   changeCls: ['職業：{c}', 'CLASS: {c}'], changeClsS: ['揀職業 · 睇招式', 'CHOOSE CLASS · MOVE LIST'],
   newRun: ['無盡塔由 1 層重新開始', 'RESTART TOWER FROM 1F'], newRunS: ['RESET TOWER', '重新開始'],
   keysHint: ['<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> 走位　<kbd>W</kbd>/<kbd>Space</kbd> 跳（空中再撳＝二段跳）　<kbd>S</kbd>/<kbd>↓</kbd> 防禦　<kbd>Shift</kbd> 閃避　<kbd>J</kbd> 攻擊　<kbd>K</kbd> <kbd>L</kbd> 技能　<kbd>U</kbd> 必殺　<kbd>P</kbd> 暫停',
@@ -48,6 +55,6 @@ i18n.add({
   trialBody: ['試玩包括四個職業、階梯第 1–3 戰同無盡塔頭 3 層。返大廳解鎖銀級，就可以玩晒十連戰、頭目同無限無盡塔（包括日後加入銀級嘅所有新遊戲）。', 'The trial includes all four classes, ladder fights 1–3 and the first 3 endless floors. Unlock Silver in the hub to get the full 10-fight ladder, the bosses and the unlimited tower (plus every future game added to Silver).'],
   toHub: ['返大廳解鎖', 'UNLOCK IN HUB'], toHubS: ['BACK TO ARCADE', '返回大廳'], silver: ['銀級遊戲', 'SILVER GAME'],
 
-  'help.rules': ['<ul><li>未來機甲大賽：1v1 連段、Hitstop、挑空、防禦、必殺。</li><li>揀職業；階梯十連戰同無盡天台塔，爭奪第一榮譽。</li><li>讀招、抓空隙、打爆對手血條獲勝。</li></ul>', '<ul><li>Future mech tournament: 1v1 combos, hitstop, launch, guard, supers.</li><li>Pick a class; 10-fight ladder and endless tower for #1 honor.</li><li>Read attacks, punish gaps, empty the foe\'s bar to win.</li></ul>'],
+  'help.rules': ['<ul><li>未來機甲大賽：1v1 連段、Hitstop、挑空、防禦、必殺。</li><li>揀職業；階梯十連戰同無盡天台塔，爭奪第一榮譽。</li><li>動作測試：木人樁練招，無時限壓力，螢幕顯示目前姿勢鍵。</li><li>讀招、抓空隙、打爆對手血條獲勝。</li></ul>', '<ul><li>Future mech tournament: 1v1 combos, hitstop, launch, guard, supers.</li><li>Pick a class; 10-fight ladder and endless tower for #1 honor.</li><li>Action Test: train on a dummy with no timer; on-screen pose key.</li><li>Read attacks, punish gaps, empty the foe\'s bar to win.</li></ul>'],
   'help.controls': ['<ul><li>手機：左搖桿走位（上＝跳、下＝防禦）· 右大掣攻擊（連撳出連段）· 環掣：防禦／閃避、技能、跳（空中再撳＝二段跳）· 長掣＝必殺</li><li>鍵盤：<kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> 走位　<kbd>W</kbd>/<kbd>Space</kbd> 跳　<kbd>S</kbd>/<kbd>↓</kbd> 防禦　<kbd>Shift</kbd> 閃避　<kbd>J</kbd> 攻擊　<kbd>K</kbd><kbd>L</kbd> 技能　<kbd>U</kbd> 必殺</li><li>暫停 <kbd>P</kbd> · 靜音 <kbd>M</kbd></li></ul>', '<ul><li>Touch: left stick moves (up = jump, down = guard) · big right button attacks (tap to combo) · ring: guard/dodge, skills, jump (air = double) · long button = ultimate</li><li>Keys: <kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> move　<kbd>W</kbd>/<kbd>Space</kbd> jump　<kbd>S</kbd>/<kbd>↓</kbd> guard　<kbd>Shift</kbd> dodge　<kbd>J</kbd> attack　<kbd>K</kbd><kbd>L</kbd> skills　<kbd>U</kbd> ultimate</li><li>Pause <kbd>P</kbd> · Mute <kbd>M</kbd></li></ul>'],
 });

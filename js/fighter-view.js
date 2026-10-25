@@ -1,10 +1,10 @@
 // Fighter view — sprite-only neon humanoids (mini Street Fighter / KOF shell).
 // Public API kept stable for main.js / boss-fx (cloak, phase look, swing cues, contact).
 import * as THREE from 'three';
-import { SpriteFighter } from './sprite/human.js';
+import { SpriteFighter, swordFrameOf } from './sprite/human.js';
 import { hasSprite, spriteMeta, SPRITE_CLASSES } from './sprite/meta.js';
 
-export { hasSprite, spriteMeta, SPRITE_CLASSES };
+export { hasSprite, spriteMeta, SPRITE_CLASSES, swordFrameOf };
 
 export class FighterView {
   constructor(scene) {

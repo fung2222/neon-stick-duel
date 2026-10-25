@@ -94,7 +94,7 @@ function swordAttackPoseKey(f) {
 }
 
 /** Map fighter sim state → sword bitmap frame key (mech_${key}.png). */
-function swordFrameOf(f) {
+export function swordFrameOf(f) {
   const st = f.st;
   if (st === 'atk') return swordAttackPoseKey(f);
   if (st === 'walk') return 'move';

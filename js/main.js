@@ -1,5 +1,5 @@
 // 機甲雷台 MECH THUNDER ARENA — cyber mini SF / KOF. Mech bitmap sprites, hitstop, launch, clear attacks.
-// Sim: duel.js · kits: classes.js · AI: ai.js · modes: ladder + endless. This file: shell / view / FX / hub.
+// Sim: duel.js · kits: classes.js · AI: ai.js · modes: ladder + endless + action test. This file: shell / view / FX / hub.
 import * as THREE from 'three';
 import { i18n, t, flags, createStore, createStage, ThemeController, U, Particles, Shockwaves, FxState, NeonCity, CyberUI, Platform, createAds } from 'cyber-kit';
 import { GAME_ID, DT, makeDuel, act, step, CLASSES, CLASS_IDS, ARENA_HALF, actionable } from './duel.js';
@@ -7,7 +7,7 @@ import { STAT_KEYS } from './classes.js';
 import { aiThink } from './ai.js';
 import { TRIAL, LADDER, ladderFoe, endlessFoe, fightScore, migrateSave } from './modes.js';
 import './strings.js';
-import { FighterView, spriteMeta } from './fighter-view.js';
+import { FighterView, spriteMeta, swordFrameOf } from './fighter-view.js';
 import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { BossFx } from './boss-fx.js';
@@ -192,6 +192,8 @@ function setState(s) {
   $('demo-tag').classList.toggle('hidden', !S.demo); $('controls').classList.toggle('hidden', S.demo);   // demo = AI autoplay: no touch controls
   if (s !== 'play') ctl.reset();
   document.body.dataset.state = s;
+  const poseOn = S.mode === 'action' && (s === 'play' || s === 'intro' || s === 'paused');
+  const pl = $('pose-label'); if (pl) pl.classList.toggle('hidden', !poseOn);
 }
 
 // ------------------------------------------------------------------ menu
@@ -207,12 +209,26 @@ function refreshMenu() {
   const tn = $('start-trial'); tn.classList.toggle('hidden', !hub.trial);
   if (hub.trial) tn.textContent = t('trialTag') + (hub.trialLeft != null ? ' · ' + t('trialLeft', { n: hub.trialLeft }) : '');
 }
-function showMenu() { attractDuel(); refreshMenu(); setState('menu'); audio.duckMusic && audio.unduckMusic && audio.unduckMusic(); }
+function showMenu() { S.freezeFoe = false; attractDuel(); refreshMenu(); setState('menu'); audio.duckMusic && audio.unduckMusic && audio.unduckMusic(); }
 
 // ------------------------------------------------------------------ class select (with live 3D preview vs a dummy)
 function showSelect(next = null) {
   S.selNext = next; S.selCls = S.cls; setState('select'); buildTabs(); pickClass(S.cls, true);
-  ui.setText('sel-mode', next === 'ladder' ? t('ladder') : next === 'endless' ? t('endless') : t('changeClsS'));
+  ui.setText('sel-mode', selModeLabel(next));
+  syncSelFightBtn();
+}
+function selModeLabel(next) {
+  if (next === 'ladder') return t('ladder');
+  if (next === 'endless') return t('endless');
+  if (next === 'action') return t('action');
+  return t('changeClsS');
+}
+function syncSelFightBtn() {
+  const fight = S.selNext === 'action';
+  const btn = $('btn-fight'); if (!btn) return;
+  const zh = btn.querySelector('span'), sm = btn.querySelector('small');
+  if (zh) { zh.removeAttribute('data-i18n'); zh.textContent = t(fight ? 'selAction' : 'selFight'); }
+  if (sm) { sm.removeAttribute('data-i18n'); sm.textContent = t(fight ? 'selActionS' : 'selFightS'); }
 }
 function buildTabs() {
   $('sel-tabs').innerHTML = CLASS_IDS.map((id) => { const meta = spriteMeta(id); const zh = meta ? meta.zh : CLASSES[id].zh, en = meta ? meta.en : CLASSES[id].en; return `<button class="sel-tab${id === S.selCls ? ' on' : ''}" data-cls="${id}" style="--k:${hex(kitAccent(id, CLASSES[id].color))}">${zh}<small>${en}</small></button>`; }).join('');
@@ -259,14 +275,58 @@ function previewThink(d, dt) {
 }
 function confirmClass() {
   S.cls = S.selCls; store.set('cls', S.cls); audio.click();
-  if (S.selNext === 'ladder') startLadder(); else if (S.selNext === 'endless') startEndless(); else showMenu();
+  if (S.selNext === 'ladder') startLadder(); else if (S.selNext === 'endless') startEndless(); else if (S.selNext === 'action') startActionTest(); else showMenu();
 }
 
 // ------------------------------------------------------------------ modes
-function startLadder() { S.mode = 'ladder'; S.score = isTrial() ? 0 : store.getNum('ladderScore', 0); if (isTrial()) S.stage = 0; startFight(); }
-function startEndless() { S.mode = 'endless'; S.score = isTrial() ? 0 : store.getNum('runScore', 0); if (isTrial()) S.floor = 0; startFight(); }
+function startLadder() { S.mode = 'ladder'; S.freezeFoe = false; S.score = isTrial() ? 0 : store.getNum('ladderScore', 0); if (isTrial()) S.stage = 0; startFight(); }
+function startEndless() { S.mode = 'endless'; S.freezeFoe = false; S.score = isTrial() ? 0 : store.getNum('runScore', 0); if (isTrial()) S.floor = 0; startFight(); }
 function restartTower() { S.floor = 0; store.setNum('floor', 0); store.setNum('runScore', 0); audio.click(); startEndless(); }
 function currentFoe() { return S.mode === 'ladder' ? ladderFoe(S.stage, S.cls) : endlessFoe(S.floor); }
+const ACTION_DUMMY = { id: 'dummy', mode: 'action', cls: 'brawler', color: 0x6f7a90, diff: 0, hpMul: 80, dmgMul: 0, zh: '木人樁', en: 'TRAINING DUMMY', desc: ['唔會攻擊嘅木人樁 · 打到佢睇 hit / stun', 'Stationary dummy — hit it to see hit/stun frames'], time: 99999 };
+function startActionTest() {
+  audio.init(); audio.startMusic();
+  S.mode = 'action'; S.freezeFoe = true; S.score = 0; S.revived = false; S.result = null;
+  setupDuel(S.cls, ACTION_DUMMY, { oa: { hpMul: 80, ult: 100 } });
+  S.duel.a.ult = 100; S.duel.b.ult = 0;
+  hudNames(); updateHud(true); setSkillLabels(); updatePoseLabel(true);
+  theme.set(1, false);
+  ui.banner(t('actionBanner'), t('actionBannerS'), t('actionHint'));
+  S.introT = 1.0; setState('intro'); audio.bell(1);
+  $('trial-tag').classList.add('hidden');
+  $('pose-label').classList.remove('hidden');
+}
+function softResetAction() {
+  const d = S.duel; if (!d || S.mode !== 'action') return;
+  d.over = null; d.overT = 0; d.time = ACTION_DUMMY.time; d.projs.length = 0; d.stop = 0; d.freeze = 0; d.freezeBy = null;
+  clearProjMeshes();
+  for (const f of [d.a, d.b]) {
+    f.hp = f.maxHp; f.st = 'idle'; f.t = 0; f.mk = null; f.vx = 0; f.vy = 0; f.y = 0;
+    f.inv = 0.4; f.stunT = 0; f.jug = 0; f.jugCap = false; f.chain = 0; f.comboN = 0; f.comboT = 0; f.airN = 0;
+    f.buf = null; f.gd = 100; f.gdT = 0; f.cd.s1 = 0; f.cd.s2 = 0; f.dodgeCd = 0; f.dj = false;
+    f.in.mx = 0; f.in.guard = false;
+  }
+  d.a.x = -2.6; d.b.x = 2.6; d.a.facing = 1; d.b.facing = -1; d.a.ult = 100; d.b.ult = 0;
+  ui.banner(t('actionReset'), t('actionResetS'), '');
+  updateHud(true); updatePoseLabel(true);
+}
+function poseKeyOf(f) {
+  if (!f) return '—';
+  if (f.cls === 'sword') return swordFrameOf(f);
+  if (f.st === 'atk' && f.mk) return f.mk;
+  return f.st || 'idle';
+}
+function updatePoseLabel(force = false) {
+  const el = $('pose-label'); if (!el) return;
+  const on = S.mode === 'action' && (S.state === 'play' || S.state === 'intro' || S.state === 'paused');
+  el.classList.toggle('hidden', !on);
+  if (!on || !S.duel) return;
+  const a = S.duel.a;
+  const key = poseKeyOf(a);
+  const extra = a.st === 'atk' && a.mk ? ` · ${a.mk}` : (a.st && a.st !== 'idle' && a.st !== 'walk' && a.cls === 'sword' ? ` · ${a.st}` : '');
+  const txt = `${t('actionPose')}<b>${key}${extra}</b>`;
+  if (force || el._pose !== txt) { el._pose = txt; el.innerHTML = txt; }
+}
 function startFight() {
   audio.init(); audio.startMusic();
   const foe = currentFoe(); setupDuel(S.cls, foe);
@@ -286,7 +346,7 @@ function hudNames() {
   ui.setText('hp-name-a', t('you')); ui.setText('hp-cls-a', clsLabel(S.cls));
   const bossP = !!CLASSES[f.cls].phases; $('hp-name-b').closest('.fighter-hp').classList.toggle('boss', bossP);   // final boss: smaller name, the phase as the tag
   ui.setText('hp-name-b', nm(f)); ui.setText('hp-cls-b', bossP ? phaseTag() : clsLabel(f.cls) + phaseTag());
-  ui.setText('hud-floor', S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
+  ui.setText('hud-floor', S.mode === 'action' ? t('actionTag') : S.mode === 'ladder' ? t('stageTag', { n: S.stage + 1 }) + (f.boss ? ' · ' + t('bossTag') : '') : t('floorTag', { f: S.floor + 1 }) + ' · ' + (f.boss ? t('bossTag') : t('endlessTag')));
   fitNames();
 }
 /** HUD name rows: tighten the tracking, then step a long name's font down until it fits its row (never under ~62 % of the
@@ -338,7 +398,10 @@ function updateHud(force = false) {
   setW('hp-fill-a', pa); setW('hp-lag-a', pa); setW('hp-fill-b', pb); setW('hp-lag-b', pb);
   $('hp-fill-a').classList.toggle('low', pa < 30); $('hp-fill-b').classList.toggle('low', pb < 30);
   setW('ult-fill-a', a.ult); setW('ult-fill-b', b.ult); $('ult-fill-a').classList.toggle('full', a.ult >= 100); $('ult-fill-b').classList.toggle('full', b.ult >= 100);
-  const tm = Math.ceil(d.time), te = $('hud-time'); if (force || te.textContent !== String(tm)) { te.textContent = tm; te.classList.toggle('low', tm <= 10); }
+  const te = $('hud-time');
+  if (S.mode === 'action') { if (force || te.textContent !== '∞') { te.textContent = '∞'; te.classList.remove('low'); } }
+  else { const tm = Math.ceil(d.time); if (force || te.textContent !== String(tm)) { te.textContent = tm; te.classList.toggle('low', tm <= 10); } }
+  if (S.mode === 'action') updatePoseLabel(force);
   for (const k of ['s1', 's2']) {
     const cdMax = a.C.moves[k].cd, cd = Math.max(0, a.cd[k]), btn = document.querySelector('.b-' + k), frac = cd / cdMax;
     const off = (182.2 * frac).toFixed(1); if (last['cd' + k] !== off) { last['cd' + k] = off; $('cd-' + k).style.strokeDashoffset = off; }
@@ -471,6 +534,7 @@ function ultCinematic(f, quiet) {
 
 // ------------------------------------------------------------------ fight end / result
 function finishDuel() {
+  if (S.mode === 'action') { later(0.85, () => { if (S.mode === 'action' && S.state === 'play') softResetAction(); }); return; }
   const d = S.duel, won = d.over.winner === 'a', foe = S.foe;
   S.result = { won, by: d.over.by, draw: d.over.winner === 'draw' };
   later(won ? 1.5 : 1.7, () => {
@@ -566,6 +630,7 @@ const ctl = createControls({
 });
 ui.on('btn-ladder', () => { audio.init(); audio.click(); showSelect('ladder'); });
 ui.on('btn-endless', () => { audio.init(); audio.click(); showSelect('endless'); });
+ui.on('btn-action', () => { audio.init(); audio.click(); showSelect('action'); });
 ui.on('btn-class', () => { audio.init(); audio.click(); showSelect(null); });
 ui.on('btn-restart-tower', restartTower);
 ui.on('btn-fight', confirmClass); ui.on('btn-sel-back', () => { audio.back(); showMenu(); });
@@ -588,7 +653,7 @@ Platform.onPause(() => { if (!S.demo) pause(); });
 S.api = {
   cmd: (c) => act(S.duel.a, c), setHp: (who, hp) => { S.duel[who].hp = hp; }, close: (gap = 1.2) => { S.duel.a.x = -gap / 2; S.duel.b.x = gap / 2; S.duel.a.facing = 1; S.duel.b.facing = -1; },
   freezeFoe: (on = true) => { S.freezeFoe = on; }, tank: () => { S.duel.b.hp = S.duel.b.maxHp = 99999; }, setUlt: (v = 100) => { S.duel.a.ult = v; },
-  startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else startEndless(); },
+  startMode: (mode, opts = {}) => { if (opts.cls) S.cls = opts.cls; if (opts.stage != null) S.stage = opts.stage; if (opts.floor != null) S.floor = opts.floor; if (mode === 'ladder') startLadder(); else if (mode === 'action') startActionTest(); else startEndless(); },
   pad: () => ({ geo: ctl.layout(), zone: $('joy-zone').getBoundingClientRect().toJSON(), btns: [...document.querySelectorAll('#btns [data-cmd]')].map((b) => ({ cmd: b.dataset.cmd, r: b.getBoundingClientRect().toJSON(), round: !b.classList.contains('b-ult') })) }),
   pickClass: (id) => pickClass(id), rig: () => ({ a: fa.rig, b: fb.rig, sprite: true }), charStats: () => ({ a: fa.stats(), b: fb.stats() }),
   renderInfo: () => { const r = stage.renderer, ar = r.info.autoReset; r.info.autoReset = false; r.info.reset(); r.render(scene, camera); const o = { calls: r.info.render.calls, triangles: r.info.render.triangles }; r.info.autoReset = ar; return o; },
@@ -622,6 +687,13 @@ function simStep() {
     else if (st === 'menu') later(2.4, () => { if (S.state === 'menu') attractDuel(); });
   }
   if (st === 'select' && d.over) { d.over = null; d.b.hp = d.b.maxHp; }
+  if (S.mode === 'action' && st === 'play' && !d.over) {
+    if (d.time < 90000) d.time = ACTION_DUMMY.time;
+    // keep skills/ult freely testable
+    if (d.a.ult < 100 && d.a.st !== 'atk') d.a.ult = Math.min(100, d.a.ult + DT * 8);
+    if (d.a.hp < d.a.maxHp * 0.35) d.a.hp = d.a.maxHp;
+    if (d.b.hp < d.b.maxHp * 0.15 && (d.b.st === 'idle' || d.b.st === 'walk' || d.b.st === 'guard')) d.b.hp = d.b.maxHp;
+  }
 }
 
 // ------------------------------------------------------------------ camera
@@ -713,7 +785,7 @@ ui.mountSettings({
 
 i18n.onChange(() => {
   syncGlitch(); refreshMenu();
-  if (S.state === 'select') { buildTabs(); pickClass(S.selCls, true); ui.setText('sel-mode', S.selNext === 'ladder' ? t('ladder') : S.selNext === 'endless' ? t('endless') : t('changeClsS')); }
+  if (S.state === 'select') { buildTabs(); pickClass(S.selCls, true); ui.setText('sel-mode', selModeLabel(S.selNext)); syncSelFightBtn(); }
   if (S.duel && S.foe && ['play', 'intro', 'paused', 'result'].includes(S.state)) { hudNames(); setSkillLabels(); }
 });
 syncGlitch();

@@ -1,4 +1,4 @@
-// NEON STICK DUEL — cyber mini Street Fighter / KOF. Human neon sprites, hitstop, launch, clear attacks.
+// 機甲雷台 MECH THUNDER ARENA — cyber mini SF / KOF. Mech bitmap sprites, hitstop, launch, clear attacks.
 // Sim: duel.js · kits: classes.js · AI: ai.js · modes: ladder + endless. This file: shell / view / FX / hub.
 import * as THREE from 'three';
 import { i18n, t, flags, createStore, createStage, ThemeController, U, Particles, Shockwaves, FxState, NeonCity, CyberUI, Platform, createAds } from 'cyber-kit';
@@ -38,7 +38,7 @@ const stage = createStage({ canvas: $('scene'), ...POST, onFatal: (m) => ui.fata
 ui.glowToggle(stage);   // cyber-kit v0.3.0: GLOW LOW/HIGH button in the pause screen (shared preference, LOW = crisp default)
 const { scene, camera } = stage;
 const theme = new ThemeController(); theme.set(1, true);
-const city = new NeonCity(stage, { floor: 'reflect', innerRadius: 16, buildings: 260, billboard: { zh: '天台決鬥', en: 'R O O F T O P   D U E L', pos: [-18, 20, -44], width: 26 }, dustArea: 26, dustHeight: 12 });
+const city = new NeonCity(stage, { floor: 'reflect', innerRadius: 16, buildings: 260, billboard: { zh: '機甲雷台', en: 'M E C H   T H U N D E R', pos: [-18, 20, -44], width: 26 }, dustArea: 26, dustHeight: 12 });
 const roof = new Rooftop(scene);
 const particles = new Particles(scene, 2400, { floorY: ROOF_Y + 0.02 });
 stage.onResize((w, h, pr) => particles.resize(h, pr));
@@ -691,7 +691,7 @@ ui.mountHowto({
   privacyUrl: './privacy.html',
   onOpen: () => { try { audio.click(); } catch (_) {} },
   getContent: () => ({
-    kicker: 'NEON STICK DUEL · mini SF',
+    kicker: '機甲雷台 MECH THUNDER ARENA · mini SF',
     title: t('kit.howto'),
     sections: [
       { heading: t('kit.rules'), body: t('help.rules') },

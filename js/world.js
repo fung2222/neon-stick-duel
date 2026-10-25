@@ -1,5 +1,5 @@
-// Rooftop duel stage above the NeonCity backdrop: neon-edged slab, railing posts, water tank + antenna silhouettes,
-// a big original sign behind, and floor glyph rings under the fighters.
+// Tournament stage above the NeonCity backdrop: neon-edged arena slab, railing pylons, water tank + antenna,
+// a big 機甲雷台 / MECH THUNDER sign, and floor glyph rings under the fighters.
 import * as THREE from 'three';
 export const ROOF_Y = 3.0;
 export class Rooftop {
@@ -31,22 +31,23 @@ export class Rooftop {
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 4, 6), dark); mast.position.set(5.6, ROOF_Y + 2, -1.7); this.group.add(mast);
     this.beacon = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff3b5c).multiplyScalar(1.6), toneMapped: false })); this.beacon.position.set(5.6, ROOF_Y + 4.05, -1.7); this.group.add(this.beacon);
     for (const x of [2.8, 3.9]) { const ac = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.6), dark); ac.position.set(x, ROOF_Y + 0.3, -1.75); this.group.add(ac); }
-    // sign behind: 對決 + DUEL (canvas texture)
+    // sign behind: 機甲雷台 + MECH THUNDER (tournament stage)
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d');
     g.fillStyle = '#000'; g.fillRect(0, 0, 512, 256); g.textAlign = 'center';
-    g.font = '900 150px "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", sans-serif'; g.fillStyle = '#ff5ae0'; g.shadowColor = '#ff2bd6'; g.shadowBlur = 10; g.fillText('對決', 256, 165);
-    g.font = '700 34px Orbitron, sans-serif'; g.fillStyle = '#7ff6ff'; g.shadowColor = '#00e5ff'; g.fillText('N E O N   D U E L', 256, 228);
+    g.font = '900 96px "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", sans-serif'; g.fillStyle = '#00e8ff'; g.shadowColor = '#00e5ff'; g.shadowBlur = 14; g.fillText('機甲雷台', 256, 130);
+    g.font = '700 28px Orbitron, sans-serif'; g.fillStyle = '#ff5ae0'; g.shadowColor = '#ff2bd6'; g.shadowBlur = 10; g.fillText('MECH THUNDER ARENA', 256, 188);
+    g.font = '600 18px Orbitron, sans-serif'; g.fillStyle = '#7ff6ff'; g.shadowBlur = 6; g.fillText('ANNUAL #1 HONOR', 256, 228);
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
     this.sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, color: new THREE.Color(1.1, 1.1, 1.1) }));
     this.sign.position.set(0, ROOF_Y + 6.2, -9); this.group.add(this.sign);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.4, 0.06), dark); for (const x of [-2.4, 2.4]) { const f = frame.clone(); f.position.set(x, ROOF_Y + 3, -9.05); this.group.add(f); }
     // floor grid stripes
-    const grid = new THREE.GridHelper(16, 32, 0x00e5ff, 0x2a1660); grid.scale.z = D / 16; grid.position.y = ROOF_Y + 0.005; grid.material.transparent = true; grid.material.opacity = 0.35; this.group.add(grid);
-    const light = new THREE.HemisphereLight(0x6a5cff, 0x080414, 0.9); scene.add(light);
+    const grid = new THREE.GridHelper(16, 32, 0x00e5ff, 0x2a1660); grid.scale.z = D / 16; grid.position.y = ROOF_Y + 0.005; grid.material.transparent = true; grid.material.opacity = 0.48; this.group.add(grid);
+    const light = new THREE.HemisphereLight(0x5a7cff, 0x060818, 1.05); scene.add(light);
     const key = new THREE.PointLight(0xff2bd6, 22, 16); key.position.set(0, ROOF_Y + 5, 3); scene.add(key);
     // directional key + cool rim so the lit fighters read as solid 3D shapes (not glow blobs)
     const sun = new THREE.DirectionalLight(0xfff0f6, 1.6); sun.position.set(3, ROOF_Y + 8, 9); sun.target.position.set(0, ROOF_Y + 1, 0); scene.add(sun, sun.target);
-    const rim = new THREE.DirectionalLight(0x40e8ff, 1.0); rim.position.set(-4, ROOF_Y + 4, -8); rim.target.position.set(0, ROOF_Y + 1, 0); scene.add(rim, rim.target);
+    const rim = new THREE.DirectionalLight(0x40e8ff, 1.25); rim.position.set(-4, ROOF_Y + 4, -8); rim.target.position.set(0, ROOF_Y + 1, 0); scene.add(rim, rim.target);
   }
   setAccent(c1, c2) { this.edgeMat.color.set(c1).multiplyScalar(1.3); this.pylonMat.color.set(c2).multiplyScalar(1.3); }
   update(t) { this.beacon.visible = Math.sin(t * 4) > 0; this.sign.material.opacity = 0.85 + Math.sin(t * 13) * Math.sin(t * 3.1) * 0.15; }

@@ -1,4 +1,4 @@
-// NEON STICK DUEL v2 — the four fighter classes: stats, outfits and full move lists (frame data).
+// 機甲雷台 MECH THUNDER ARENA — the four fighter classes: stats, outfits and full move lists (frame data).
 // Pure data, no DOM / three.js. Units: metres, seconds, HP points. x is measured along the fighter's facing.
 //
 // Move fields
@@ -18,7 +18,7 @@ const U = (o) => ({ kind: 'ult', stop: 0.06, stun: 0.5, kb: 0.6, launch: 0, unbl
 
 export const CLASSES = {
   sword: {
-    id: 'sword', zh: '劍士', en: 'SWORDSMAN', color: 0x5a6574, trim: 0x2a313c, cloth: 0x0e1218,
+    id: 'sword', zh: '機甲劍士', en: 'MECH SWORD', color: 0x5a6574, trim: 0x2a313c, cloth: 0x0e1218,
     role: 'melee', hp: 980, walk: 3.0, weight: 1.0, reach: 1.7, prefer: 1.5,
     stats: { atk: 4, def: 3, spd: 3, rng: 2 },
     outfit: { weapon: 'blade', body: 'mech' },

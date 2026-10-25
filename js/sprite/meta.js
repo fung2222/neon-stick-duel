@@ -1,10 +1,10 @@
 // Neon humanoid cast — mini Street Fighter / KOF roster (sword: bitmap frames; others procedural).
 export const SPRITE_CLASSES = {
   sword: {
-    zh: '劍士', en: 'SWORDSMAN',
+    zh: '機甲劍士', en: 'MECH SWORD',
     color: 0x5a6574, trim: 0x2a313c, accent: 0x00e8ff,
     style: 'blade',
-    desc: ['機甲劍士 · 點陣姿勢精靈', 'Mech swordsman · bitmap pose sprites'],
+    desc: ['機甲劍士 · 炭黑青能 · 28 姿勢幀', 'Mech sword · charcoal+cyan · 28 pose frames'],
   },
   mage: {
     zh: '魔法師', en: 'MAGE',

@@ -1,5 +1,5 @@
 // Neon humanoid SpriteFighter — 2D canvas → billboard.
-// Sword: bitmap pose frames (assets/sword/*.png). Other classes: procedural.
+// Sword: mech bitmap frames (assets/sword/mech_*.png). Other classes: procedural.
 // Mini Street Fighter / KOF readability: big windup → clear active → settle.
 // Cast: sword / mage / brawler / assassin / shogun (boss).
 import * as THREE from 'three';
@@ -11,30 +11,54 @@ const CW = 384, CH = 384;
 const ORIGIN = { x: 192, y: 308 };
 const PX = 95;
 
-/** Sword class — real bitmap pose frames (Roy poses-v2). Loaded once. */
-const SWORD_FRAME_NAMES = ['idle', 'move', 'attack', 'defend', 'hit', 'victory'];
+/** Sword class — charcoal+cyan mech bitmap frames (mech_*.png). Loaded once. */
+const SWORD_FRAME_NAMES = [
+  'idle', 'move', 'defend', 'hit', 'victory', 'attack',
+  'swA0', 'swA1', 'swA1f', 'swB0', 'swB1', 'swB1f', 'swC0', 'swC1', 'swC1f', 'swD0', 'swD1', 'swD1f',
+  'airA0', 'airA1', 'airA1f', 'airB0', 'airB1', 'airB1f',
+  'lunge', 'dragon', 'ult0', 'ultSword',
+];
 const SWORD_IMG = Object.create(null);
 let _swordImgsLeft = SWORD_FRAME_NAMES.length;
 const swordImgsReady = () => _swordImgsLeft <= 0;
+const swordImgOk = (key) => {
+  const img = SWORD_IMG[key];
+  return !!(img && img.complete && img.naturalWidth > 0);
+};
 (function loadSwordBitmaps() {
   for (const name of SWORD_FRAME_NAMES) {
     const img = new Image();
     img.decoding = 'async';
     img.onload = img.onerror = () => { _swordImgsLeft = Math.max(0, _swordImgsLeft - 1); };
-    img.src = `./assets/sword/${name}.png`;
+    img.src = `./assets/sword/mech_${name}.png`;
     SWORD_IMG[name] = img;
   }
 })();
 
-/** Map fighter sim state → sword bitmap frame key. */
+/** Pick move pose key for attack phase: startup→[0], active→[1], recover→[2]. */
+function swordAttackPoseKey(f) {
+  const C = CLASSES[f.cls] || CLASSES.sword;
+  const m = f.mk ? C.moves[f.mk] : null;
+  if (!m || !m.t) return 'attack';
+  const [su, ac] = m.t;
+  const tt = f.t || 0;
+  const phase = tt < su ? 0 : tt < su + ac ? 1 : 2;
+  const poses = m.pose;
+  let key = (poses && poses[phase]) || null;
+  if (key === 'guard') key = 'defend'; // boss mirror etc.
+  if (key && SWORD_IMG[key]) return key; // preloaded (or still loading)
+  return 'attack'; // missing pose image → coarse attack frame
+}
+
+/** Map fighter sim state → sword bitmap frame key (mech_${key}.png). */
 function swordFrameOf(f) {
   const st = f.st;
+  if (st === 'atk') return swordAttackPoseKey(f);
   if (st === 'walk') return 'move';
   if (st === 'guard' || st === 'block') return 'defend';
   if (st === 'hit' || st === 'stun' || st === 'air') return 'hit';
   if (st === 'down' || (st === 'ko' && f.y < 0.3)) return 'hit';
   if (st === 'win') return 'victory';
-  if (st === 'atk') return 'attack';
   // jump / dodge / rise / phase / idle / ko standing → idle (readable default)
   return 'idle';
 }
@@ -53,7 +77,13 @@ function swordBitmapAnchors(frame) {
 /** Blit sword bitmap into CW×CH; facing handled by mesh scale.x flip. */
 function drawSwordBitmap(ctx, frame, flash, inv) {
   ctx.clearRect(0, 0, CW, CH);
-  const img = SWORD_IMG[frame] || SWORD_IMG.idle;
+  let key = frame;
+  if (!swordImgOk(key)) {
+    const atkish = /^(sw|air|ult|lunge|dragon|attack)/.test(key || '');
+    key = swordImgOk(atkish ? 'attack' : 'idle') ? (atkish ? 'attack' : 'idle')
+      : (swordImgOk('idle') ? 'idle' : 'attack');
+  }
+  const img = SWORD_IMG[key] || SWORD_IMG.idle;
   ctx.save();
   ctx.globalAlpha = inv;
   if (img && img.complete && img.naturalWidth > 0) {

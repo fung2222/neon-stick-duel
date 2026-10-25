@@ -25,11 +25,54 @@ const swordImgOk = (key) => {
   const img = SWORD_IMG[key];
   return !!(img && img.complete && img.naturalWidth > 0);
 };
+/** Per-frame opaque foot row + horizontal center (source px), measured once on load. */
+const SWORD_ALIGN = Object.create(null);
+const _swordMeasureCanvas = typeof OffscreenCanvas !== 'undefined'
+  ? new OffscreenCanvas(1, 1)
+  : (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+
+function measureSwordAlign(img) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  if (!iw || !ih || !_swordMeasureCanvas) return { iw, ih, footY: ih - 1, cx: iw * 0.5 };
+  _swordMeasureCanvas.width = iw;
+  _swordMeasureCanvas.height = ih;
+  const c = _swordMeasureCanvas.getContext('2d', { willReadFrequently: true });
+  c.clearRect(0, 0, iw, ih);
+  c.drawImage(img, 0, 0);
+  let data;
+  try { data = c.getImageData(0, 0, iw, ih).data; } catch (_) {
+    return { iw, ih, footY: ih - 1, cx: iw * 0.5 };
+  }
+  let footY = -1;
+  for (let y = ih - 1; y >= 0 && footY < 0; y--) {
+    const row = y * iw * 4;
+    for (let x = 0; x < iw; x++) {
+      if (data[row + x * 4 + 3] > 8) { footY = y; break; }
+    }
+  }
+  // Opaque bbox horizontal center (not foot-row-only — lunges are asymmetric)
+  let minX = iw, maxX = -1;
+  for (let i = 3, x = 0; i < data.length; i += 4, x++) {
+    if (x === iw) x = 0;
+    if (data[i] > 8) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+  }
+  if (footY < 0) footY = ih - 1;
+  const cx = maxX >= minX ? (minX + maxX) * 0.5 : iw * 0.5;
+  return { iw, ih, footY, cx };
+}
+
 (function loadSwordBitmaps() {
   for (const name of SWORD_FRAME_NAMES) {
     const img = new Image();
     img.decoding = 'async';
-    img.onload = img.onerror = () => { _swordImgsLeft = Math.max(0, _swordImgsLeft - 1); };
+    img.onload = () => {
+      if (img.naturalWidth > 0) SWORD_ALIGN[name] = measureSwordAlign(img);
+      _swordImgsLeft = Math.max(0, _swordImgsLeft - 1);
+    };
+    img.onerror = () => { _swordImgsLeft = Math.max(0, _swordImgsLeft - 1); };
     img.src = `./assets/sword/mech_${name}.png`;
     SWORD_IMG[name] = img;
   }
@@ -74,7 +117,7 @@ function swordBitmapAnchors(frame) {
   return { tip: { x: 12, y: -70 }, base: { x: 8, y: -65 }, hand: { x: 10, y: -68 }, head: { x: 2, y: -220 } };
 }
 
-/** Blit sword bitmap into CW×CH; facing handled by mesh scale.x flip. */
+/** Blit sword bitmap into CW×CH; plant opaque feet on ORIGIN (not full-bleed stretch). Facing via mesh scale.x. */
 function drawSwordBitmap(ctx, frame, flash, inv) {
   ctx.clearRect(0, 0, CW, CH);
   let key = frame;
@@ -87,7 +130,18 @@ function drawSwordBitmap(ctx, frame, flash, inv) {
   ctx.save();
   ctx.globalAlpha = inv;
   if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, 0, 0, CW, CH);
+    let al = SWORD_ALIGN[key];
+    if (!al) {
+      al = measureSwordAlign(img);
+      SWORD_ALIGN[key] = al;
+    }
+    const pad = 8;
+    const scale = Math.min((CW - pad * 2) / al.iw, (CH - pad * 2) / al.ih);
+    const dw = al.iw * scale, dh = al.ih * scale;
+    // Foot row → ORIGIN.y; opaque horizontal center → ORIGIN.x
+    const dx = ORIGIN.x - al.cx * scale;
+    const dy = ORIGIN.y - al.footY * scale;
+    ctx.drawImage(img, dx, dy, dw, dh);
   }
   if (flash > 0) {
     ctx.globalCompositeOperation = 'source-atop';
@@ -1184,7 +1238,8 @@ export class SpriteFighter {
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), this.mat);
     this.mesh.frustumCulled = false;
     this.group = new THREE.Group(); this.group.add(this.mesh);
-    this.mesh.position.y = h * (1 - ORIGIN.y / CH);
+    // CanvasTexture flipY=true: canvas row y maps to localY = h*(0.5 - y/CH); plant ORIGIN on ground.
+    this.mesh.position.y = h * (ORIGIN.y / CH - 0.5);
     scene.add(this.group);
 
     this.shadow = new THREE.Mesh(

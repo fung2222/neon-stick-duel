@@ -14,6 +14,7 @@ import { BossFx } from './boss-fx.js';
 import { createControls } from './controls.js';
 import { readHub, returnToHub, shouldShowArcadeMenu } from './hub.js';
 import { POST } from './config.js';
+import { installLandscapeGate } from './orient.js';
 
 const $ = (id) => document.getElementById(id);
 const L = () => (i18n.lang === 'en' ? 1 : 0);
@@ -609,12 +610,21 @@ function showTrial() {
 function pause() { if (S.state !== 'play' && S.state !== 'intro') return; S.pausedFrom = S.state; setState('paused'); audio.duckMusic(); }
 function resume() { if (S.state !== 'paused') return; S.introT = Math.max(S.introT, 0.4); setState('intro'); audio.unduckMusic(); }
 
+// ------------------------------------------------------------------ landscape lock (force landscape; block upright play)
+const landscape = installLandscapeGate({
+  onChange(blocked) {
+    if (blocked && (S.state === 'play' || S.state === 'intro')) pause();
+  },
+});
+
 // ------------------------------------------------------------------ input
 const ctl = createControls({
-  active: () => S.state === 'play' && !S.demo && !ui.modalOpen,
-  anyGesture() { audio.init(); audio.startMusic(); },
+
+  active: () => S.state === 'play' && !S.demo && !ui.modalOpen && !landscape.isBlocked(),
+  anyGesture() { audio.init(); audio.startMusic(); landscape.tryLock(); },
   onCmd(cmd) { if (S.duel && !S.duel.over) act(S.duel.a, cmd); },
   onAction(a) {
+    if (landscape.isBlocked()) { landscape.tryLock(); return; }
     if (ui.modalOpen) { if (a === 'pause') ui.closeModal(); return; }
     if (a === 'primary') {
       if (S.state === 'menu') { audio.click(); showSelect('ladder'); }
@@ -663,7 +673,7 @@ S.api = {
   /** freeze the sim and put a fighter in a given state (screenshots / rig comparisons). spec: { st, mk, t, stunT, hit: event-like } */
   setPose: (who, spec) => { const f = S.duel[who], o = who === 'a' ? S.duel.b : S.duel.a; Object.assign(f, { vx: 0, vy: 0, y: 0, mk: null, t: 0 }, spec); if (spec.mk) f.seq = (f.seq || 0) + 1;
     if (spec.st === 'hit') { const e = { who: f, att: o, dmg: 48, kb: 1.6, heavy: false, src: 'a2', back: false, ...(spec.hit || {}) }; viewOf(f).onHit(e); } }, dbg: () => ({ scene, roof, city, particles, waves, fa, fb, stage, THREE }), screenOf: (who) => stage.toScreen(new THREE.Vector3(S.duel[who].x, ROOF_Y + 1.2, 0)),
-  hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
+  landscapeBlocked: () => landscape.isBlocked(), tryLandscapeLock: () => landscape.tryLock(), hub: () => hub, store: () => ({ ladder: store.getNum('ladder', 0), floor: store.getNum('floor', 0), bestFloor: store.getNum('bestFloor', 0), cls: store.get('cls'), ver: store.getNum('ver', 0), lap: store.get('lap') }),
   foeCmd: (c) => act(S.duel.b, c), input: (mx = 0, guard = false) => { S.padOv = mx === null ? null : { mx, guard }; }, bossPhase: () => ({ phase: S.duel.b.phase, phaseN: S.duel.b.phaseN, st: S.duel.b.st, mk: S.duel.b.mk }),
   fighter: (who) => { const f = S.duel[who]; return { st: f.st, mk: f.mk, x: f.x, y: f.y, hp: f.hp, maxHp: f.maxHp, ult: f.ult, cd: { ...f.cd }, comboN: f.comboN, cls: f.cls, stats: { ...f.stats } }; },
 };
@@ -791,6 +801,7 @@ i18n.onChange(() => {
 syncGlitch();
 async function boot() {
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
+  landscape.sync(); landscape.tryLock();
   showMenu(); frameCamera(0, 0, true); ui.loaded();
   if (S.demo) { S.cls = CLASS_IDS.includes(flags.get('cls')) ? flags.get('cls') : CLASS_IDS[Math.floor(Math.random() * 4)]; S.floor = Math.max(0, Math.floor(flags.num('floor', 0))); startEndless(); }
   stage.loop(tick, { isActive: () => S.state === 'play', fpsEl: $('fps') });

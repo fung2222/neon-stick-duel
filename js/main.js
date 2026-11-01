@@ -12,7 +12,7 @@ import { Rooftop, ROOF_Y } from './world.js';
 import { DuelAudio } from './audio.js';
 import { BossFx } from './boss-fx.js';
 import { createControls } from './controls.js';
-import { readHub, returnToHub, shouldShowArcadeMenu } from './hub.js';
+import { readHub, returnToHub, shouldShowArcadeMenu } from './hub.js?v=0.5.6';
 import { POST } from './config.js';
 import { installLandscapeGate } from './orient.js';
 
